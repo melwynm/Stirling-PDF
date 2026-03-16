@@ -30,7 +30,7 @@ export interface AdminSettingsData {
   disabledUsers: number;
   currentUsername?: string;
   roleDetails?: Record<string, string>;
-  teams?: any[];
+  teams?: unknown[];
   maxPaidUsers?: number;
   // License information
   maxAllowedUsers: number;
@@ -39,7 +39,7 @@ export interface AdminSettingsData {
   licenseMaxUsers: number;
   premiumEnabled: boolean;
   mailEnabled: boolean;
-  userSettings?: Record<string, any>;
+  userSettings?: Record<string, unknown>;
 }
 
 export interface CreateUserRequest {
@@ -153,7 +153,7 @@ export const userManagementService = {
     }
     await apiClient.post('/api/v1/user/admin/saveUser', formData, {
       suppressErrorToast: true, // Component will handle error display
-    } as any);
+    });
   },
 
   /**
@@ -168,7 +168,7 @@ export const userManagementService = {
     }
     await apiClient.post('/api/v1/user/admin/changeRole', formData, {
       suppressErrorToast: true,
-    } as any);
+    });
   },
 
   /**
@@ -179,7 +179,7 @@ export const userManagementService = {
     formData.append('enabled', enabled.toString());
     await apiClient.post(`/api/v1/user/admin/changeUserEnabled/${username}`, formData, {
       suppressErrorToast: true,
-    } as any);
+    });
   },
 
   /**
@@ -188,7 +188,7 @@ export const userManagementService = {
   async deleteUser(username: string): Promise<void> {
     await apiClient.post(`/api/v1/user/admin/deleteUser/${username}`, null, {
       suppressErrorToast: true,
-    } as any);
+    });
   },
 
   /**
@@ -209,7 +209,7 @@ export const userManagementService = {
       formData,
       {
         suppressErrorToast: true, // Component will handle error display
-      } as any
+      }
     );
 
     return response.data;
@@ -240,7 +240,7 @@ export const userManagementService = {
       formData,
       {
         suppressErrorToast: true,
-      } as any
+      }
     );
 
     return response.data;
@@ -260,7 +260,7 @@ export const userManagementService = {
   async revokeInviteLink(inviteId: number): Promise<void> {
     await apiClient.delete(`/api/v1/invite/revoke/${inviteId}`, {
       suppressErrorToast: true,
-    } as any);
+    });
   },
 
   /**
@@ -295,7 +295,7 @@ export const userManagementService = {
 
     await apiClient.post('/api/v1/user/admin/changePasswordForUser', formData, {
       suppressErrorToast: true, // Component will handle error display
-    } as any);
+    });
   },
 
   /**
