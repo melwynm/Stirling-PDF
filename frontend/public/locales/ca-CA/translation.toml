@@ -16,13 +16,13 @@ comingSoon = "Properament"
 confirmClose = "Confirma el tancament"
 confirmCloseCancel = "Cancel·la"
 confirmCloseConfirm = "Tanca el fitxer"
-confirmCloseMessage = "Segur que vols tancar aquest fitxer?"
 confirmCloseDiscard = "Descarta els canvis i tanca"
+confirmCloseMessage = "Segur que vols tancar aquest fitxer?"
 confirmCloseSave = "Desa i tanca"
+confirmCloseSaveFailed = "S'ha desat amb errors. No s'ha pogut desar {{count}} fitxer{{plural}}."
+confirmCloseSaveFailedTitle = "Error en desar"
 confirmCloseUnsaved = "Aquest fitxer té canvis no desats."
 confirmCloseUnsavedList = "Tens {{count}} fitxer{{plural}} amb canvis no desats.\n\n{{fileList}}"
-confirmCloseSaveFailedTitle = "Error en desar"
-confirmCloseSaveFailed = "S'ha desat amb errors. No s'ha pogut desar {{count}} fitxer{{plural}}."
 confirmPasswordErrorMessage = "La contrasenya no pot estar buida ni tenir espais al principi o al final."
 custom = "Personalitzat..."
 customPosition = "Posició personalitzada"
@@ -42,11 +42,12 @@ downloadComplete = "Descarrega completa"
 downloadPdf = "Descarregueu PDF"
 downloadUnavailable = "Descàrrega no disponible per a aquest element"
 edit = "Edita"
+editSecret = "Edita aquest valor"
 editYourNewFiles = "Edita els fitxers nous"
 exportAndContinue = "Exporta i continua"
 false = "Fals"
-fileSavedToDisk = "Fitxer desat al disc"
 fileNotSavedToDisk = "No s'ha desat al disc"
+fileSavedToDisk = "Fitxer desat al disc"
 fileSelected = "Seleccionat: {{filename}}"
 filesSelected = "fitxers seleccionats"
 font = "Tipus de lletra"
@@ -60,12 +61,15 @@ help = "Ajuda"
 imgPrompt = "Selecciona Imatge(s)"
 incorrectPasswordMessage = "La contrasenya actual és incorrecta."
 info = "Informació"
+insufficientCredits = "Insufficient credits. Required: {{requiredCredits}}, Available: {{currentBalance}}, Shortfall: {{shortfall}}"
 invalidPasswordMessage = "La contrasenya no pot estar buida ni tenir espais al principi o al final."
 invalidUndoData = "No es pot desfer: dades d’operació no vàlides"
 invalidUsernameMessage = "Nom d’usuari no vàlid, només pot contenir lletres, números i els següents caràcters especials @._+- o ha de ser una adreça de correu electrònic vàlida."
 joinDiscord = "Uneix-te al nostre servidor de Discord"
 keepWorking = "Continua treballant"
 loading = "Carregant..."
+loadingCredits = "Checking credits..."
+loadingProStatus = "Checking subscription status..."
 logOut = "Tanca la sessió"
 marginTooltip = "Distància entre el número de pàgina i la vora de la pàgina."
 moreOptions = "Més opcions"
@@ -79,6 +83,7 @@ noFilesToUndo = "No es pot desfer: no s’han processat fitxers en l’última o
 noOperationToUndo = "No hi ha cap operació per desfer"
 notAuthenticatedMessage = "Usuari no autenticat."
 nothingToUndo = "No hi ha res per desfer"
+noticeTopUpOrPlan = "Not enough credits, please top up or upgrade to a plan"
 noValidFiles = "No hi ha fitxers vàlids per processar"
 oops = "Vaja!"
 openInViewer = "Obre al visor"
@@ -95,9 +100,9 @@ pendingRedactionsTitle = "Redaccions no aplicades"
 pin = "Fixa el fitxer (mantén-lo actiu després d'executar l'eina)"
 poweredBy = "Impulsat per"
 pro = "Pro"
-processTimeWarning = "Alerta: Aquest procés pot tardar 1 minut depenent de la mida de l'arxiu"
 processingComplete = "El fitxer està llest."
 processingCompleteMultiple = "{{count}} fitxers estan llestos."
+processTimeWarning = "Alerta: Aquest procés pot tardar 1 minut depenent de la mida de l'arxiu"
 property = "Propietat"
 quickPosition = "Posició ràpida"
 red = "Vermell"
@@ -107,7 +112,6 @@ save = "Desa"
 saveToBrowser = "Desa al navegador"
 saveUnavailable = "No es pot desar aquest element"
 seeDockerHub = "Veure Docker Hub"
-editSecret = "Edita aquest valor"
 selectFillter = "-- Selecciona --"
 size = "Mida"
 sponsor = "Patrocinador"
@@ -845,6 +849,14 @@ title = "Endpoints de l'API"
 userDefaults = "Valors per defecte de les preferències d'usuari"
 userDefaultsDescription = "Defineix els valors per defecte de les preferències d'usuari. Els usuaris poden sobreescriure'ls a la configuració personal."
 
+[admin.settings.endpoints.defaultHideUnavailableConversions]
+description = "Elimina les opcions de conversió deshabilitades en lloc de mostrar-les en gris"
+label = "Amaga per defecte les conversions no disponibles"
+
+[admin.settings.endpoints.defaultHideUnavailableTools]
+description = "Elimina les eines deshabilitades en lloc de mostrar-les en gris"
+label = "Amaga per defecte les eines no disponibles"
+
 [admin.settings.endpoints.groupsToRemove]
 description = "Seleccioneu grups d'endpoints per deshabilitar"
 label = "Grups d'endpoints deshabilitats"
@@ -852,14 +864,6 @@ label = "Grups d'endpoints deshabilitats"
 [admin.settings.endpoints.toRemove]
 description = "Seleccioneu endpoints individuals per deshabilitar"
 label = "Endpoints deshabilitats"
-
-[admin.settings.endpoints.defaultHideUnavailableTools]
-description = "Elimina les eines deshabilitades en lloc de mostrar-les en gris"
-label = "Amaga per defecte les eines no disponibles"
-
-[admin.settings.endpoints.defaultHideUnavailableConversions]
-description = "Elimina les opcions de conversió deshabilitades en lloc de mostrar-les en gris"
-label = "Amaga per defecte les conversions no disponibles"
 
 [admin.settings.enterpriseRequired]
 message = "Es requereix una llicència Enterprise per accedir a {{featureName}}. Esteu veient dades de demostració com a referència."
@@ -968,6 +972,10 @@ label = "Idioma per defecte"
 description = "Mida màxima de fitxer a pujar (p. ex., 100MB, 1GB)"
 label = "Límit de càrrega de fitxers"
 
+[admin.settings.general.frontendUrl]
+description = "URL base per al frontend (p. ex., https://pdf.example.com). S'utilitza per a enllaços d'invitació per correu i pujades via codi QR mòbil. Deixa-ho en blanc per usar l'URL del backend."
+label = "Frontend URL"
+
 [admin.settings.general.hideDisabledTools]
 description = "Amaga les eines desactivades de la interfície"
 label = "Amaga les eines desactivades"
@@ -979,10 +987,6 @@ label = "Amaga Google Drive"
 [admin.settings.general.hideDisabledTools.mobileScanner]
 description = "Amaga el botó de l'escàner QR mòbil quan no estigui habilitat"
 label = "Amaga l'escàner mòbil"
-
-[admin.settings.general.frontendUrl]
-description = "URL base per al frontend (p. ex., https://pdf.example.com). S'utilitza per a enllaços d'invitació per correu i pujades via codi QR mòbil. Deixa-ho en blanc per usar l'URL del backend."
-label = "Frontend URL"
 
 [admin.settings.general.homeDescription]
 description = "Text descriptiu que es mostra a la pàgina d'inici"
@@ -1163,9 +1167,25 @@ description = "Configureu l'autenticació, el comportament d'inici de sessió i 
 title = "Seguretat"
 
 [admin.settings.security.audit]
+hideDetails = "Amaga els detalls del nivell d'auditoria"
 label = "Registre d'auditoria"
 showDetails = "Mostra els detalls del nivell d'auditoria"
-hideDetails = "Amaga els detalls del nivell d'auditoria"
+
+[admin.settings.security.audit.advancedOptions]
+description = "Les opcions següents incrementen el temps de processament i l'ús de memòria. Activeu-les només si són realment necessàries."
+title = "Opcions avançades"
+
+[admin.settings.security.audit.captureFileHash]
+description = "Extreu l'empremta SHA-256 dels fitxers PDF pujats per a la verificació d'integritat. Independent del nivell d'auditoria."
+label = "Captura l'empremta del fitxer (SHA-256)"
+
+[admin.settings.security.audit.captureOperationResults]
+description = "Captura els valors de retorn dels mètodes. No recomanat: incrementa significativament el volum del registre i l'ús de disc."
+label = "Captura els resultats de l'operació"
+
+[admin.settings.security.audit.capturePdfAuthor]
+description = "Extreu el camp d'autor dels documents PDF durant el processament. Requereix anàlisi del PDF, augmenta la latència. Independent del nivell d'auditoria."
+label = "Captura les metadades d'autor del PDF"
 
 [admin.settings.security.audit.enabled]
 description = "Fa un seguiment de les accions d'usuari i els esdeveniments del sistema per al compliment i la monitorització de seguretat"
@@ -1176,30 +1196,14 @@ description = "0=APAGAT, 1=BÀSIC, 2=ESTÀNDARD, 3=DETALLAT"
 label = "Nivell d'auditoria"
 
 [admin.settings.security.audit.levelDetails]
-off = "Sense registre d'auditoria (excepte esdeveniments de seguretat crítics)"
 basic = "Operacions de fitxers PDF (compressió, divisió, unió, etc.) i canvis de configuració. Captura: estat de l'operació (èxit/error), paràmetres del mètode, temporització. Volum de registre mínim."
+off = "Sense registre d'auditoria (excepte esdeveniments de seguretat crítics)"
 standard = "Esdeveniments BASIC més: inici/tancament de sessió d'usuari, canvis de compte, sol·licituds GET generals. Exclou crides de sondeig continu (/auth/me, /app-config, /health, etc.) per reduir el soroll del registre. Ideal per a la majoria de desplegaments."
 verbose = "Esdeveniments STANDARD més: crides de sondeig continu, totes les sol·licituds GET, temporització detallada. Avís: alt volum de registre i impacte en el rendiment."
 
 [admin.settings.security.audit.retentionDays]
 description = "Nombre de dies per conservar els registres d'auditoria"
 label = "Retenció d'auditoria (dies)"
-
-[admin.settings.security.audit.advancedOptions]
-title = "Opcions avançades"
-description = "Les opcions següents incrementen el temps de processament i l'ús de memòria. Activeu-les només si són realment necessàries."
-
-[admin.settings.security.audit.captureFileHash]
-description = "Extreu l'empremta SHA-256 dels fitxers PDF pujats per a la verificació d'integritat. Independent del nivell d'auditoria."
-label = "Captura l'empremta del fitxer (SHA-256)"
-
-[admin.settings.security.audit.capturePdfAuthor]
-description = "Extreu el camp d'autor dels documents PDF durant el processament. Requereix anàlisi del PDF, augmenta la latència. Independent del nivell d'auditoria."
-label = "Captura les metadades d'autor del PDF"
-
-[admin.settings.security.audit.captureOperationResults]
-description = "Captura els valors de retorn dels mètodes. No recomanat: incrementa significativament el volum del registre i l'ús de disc."
-label = "Captura els resultats de l'operació"
 
 [admin.settings.security.csrfDisabled]
 description = "Desactiva la protecció contra Cross-Site Request Forgery (no recomanat)"
@@ -1268,6 +1272,14 @@ label = "Nom d'usuari inicial"
 [admin.settings.security.jwt]
 label = "Configuració de JWT"
 
+[admin.settings.security.jwt.allowedClockSkewSeconds]
+description = "Tolerància a la desviació horària client/servidor durant la validació del token (per defecte: 60 segons)"
+label = "Tolerància de desviació horària (segons)"
+
+[admin.settings.security.jwt.desktopTokenExpiryMinutes]
+description = "Durada en minuts del token d'accés per als clients d'escriptori. Les aplicacions d'escriptori es detecten automàticament mitjançant el User-Agent i reben sessions més llargues per a una millor experiència d'usuari (per defecte: 43200 = 30 dies)"
+label = "Caducitat del token d'escriptori (minuts)"
+
 [admin.settings.security.jwt.enableKeyCleanup]
 description = "Elimina automàticament les claus JWT caducades"
 label = "Habilita la neteja de claus"
@@ -1276,29 +1288,21 @@ label = "Habilita la neteja de claus"
 description = "Rota automàticament periòdicament les claus de signatura JWT"
 label = "Habilita la rotació de claus"
 
-[admin.settings.security.jwt.tokenExpiryMinutes]
-description = "Durada en minuts del token d'accés per als clients web (per defecte: 1440 = 24 hores)"
-label = "Caducitat del token web (minuts)"
-
-[admin.settings.security.jwt.desktopTokenExpiryMinutes]
-description = "Durada en minuts del token d'accés per als clients d'escriptori. Les aplicacions d'escriptori es detecten automàticament mitjançant el User-Agent i reben sessions més llargues per a una millor experiència d'usuari (per defecte: 43200 = 30 dies)"
-label = "Caducitat del token d'escriptori (minuts)"
-
-[admin.settings.security.jwt.allowedClockSkewSeconds]
-description = "Tolerància a la desviació horària client/servidor durant la validació del token (per defecte: 60 segons)"
-label = "Tolerància de desviació horària (segons)"
+[admin.settings.security.jwt.persistence]
+description = "Desa les claus JWT de manera persistent per sobreviure als reinicis del servidor"
+label = "Habilita la persistència de claus"
 
 [admin.settings.security.jwt.refreshGraceMinutes]
 description = "Permet renovar el token dins d'aquest nombre de minuts després de la caducitat (per defecte: 15 minuts, màxim 3 intents)"
 label = "Període de gràcia de renovació (minuts)"
 
-[admin.settings.security.jwt.persistence]
-description = "Desa les claus JWT de manera persistent per sobreviure als reinicis del servidor"
-label = "Habilita la persistència de claus"
-
 [admin.settings.security.jwt.secureCookie]
 description = "Requereix HTTPS per a les galetes JWT (recomanat per a producció)"
 label = "Galeta segura"
+
+[admin.settings.security.jwt.tokenExpiryMinutes]
+description = "Durada en minuts del token d'accés per als clients web (per defecte: 1440 = 24 hores)"
+label = "Caducitat del token web (minuts)"
 
 [admin.settings.security.loginAttemptCount]
 description = "Nombre màxim d'intents d'inici de sessió fallits abans de bloquejar el compte"
@@ -1586,68 +1590,6 @@ goToSettings = "Vés a la configuració d'auditoria"
 notAvailable = "Sistema d’auditoria no disponible"
 notAvailableMessage = "El sistema d’auditoria no està configurat o no està disponible."
 
-[audit.error]
-title = "Error en carregar el sistema d’auditoria"
-
-[audit.export]
-clearFilters = "Neteja"
-description = "Exporta els esdeveniments d'auditoria en format CSV o JSON. Utilitza filtres per limitar les dades exportades."
-endDate = "Data de finalització"
-error = "No s'han pogut exportar les dades"
-exportButton = "Exporta dades"
-fieldAuthor = "Autor (del PDF)"
-fieldDate = "Data"
-fieldDocumentName = "Nom del document"
-fieldFileHash = "Empremta del fitxer (SHA-256)"
-fieldIpAddress = "Adreça IP"
-fieldOperationResults = "Resultats de l'operació"
-fieldOutcome = "Resultat (Èxit/Error)"
-fieldTool = "Eina"
-fieldUsername = "Nom d'usuari"
-filterByType = "Filtra per tipus"
-filterByUser = "Filtra per usuari"
-filters = "Filtres (opcional)"
-format = "Format d'exportació"
-selectFields = "Selecciona els camps a incloure"
-startDate = "Data d'inici"
-title = "Exporta dades d'auditoria"
-verboseRequired = "Requereix el nivell d'auditoria VERBOSE"
-
-[audit.systemStatus]
-autoRefresh = "Actualització automàtica"
-autoRefreshLabel = "Actualitza automàticament cada 30 s"
-captureBySettings = "Habilita-ho a la configuració"
-capturedFields = "Camps capturats"
-date = "Data"
-days = "dies"
-disabled = "Deshabilitat"
-documentName = "Nom del document"
-enabled = "Habilitat"
-fileHash = "Empremta del fitxer"
-level = "Nivell d'auditoria"
-pdfAuthor = "Autor del PDF"
-retention = "Període de retenció"
-status = "Registre d'auditoria"
-title = "Estat del sistema"
-tool = "Eina"
-totalEvents = "Total d'esdeveniments"
-username = "Nom d'usuari"
-verboseOnly = "Només VERBOSE"
-
-[audit.stats]
-activeUsers = "Usuaris actius"
-attention = "Cal atenció"
-avgLatency = "Latència mitjana"
-error = "Error en carregar les estadístiques"
-errorLoadingStats = "No s'han pogut carregar les estadístiques"
-excellent = "Excel·lent"
-good = "Bo"
-noData = "N/D"
-successRate = "Taxa d'èxit"
-title = "Resum"
-totalEvents = "Esdeveniments totals"
-vsLastPeriod = "vs període anterior"
-
 [audit.charts]
 byTool = "Eines més utilitzades"
 byType = "Esdeveniments per tipus"
@@ -1660,6 +1602,27 @@ noData = "No hi ha dades per a aquest període"
 overTime = "Esdeveniments al llarg del temps"
 title = "Panell d'auditoria"
 week = "Setmana"
+
+[audit.clearData]
+cancel = "Cancel·la"
+codeDoesNotMatch = "El codi no coincideix"
+codePlaceholder = "Escriu el codi aquí"
+confirmationCode = "Codi de confirmació"
+confirmationRequired = "Suprimeix totes les dades d'auditoria"
+confirmMessage = "Això eliminarà permanentment tots els registres d'auditoria. Introduïu el codi de confirmació a continuació per continuar."
+confirmTitle = "Confirmeu que voleu suprimir"
+deleteButton = "Suprimeix"
+enterCode = "Codi de confirmació"
+enterCodeBelow = "Introduïu el codi exactament com es mostra a dalt (distingeix majúscules i minúscules)"
+initiateDelete = "Suprimeix totes les dades"
+irreversible = "IRREVERSIBLE"
+success = "Èxit"
+successMessage = "Totes les dades d'auditoria s'han buidat correctament"
+warning1 = "Aquesta acció no es pot desfer"
+warning2 = "En suprimir les dades d'auditoria s'eliminaran permanentment tots els registres històrics d'auditoria, incloent-hi esdeveniments de seguretat, activitats d'usuari i operacions de fitxers de la base de dades."
+
+[audit.error]
+title = "Error en carregar el sistema d’auditoria"
 
 [audit.events]
 actions = "Accions"
@@ -1687,40 +1650,81 @@ type = "Tipus"
 user = "Usuari"
 viewDetails = "Veure detalls"
 
+[audit.export]
+clearFilters = "Neteja"
+description = "Exporta els esdeveniments d'auditoria en format CSV o JSON. Utilitza filtres per limitar les dades exportades."
+endDate = "Data de finalització"
+error = "No s'han pogut exportar les dades"
+exportButton = "Exporta dades"
+fieldAuthor = "Autor (del PDF)"
+fieldDate = "Data"
+fieldDocumentName = "Nom del document"
+fieldFileHash = "Empremta del fitxer (SHA-256)"
+fieldIpAddress = "Adreça IP"
+fieldOperationResults = "Resultats de l'operació"
+fieldOutcome = "Resultat (Èxit/Error)"
+fieldTool = "Eina"
+fieldUsername = "Nom d'usuari"
+filterByType = "Filtra per tipus"
+filterByUser = "Filtra per usuari"
+filters = "Filtres (opcional)"
+format = "Format d'exportació"
+selectFields = "Selecciona els camps a incloure"
+startDate = "Data d'inici"
+title = "Exporta dades d'auditoria"
+verboseRequired = "Requereix el nivell d'auditoria VERBOSE"
+
 [audit.filters]
 allOutcomes = "Tots"
 failureOnly = "Només errors"
-last7Days = "Últims 7 dies"
 last30Days = "Últims 30 dies"
+last7Days = "Últims 7 dies"
 outcomeFilter = "Resultat"
 quickPresets = "Filtres ràpids"
 successOnly = "Només èxits"
 thisMonth = "Aquest mes"
 today = "Avui"
 
+[audit.stats]
+activeUsers = "Usuaris actius"
+attention = "Cal atenció"
+avgLatency = "Latència mitjana"
+error = "Error en carregar les estadístiques"
+errorLoadingStats = "No s'han pogut carregar les estadístiques"
+excellent = "Excel·lent"
+good = "Bo"
+noData = "N/D"
+successRate = "Taxa d'èxit"
+title = "Resum"
+totalEvents = "Esdeveniments totals"
+vsLastPeriod = "vs període anterior"
+
+[audit.systemStatus]
+autoRefresh = "Actualització automàtica"
+autoRefreshLabel = "Actualitza automàticament cada 30 s"
+captureBySettings = "Habilita-ho a la configuració"
+capturedFields = "Camps capturats"
+date = "Data"
+days = "dies"
+disabled = "Deshabilitat"
+documentName = "Nom del document"
+enabled = "Habilitat"
+fileHash = "Empremta del fitxer"
+level = "Nivell d'auditoria"
+pdfAuthor = "Autor del PDF"
+retention = "Període de retenció"
+status = "Registre d'auditoria"
+title = "Estat del sistema"
+tool = "Eina"
+totalEvents = "Total d'esdeveniments"
+username = "Nom d'usuari"
+verboseOnly = "Només VERBOSE"
+
 [audit.tabs]
 clearData = "Buida les dades"
 dashboard = "Panell"
 events = "Esdeveniments d'auditoria"
 export = "Exporta"
-
-[audit.clearData]
-cancel = "Cancel·la"
-codeDoesNotMatch = "El codi no coincideix"
-codePlaceholder = "Escriu el codi aquí"
-confirmationCode = "Codi de confirmació"
-confirmationRequired = "Suprimeix totes les dades d'auditoria"
-confirmMessage = "Això eliminarà permanentment tots els registres d'auditoria. Introduïu el codi de confirmació a continuació per continuar."
-confirmTitle = "Confirmeu que voleu suprimir"
-deleteButton = "Suprimeix"
-enterCode = "Codi de confirmació"
-enterCodeBelow = "Introduïu el codi exactament com es mostra a dalt (distingeix majúscules i minúscules)"
-initiateDelete = "Suprimeix totes les dades"
-irreversible = "IRREVERSIBLE"
-success = "Èxit"
-successMessage = "Totes les dades d'auditoria s'han buidat correctament"
-warning1 = "Aquesta acció no es pot desfer"
-warning2 = "En suprimir les dades d'auditoria s'eliminaran permanentment tots els registres històrics d'auditoria, incloent-hi esdeveniments de seguretat, activitats d'usuari i operacions de fitxers de la base de dades."
 
 [auth]
 accessDenied = "Accés denegat"
@@ -2358,6 +2362,9 @@ title = "Canviar Permissos"
 [changePermissions.tooltip.warning]
 text = "Per fer que aquests permisos no es puguin canviar, utilitzeu l’eina Afegir contrasenya per establir una contrasenya del propietari."
 
+[cloudBadge]
+tooltip = "Aquesta operació utilitzarà els vostres crèdits del núvol"
+
 [colorPicker]
 title = "Tria el color"
 
@@ -2574,10 +2581,48 @@ title = "Ajust de qualitat"
 [compressPdfs]
 tags = "estrènyer,petit,minúscul"
 
+[config]
+plan = "Plan"
+
 [config.account.overview]
+confirmDelete = "Delete My Account"
+deleteAccount = "Delete Account"
+deleteAccountTitle = "Delete Account"
+deleteFailed = "Failed to delete account."
+deleteFailedTitle = "Unable to delete account"
+deleteWarning = "This action is permanent and cannot be undone. All your data will be deleted."
+enterEmailConfirm = "To confirm deletion, please type your email address ({{email}}) below:"
 guestDescription = "Heu iniciat sessió com a convidat. Considereu actualitzar el vostre compte."
+label = "Overview"
 manageAccountPreferences = "Gestiona les preferències del compte"
+signedInAs = "Signed in as"
 title = "Paràmetres del compte"
+
+[config.account.profilePicture]
+description = "Upload an image to personalize your account."
+help = "PNG, JPG, or WebP up to 2MB."
+remove = "Remove"
+sizeError = "Please select an image smaller than 2MB."
+switchedToCustom = "Switched to custom picture. You can now upload your own."
+title = "Profile picture"
+upload = "Upload"
+useCustom = "Use custom picture"
+usingProvider = "Using {{provider}} profile picture"
+
+[config.account.profilePicture.cropper]
+cropError = "Failed to crop image. Please try again."
+invalidImage = "Invalid image file. Please select a valid PNG, JPG, or WebP file."
+processing = "Processing crop..."
+save = "Save Cropped Image"
+sizeErrorAfterCrop = "Cropped image is too large. Please zoom out or crop a smaller area."
+title = "Crop Profile Picture"
+zoom = "Zoom"
+
+[config.account.security]
+changePassword = "Change password"
+description = "Manage your password and security settings."
+title = "Passwords & Security"
+update = "Update password"
 
 [config.account.upgrade]
 description = "Enllaceu el vostre compte per preservar l’historial i accedir a més funcions!"
@@ -2595,6 +2640,7 @@ upgradeButton = "Actualitza el compte"
 [config.apiKeys]
 chartAriaLabel = "Ús de crèdits: inclosos {{includedUsed}} de {{includedTotal}}, comprats {{purchasedUsed}} de {{purchasedTotal}}"
 copyKeyAriaLabel = "Copia la clau API"
+creditsRemaining = "Credits Remaining"
 description = "La vostra clau API per accedir al conjunt d’eines PDF de Stirling. Copieu-la al vostre projecte o actualitzeu-la per generar-ne una de nova."
 docsDescription = "Més informació sobre la integració amb Stirling PDF:"
 docsLink = "Documentació de l’API"
@@ -2651,9 +2697,11 @@ blackwhite = "Blanc i negre"
 cbrDpi = "DPI per al renderitzat d'imatges"
 cbrOptions = "Opcions CBR"
 cbrOutputOptions = "Opcions de PDF a CBR"
+cbrToPdf = "CBR → PDF"
 cbzDpi = "DPI per al renderitzat d'imatges"
 cbzOptions = "Opcions de CBZ a PDF"
 cbzOutputOptions = "Opcions de PDF a CBZ"
+cbzToPdf = "CBZ → PDF"
 color = "Color"
 colorType = "Tipus de color"
 combineImages = "Combina imatges"
@@ -2671,13 +2719,16 @@ desc = "Converteix fitxers entre diferents formats"
 downloadConverted = "Baixa el fitxer convertit"
 downloadHtml = "Baixa el fitxer HTML intermedi en lloc del PDF"
 dpi = "DPI"
+ebookToPdf = "eBook → PDF"
 emailOptions = "Opcions de correu a PDF"
+emlToPdf = "Email → PDF"
 errorConversion = "S'ha produït un error en convertir el fitxer."
 errorNoFiles = "Selecciona com a mínim un fitxer per convertir."
 errorNoFormat = "Selecciona tant el format d'origen com el de destinació."
 errorNotSupported = "La conversió de {{from}} a {{to}} no és compatible."
 fileFormat = "Format de fitxer"
 files = "Fitxers"
+fileToPdf = "Office/Document → PDF"
 fillPage = "Omple la Pàgina"
 fitDocumentToPage = "Ajusta el document a la pàgina"
 fitOption = "Opció d'ajust"
@@ -2705,6 +2756,9 @@ pdfaFormat = "Format PDF/A"
 pdfaNote = "PDF/A-1b és més compatible; PDF/A-2b admet més funcions."
 pdfaOptions = "Opcions de PDF/A"
 pdfOptions = "Opcions de PDF"
+pdfToCbr = "PDF → CBR"
+pdfToCbz = "PDF → CBZ"
+pdfToEpub = "PDF → EPUB"
 pdfxDescription = "PDF/X és un subconjunt de PDF estàndard ISO per a una impressió fiable i un intercanvi de gràfics fiable."
 pdfxDigitalSignatureWarning = "El PDF conté una signatura digital. Aquesta se suprimirà en el pas següent."
 pptExt = "PowerPoint (.pptx)"
@@ -2719,6 +2773,7 @@ sourceFormatPlaceholder = "Format d'origen"
 strictMode = "Strict Mode"
 strictModeDesc = "Error if conversion is not perfect (uses VeraPDF verification)"
 svgPdfOptions = "SVG to PDF Options"
+svgToPdf = "SVG → PDF"
 svgVectorNote = "SVG files are rendered as vector graphics for crisp output at any resolution. Dimensions from the SVG determine the PDF page size."
 targetFormatPlaceholder = "Format de destinació"
 textRtf = "Text/RTF"
@@ -2791,6 +2846,77 @@ description = "These cookies are essential for the website to function properly.
 [cookieBanner.services]
 posthog = "PostHog Analytics"
 scarf = "Scarf Pixel"
+
+[credits]
+enableOverageBilling = "Habilita la facturació per excés"
+maybeLater = "Potser més tard"
+upgrade = "Actualitza"
+
+[credits.insufficient]
+brief = "Crèdits insuficients. Necessiteu {{required}} crèdits però en teniu {{current}}."
+freeTier = "Actualitzeu a Team per obtenir 10x més crèdits i facturació per excés il·limitada."
+managedMember = "Poseu-vos en contacte amb el vostre líder d'equip per obtenir ajuda."
+message = "No teniu prou crèdits per executar {{tool}}. Actualment teniu {{current}} crèdits."
+messageWithAmount = "Necessiteu {{required}} crèdits per executar {{tool}}, però només en teniu {{current}}."
+teamMember = "Habiliteu la facturació per excés per no quedar-vos mai sense crèdits."
+title = "Crèdits insuficients"
+
+[credits.modal]
+advancedMonitoring = "Monitoratge avançat"
+allInOneWorkspace = "Espai de treball PDF tot en un (visualitzador, eines i agent)"
+apiSandbox = "API sandbox"
+contactSales = "Contacta amb vendes"
+creditsRemaining = "{{current}} de {{total}} restants"
+creditsThisMonth = "Crèdits mensuals"
+current = "Pla actual"
+customPricing = "Personalitzat"
+customSmartFolders = "Carpetes intel·ligents personalitzades"
+dedicatedSupportSlas = "Suport dedicat i SLA"
+enterpriseSubscription = "Enterprise"
+everythingInCredits = "Tot el de Crèdits, a més:"
+everythingInFree = "Tot el de Gratuït, a més:"
+fasterThroughput = "Rendiment 10x més ràpid"
+forRegularWork = "Per a treball habitual amb PDF:"
+freeTier = "Nivell gratuït"
+fullyPrivateFiles = "Fitxers totalment privats"
+largeFileProcessing = "Processament de fitxers grans"
+managedMemberMessage = "Teniu accés il·limitat a crèdits a través del vostre equip. Si necessiteu ajuda, poseu-vos en contacte amb el vostre líder d'equip."
+managedMemberTitle = "Crèdits il·limitats"
+meteringBillingNote = "Els crèdits per excés es facturen mensualment juntament amb la subscripció Team. Podeu fer el seguiment del vostre ús en qualsevol moment a la configuració del compte."
+meteringExplanation = "El vostre pla Team inclou {{credits}} crèdits al mes. Quan s'esgotin, la facturació per excés proporciona automàticament crèdits addicionals perquè no hàgiu de deixar de treballar."
+meteringIncluded = "{{credits}} crèdits/mes inclosos amb Team"
+meteringNeverRunOut = "No us quedeu mai sense crèdits"
+meteringNoCommitment = "Sense compromís, podeu cancel·lar en qualsevol moment"
+meteringPayAsYouGo = "Pagueu només pel que utilitzeu"
+meteringPrice = "Crèdits addicionals a {{price}}/crèdit"
+meteringTitle = "Facturació per excés segons ús"
+monthlyCredits = "crèdits mensuals"
+orgWideAccess = "Controls d'accés per a tota l'organització"
+overage = "excés"
+perMonth = "/mes"
+popular = "Popular"
+premiumAiModels = "Models d'IA premium"
+prioritySupport = "Suport prioritari"
+privateDocCloud = "Núvol de documents privat"
+ragFineTuning = "RAG + afinament"
+secureApiAccess = "Accés d'API segur"
+selfHostLink = "Revisa la documentació i els plans"
+selfHostPrompt = "Voleu autoallotjar?"
+standardThroughput = "Rendiment estàndard"
+subtitle = "Actualitzeu a Team per obtenir 10x més crèdits i un processament més ràpid."
+subtitlePro = "Habiliteu la facturació automàtica per excés per no quedar-vos mai sense crèdits."
+teamLeaderOnly = "Només els líders d'equip poden habilitar la facturació per excés"
+teamSubscription = "Team"
+titleExhausted = "Heu utilitzat els crèdits gratuïts"
+titleExhaustedPro = "Us heu quedat sense crèdits"
+unlimitedApiAccess = "Accés d'API il·limitat"
+unlimitedMonthlyCredits = "Llicència de lloc"
+unlimitedSeats = "Usuaris il·limitats"
+
+[credits.modal.features]
+everythingInCredits = "Tot el de Crèdits, a més:"
+everythingInFree = "Tot el de Gratuït, a més:"
+forRegularWork = "Per a treball habitual amb PDF:"
 
 [crop]
 autoCrop = "Retalla automàticament els espais en blanc"
@@ -3469,10 +3595,6 @@ desc = "Construeix fluxos de treball multietapa enllaçant accions PDF. Ideal pe
 tags = "flux de treball,seqüència,automatització"
 title = "Automatitza"
 
-[home.formFill]
-desc = "Omple els camps de formulari del PDF de manera interactiva amb un editor visual"
-title = "Omple el formulari"
-
 [home.autoRename]
 desc = "Canvia automàticament el nom d'un fitxer PDF en funció de la capçalera detectada"
 tags = "detecció automàtica,basat en capçalera,organitza,reenomena"
@@ -3567,6 +3689,10 @@ title = "Extreu Pàgines"
 desc = "Elimina tots els elements i formularis interactius d'un PDF"
 tags = "simplifica,elimina,interactiu"
 title = "Aplanar"
+
+[home.formFill]
+desc = "Omple els camps de formulari del PDF de manera interactiva amb un editor visual"
+title = "Omple el formulari"
 
 [home.getPdfInfo]
 desc = "Recupera tota la informació possible sobre els PDFs"
@@ -3854,6 +3980,7 @@ version = "Versió"
 accountCreatedSuccess = "Compte creat correctament! Ara podeu iniciar sessió."
 alreadyLoggedIn = "Ja has iniciat sessió a"
 alreadyLoggedIn2 = "dispositius. Si us plau, tanca la sessió en els dispositius i torna-ho a intentar."
+backToSignIn = "Back to sign in"
 cancel = "Cancel·la"
 changePasswordWarning = "Canvia la contrasenya després d'iniciar sessió per primera vegada"
 credentialsUpdated = "S'han actualitzat les vostres credencials. Torneu a iniciar sessió."
@@ -3895,13 +4022,17 @@ or = "O"
 password = "Contrasenya"
 passwordChangedSuccess = "Contrasenya canviada correctament! Inicieu sessió amb la nova contrasenya."
 passwordResetSent = "Enllaç de restabliment de contrasenya enviat a {{email}}! Reviseu el vostre correu i seguiu les instruccions."
+passwordUpdatedSuccess = "Your password has been updated successfully."
 pleaseEnterBoth = "Introduïu tant el correu com la contrasenya"
 pleaseEnterEmail = "Introduïu la vostra adreça de correu electrònic"
 relyingPartyRegistrationNotFound = "No s'ha trobat cap registre de la part confiada"
 rememberme = "Recordar"
+resetHelp = "Enter your email to receive a secure link to reset your password. If the link has expired, please request a new one."
+resetYourPassword = "Reset your password"
 saml2RequiresLicense = "L'inici de sessió SAML requereix una llicència de pagament (Server o Enterprise). Poseu-vos en contacte amb l'administrador per actualitzar el vostre pla."
 sending = "Enviant…"
 sendMagicLink = "Envia l'enllaç màgic"
+sendResetLink = "Send reset link"
 sessionExpired = "La sessió ha caducat. Torneu a iniciar sessió."
 signin = "Accedir"
 signInAnonymously = "Registra't com a convidat"
@@ -3910,9 +4041,11 @@ signinTitle = "Autenticat"
 signInWith = "Inicia sessió amb"
 signOut = "Tanca la sessió"
 ssoSignIn = "Inicia sessió mitjançant inici de sessió únic"
+subtitle = "Sign back in to Stirling PDF"
 title = "Accedir"
 toManySessions = "Tens massa sessions actives"
 unexpectedError = "Error inesperat: {{message}}"
+updatePassword = "Update password"
 useEmailInstead = "Inicia sessió amb correu"
 useMagicLink = "Utilitza un enllaç màgic"
 userIsDisabled = "L'usuari està desactivat, l'inici de sessió està actualment bloquejat amb aquest nom d'usuari. Si us plau, contacta amb l'administrador."
@@ -4235,6 +4368,15 @@ body = "Stirling funciona millor com a aplicació d'escriptori. Pots usar-la for
 title = "Baixa"
 titleWithOs = "Baixa per a {{osLabel}}"
 
+[onboarding.freeTrial]
+afterTrialWithoutPayment = "After your trial ends, you'll continue with our free tier. Add a payment method to keep Pro access."
+afterTrialWithPayment = "Your Pro subscription will start automatically when the trial ends."
+body = "You have full access to Stirling PDF Pro features during your trial. Enjoy unlimited conversions, larger file sizes, and priority processing."
+daysRemaining = "{{days}} days remaining"
+daysRemainingSingular = "{{days}} day remaining"
+title = "Your 30-Day Pro Trial"
+trialEnds = "Trial ends {{date}}"
+
 [onboarding.planOverview]
 adminBodyLoginDisabled = "Quan habilitis el mode d'inici de sessió, podràs gestionar usuaris, configurar paràmetres i supervisar la salut del servidor. Les primeres <strong>{{freeTierLimit}}</strong> persones del teu servidor poden usar Stirling gratuïtament."
 adminBodyLoginEnabled = "Com a administrador, pots gestionar usuaris, configurar paràmetres i supervisar la salut del servidor. Les primeres <strong>{{freeTierLimit}}</strong> persones del teu servidor poden usar Stirling gratuïtament."
@@ -4370,75 +4512,6 @@ title = "Editor de pàgines"
 zoomIn = "Amplia"
 zoomOut = "Redueix"
 
-[viewer]
-cannotPreviewFile = "No es pot previsualitzar el fitxer"
-dualPageView = "Vista de dues pàgines"
-firstPage = "Primera pàgina"
-lastPage = "Última pàgina"
-nextPage = "Pàgina següent"
-onlyPdfSupported = "El visualitzador només admet fitxers PDF. Aquest fitxer sembla ser d'un format diferent."
-previousPage = "Pàgina anterior"
-singlePageView = "Vista d'una sola pàgina"
-unknownFile = "Fitxer desconegut"
-zoomIn = "Amplia"
-zoomOut = "Redueix"
-
-[viewer.attachments]
-title = "Adjunts"
-searchPlaceholder = "Cerca adjunts"
-noSupport = "Aquest visor no admet adjunts."
-noDocument = "Obre un PDF per veure'n els adjunts."
-loading = "Carregant els adjunts..."
-empty = "No hi ha adjunts en aquest document"
-noMatch = "No hi ha adjunts que coincideixin amb la cerca"
-
-[viewer.formBar]
-title = "Camps del formulari"
-unsavedBadge = "No desats"
-unsavedDesc = "Tens canvis no desats"
-hasFieldsDesc = "Aquest PDF conté camps emplenables"
-dismiss = "Descarta"
-apply = "Aplica els canvis"
-download = "Descarrega el PDF"
-
-[rightRail]
-closeSelected = "Tanca els fitxers seleccionats"
-selectAll = "Selecciona-ho tot"
-deselectAll = "Desselecciona-ho tot"
-selectByNumber = "Selecciona per números de pàgina"
-deleteSelected = "Suprimeix les pàgines seleccionades"
-closePdf = "Tanca el PDF"
-exportAll = "Exporta el PDF"
-downloadSelected = "Descarrega els fitxers seleccionats"
-annotations = "Anotacions"
-exportSelected = "Exporta les pàgines seleccionades"
-formFill = "Omplir formulari"
-saveChanges = "Desa els canvis"
-toggleAttachments = "Mostra/amaga els adjunts"
-toggleTheme = "Canvia el tema"
-language = "Idioma"
-toggleAnnotations = "Mostra/oculta les anotacions"
-search = "Cerca al PDF"
-panMode = "Mode de desplaçament"
-applyRedactionsFirst = "Aplica primer les redaccions"
-rotateLeft = "Gira a l'esquerra"
-rotateRight = "Gira a la dreta"
-toggleSidebar = "Mostra/oculta la barra lateral"
-toggleBookmarks = "Mostra/amaga marcadors"
-print = "Imprimeix el PDF"
-ruler = "Regle / Mesura"
-draw = "Dibuixa"
-redact = "Redacta"
-exitRedaction = "Surt del mode de redacció"
-save = "Desa"
-downloadAll = "Descarrega-ho tot"
-saveAll = "Desa-ho tot"
-
-[textAlign]
-left = "Esquerra"
-center = "Centre"
-right = "Dreta"
-
 [pageExtracter]
 header = "Extreu Pàgines"
 placeholder = "(p. ex. 1,2,8 o 4,7,12-16 o 2n-1)"
@@ -4547,6 +4620,9 @@ title = "Consells"
 autoClose = "Aquesta finestra es tancarà automàticament..."
 billingPeriod = "Període de facturació"
 canCloseWindow = "Ara pots tancar aquesta finestra."
+checkoutInstructions = "Completeu la compra a la finestra del navegador que s'acaba d'obrir. Un cop finalitzat el pagament, torneu aquí i feu clic al botó següent per actualitzar la vostra informació de facturació."
+checkoutOpened = "Pàgina de pagament oberta al navegador"
+closeLater = "Ho faré més tard"
 emailInvalid = "Introdueix una adreça de correu vàlida"
 enterpriseNote = "Els seients es poden ajustar al checkout (1-1000)."
 error = "Error de pagament"
@@ -4568,6 +4644,7 @@ perMonth = "/mes"
 perYear = "/any"
 preparing = "S’està preparant el pagament..."
 redirecting = "Redirigint al pagament segur..."
+refreshBilling = "Ja he completat el pagament - Actualitza la facturació"
 stripeNotConfigured = "Stripe no està configurat"
 stripeNotConfiguredMessage = "La integració de pagaments de Stripe no està configurada. Contacta amb l'administrador."
 success = "Pagament correcte!"
@@ -4579,10 +4656,6 @@ upgradeCompleteMessage = "La subscripció s'ha actualitzat correctament. La clau
 upgradeSuccess = "Pagament correcte! La subscripció s'ha actualitzat. La llicència s'ha actualitzat al servidor. Rebràs un correu de confirmació aviat."
 upgradeTitle = "Actualitza a {{planName}}"
 yearly = "Anual"
-checkoutOpened = "Pàgina de pagament oberta al navegador"
-checkoutInstructions = "Completeu la compra a la finestra del navegador que s'acaba d'obrir. Un cop finalitzat el pagament, torneu aquí i feu clic al botó següent per actualitzar la vostra informació de facturació."
-refreshBilling = "Ja he completat el pagament - Actualitza la facturació"
-closeLater = "Ho faré més tard"
 
 [payment.emailStage]
 continue = "Continua"
@@ -4806,13 +4879,6 @@ prompt = "Selecciona la pàgina per extreure la taula"
 submit = "Extreu"
 title = "PDF a CSV"
 
-[PDFToXLSX]
-header = "PDF a Excel"
-prompt = "Trieu les pàgines per extreure'n taules"
-submit = "Converteix"
-title = "PDF a Excel (XLSX)"
-tags = "full de càlcul,excel,xlsx,taula,extreure,convertir"
-
 [PDFToHTML]
 credit = "Utilitza pdftohtml per a la conversió d'Arxius."
 header = "PDF a HTML"
@@ -4911,6 +4977,13 @@ title = "PDF a Word"
 [PDFToWord.selectText]
 1 = "Format d'Arxiu de Sortida"
 
+[PDFToXLSX]
+header = "PDF a Excel"
+prompt = "Trieu les pàgines per extreure'n taules"
+submit = "Converteix"
+tags = "full de càlcul,excel,xlsx,taula,extreure,convertir"
+title = "PDF a Excel (XLSX)"
+
 [PDFToXML]
 credit = "Utilitza LibreOffice per a la conversió d'Arxius."
 header = "PDF a XML"
@@ -4976,8 +5049,11 @@ manage = "Gestiona"
 perMonth = "/mes"
 perSeat = "/seient"
 popular = "Popular"
+purchase = "Purchase"
+selectCredits = "Select Credit Amount"
 selectPlan = "Selecciona el pla"
 showComparison = "Compara totes les funcions"
+totalCost = "Total Cost"
 upgrade = "Actualitza"
 withServer = "+ Pla Server"
 
@@ -4985,19 +5061,29 @@ withServer = "+ Pla Server"
 subtitle = "Detalls de la vostra subscripció actual"
 title = "Pla actiu"
 
+[plan.api]
+large = "5,000 Credits"
+medium = "1,000 Credits"
+small = "500 Credits"
+xsmall = "100 Credits"
+
+[plan.apiPackages]
+subtitle = "Purchase API credits for your applications"
+title = "API Credit Packages"
+
 [plan.availablePlans]
-subtitle = "Trieu el pla que s’adapta a les vostres necessitats"
 loadError = "No s'ha pogut carregar el preu dels plans. S'utilitzen els valors per defecte."
+subtitle = "Trieu el pla que s’adapta a les vostres necessitats"
 title = "Plans disponibles"
 
 [plan.enterprise]
-siteLicense = "Llicència de lloc"
 highlight1 = "Preus personalitzats"
 highlight2 = "Suport dedicat"
 highlight3 = "Funcions més recents"
 name = "Enterprise"
 requiresServer = "Requereix servidor"
 requiresServerMessage = "Actualitza primer al pla Server abans de passar a Enterprise."
+siteLicense = "Llicència de lloc"
 
 [plan.feature]
 api = "Accés a l’API"
@@ -5069,76 +5155,19 @@ successMessage = "La llicència s'ha activat correctament. Ara pots tancar aques
 name = "Equip"
 siteLicense = "Llicència de lloc"
 
-[credits]
-enableOverageBilling = "Habilita la facturació per excés"
-maybeLater = "Potser més tard"
-upgrade = "Actualitza"
-
-[credits.modal]
-advancedMonitoring = "Monitoratge avançat"
-allInOneWorkspace = "Espai de treball PDF tot en un (visualitzador, eines i agent)"
-apiSandbox = "API sandbox"
-contactSales = "Contacta amb vendes"
-creditsRemaining = "{{current}} de {{total}} restants"
-creditsThisMonth = "Crèdits mensuals"
-current = "Pla actual"
-customPricing = "Personalitzat"
-customSmartFolders = "Carpetes intel·ligents personalitzades"
-dedicatedSupportSlas = "Suport dedicat i SLA"
-enterpriseSubscription = "Enterprise"
-everythingInCredits = "Tot el de Crèdits, a més:"
-everythingInFree = "Tot el de Gratuït, a més:"
-fasterThroughput = "Rendiment 10x més ràpid"
-forRegularWork = "Per a treball habitual amb PDF:"
-freeTier = "Nivell gratuït"
-fullyPrivateFiles = "Fitxers totalment privats"
-largeFileProcessing = "Processament de fitxers grans"
-managedMemberMessage = "Teniu accés il·limitat a crèdits a través del vostre equip. Si necessiteu ajuda, poseu-vos en contacte amb el vostre líder d'equip."
-managedMemberTitle = "Crèdits il·limitats"
-meteringBillingNote = "Els crèdits per excés es facturen mensualment juntament amb la subscripció Team. Podeu fer el seguiment del vostre ús en qualsevol moment a la configuració del compte."
-meteringExplanation = "El vostre pla Team inclou {{credits}} crèdits al mes. Quan s'esgotin, la facturació per excés proporciona automàticament crèdits addicionals perquè no hàgiu de deixar de treballar."
-meteringIncluded = "{{credits}} crèdits/mes inclosos amb Team"
-meteringNoCommitment = "Sense compromís, podeu cancel·lar en qualsevol moment"
-meteringNeverRunOut = "No us quedeu mai sense crèdits"
-meteringPayAsYouGo = "Pagueu només pel que utilitzeu"
-meteringPrice = "Crèdits addicionals a {{price}}/crèdit"
-meteringTitle = "Facturació per excés segons ús"
-monthlyCredits = "crèdits mensuals"
-orgWideAccess = "Controls d'accés per a tota l'organització"
-overage = "excés"
-perMonth = "/mes"
-popular = "Popular"
-premiumAiModels = "Models d'IA premium"
-prioritySupport = "Suport prioritari"
-privateDocCloud = "Núvol de documents privat"
-ragFineTuning = "RAG + afinament"
-secureApiAccess = "Accés d'API segur"
-selfHostLink = "Revisa la documentació i els plans"
-selfHostPrompt = "Voleu autoallotjar?"
-standardThroughput = "Rendiment estàndard"
-subtitle = "Actualitzeu a Team per obtenir 10x més crèdits i un processament més ràpid."
-subtitlePro = "Habiliteu la facturació automàtica per excés per no quedar-vos mai sense crèdits."
-teamLeaderOnly = "Només els líders d'equip poden habilitar la facturació per excés"
-teamSubscription = "Team"
-titleExhausted = "Heu utilitzat els crèdits gratuïts"
-titleExhaustedPro = "Us heu quedat sense crèdits"
-unlimitedApiAccess = "Accés d'API il·limitat"
-unlimitedMonthlyCredits = "Llicència de lloc"
-unlimitedSeats = "Usuaris il·limitats"
-
-[credits.modal.features]
-everythingInCredits = "Tot el de Crèdits, a més:"
-everythingInFree = "Tot el de Gratuït, a més:"
-forRegularWork = "Per a treball habitual amb PDF:"
-
-[credits.insufficient]
-brief = "Crèdits insuficients. Necessiteu {{required}} crèdits però en teniu {{current}}."
-freeTier = "Actualitzeu a Team per obtenir 10x més crèdits i facturació per excés il·limitada."
-managedMember = "Poseu-vos en contacte amb el vostre líder d'equip per obtenir ajuda."
-message = "No teniu prou crèdits per executar {{tool}}. Actualment teniu {{current}} crèdits."
-messageWithAmount = "Necessiteu {{required}} crèdits per executar {{tool}}, però només en teniu {{current}}."
-teamMember = "Habiliteu la facturació per excés per no quedar-vos mai sense crèdits."
-title = "Crèdits insuficients"
+[plan.trial]
+badge = "Trial"
+continueWithFree = "Continue with Free"
+daysRemaining = "Your trial ends in {{days}} days"
+endDate = "Expires: {{date}}"
+expired = "Your Trial Has Ended"
+expiredMessage = "Your 30-day Pro trial has expired. Subscribe to Pro to continue accessing premium features, or continue with our free tier."
+freeTierLimitations = "Free tier includes basic PDF tools with usage limits."
+message = ""
+subscribe = "Subscribe to Pro"
+subscribeToPro = "Subscribe to Pro"
+subscriptionScheduled = "Subscription scheduled - starts {{date}}"
+title = "Free Trial Active"
 
 [printFile]
 header = "Imprimir Fitxer a la Impresora"
@@ -5148,6 +5177,207 @@ title = "Imprimir Fitxer"
 [printFile.selectText]
 1 = "Selecciona el Fitxer per Imprimir"
 2 = "Introdueix el Nom de la Impresora"
+
+[provider.googledrive]
+name = "Google Drive"
+scope = "Importació de fitxers"
+
+[provider.googledrive.apiKey]
+description = "Clau d'API de Google per a l'API Google Picker de Google Cloud Console"
+label = "Clau d'API"
+
+[provider.googledrive.appId]
+description = "ID d'aplicació de Google Drive de Google Cloud Console"
+label = "ID d'aplicació"
+
+[provider.googledrive.clientId]
+description = "ID de client OAuth 2.0 de Google de Google Cloud Console"
+label = "ID de client"
+
+[provider.googledrive.enabled]
+description = "Permet als usuaris importar fitxers directament des de Google Drive"
+label = "Habilita el selector de fitxers de Google Drive"
+
+[provider.oauth2.generic]
+name = "OAuth2 genèric"
+scope = "SSO"
+
+[provider.oauth2.generic.autoCreateUser]
+description = "Crea automàticament comptes d'usuari en el primer inici de sessió amb OAuth2"
+label = "Crea usuaris automàticament"
+
+[provider.oauth2.generic.blockRegistration]
+description = "Impedeix el registre de nous usuaris via OAuth2"
+label = "Bloca el registre"
+
+[provider.oauth2.generic.clientId]
+description = "L'ID de client OAuth2 del vostre proveïdor"
+label = "ID de client"
+
+[provider.oauth2.generic.clientSecret]
+description = "El secret de client OAuth2 del vostre proveïdor"
+label = "Secret del client"
+
+[provider.oauth2.generic.enabled]
+description = "Habilita l'autenticació utilitzant un proveïdor OAuth2 personalitzat"
+label = "Habilita OAuth2 genèric"
+
+[provider.oauth2.generic.issuer]
+description = "Proveïdor que admet OpenID Connect Discovery (/.well-known/openid-configuration)"
+label = "URL de l'emissor"
+
+[provider.oauth2.generic.provider]
+description = "El nom del vostre proveïdor OAuth2 (p. ex., Azure AD, Okta)"
+label = "Nom del proveïdor"
+
+[provider.oauth2.generic.scopes]
+description = "Àmbits OAuth2 separats per comes"
+label = "Àmbits"
+
+[provider.oauth2.generic.useAsUsername]
+description = "Camp a utilitzar com a nom d'usuari"
+label = "Utilitza com a nom d'usuari"
+
+[provider.oauth2.github]
+scope = "Autenticació d'inici de sessió"
+
+[provider.oauth2.github.clientId]
+description = "L'ID de client OAuth2 de GitHub Developer Settings"
+label = "ID de client"
+
+[provider.oauth2.github.clientSecret]
+description = "El secret de client OAuth2 de GitHub Developer Settings"
+label = "Secret del client"
+
+[provider.oauth2.github.scopes]
+description = "Àmbits OAuth2 separats per comes"
+label = "Àmbits"
+
+[provider.oauth2.github.useAsUsername]
+description = "Camp a utilitzar com a nom d'usuari (email, login, name)"
+label = "Utilitza com a nom d'usuari"
+
+[provider.oauth2.google]
+scope = "Autenticació d'inici de sessió"
+
+[provider.oauth2.google.clientId]
+description = "L'ID de client OAuth2 de Google Cloud Console"
+label = "ID de client"
+
+[provider.oauth2.google.clientSecret]
+description = "El secret de client OAuth2 de Google Cloud Console"
+label = "Secret del client"
+
+[provider.oauth2.google.scopes]
+description = "Àmbits OAuth2 separats per comes"
+label = "Àmbits"
+
+[provider.oauth2.google.useAsUsername]
+description = "Camp a utilitzar com a nom d'usuari (email, name, given_name, family_name)"
+label = "Utilitza com a nom d'usuari"
+
+[provider.oauth2.keycloak]
+scope = "SSO"
+
+[provider.oauth2.keycloak.clientId]
+description = "L'ID de client OAuth2 de Keycloak"
+label = "ID de client"
+
+[provider.oauth2.keycloak.clientSecret]
+description = "El secret de client OAuth2 de Keycloak"
+label = "Secret del client"
+
+[provider.oauth2.keycloak.issuer]
+description = "URL del punt final OpenID Connect Discovery del reialme de Keycloak"
+label = "URL de l'emissor"
+
+[provider.oauth2.keycloak.scopes]
+description = "Àmbits OAuth2 separats per comes"
+label = "Àmbits"
+
+[provider.oauth2.keycloak.useAsUsername]
+description = "Camp a utilitzar com a nom d'usuari (email, name, given_name, family_name, preferred_username)"
+label = "Utilitza com a nom d'usuari"
+
+[provider.saml2]
+name = "SAML2"
+scope = "SSO (SAML)"
+
+[provider.saml2.autoCreateUser]
+description = "Crea automàticament comptes d'usuari en el primer inici de sessió amb SAML2"
+label = "Crea usuaris automàticament"
+
+[provider.saml2.blockRegistration]
+description = "Impedeix el registre de nous usuaris via SAML2"
+label = "Bloca el registre"
+
+[provider.saml2.enabled]
+description = "Habilita l'autenticació SAML2 (només Enterprise)"
+label = "Habilita SAML2"
+
+[provider.saml2.idpCert]
+description = "El camí del certificat (p. ex., classpath:okta.cert)"
+label = "Certificat de l'IdP"
+
+[provider.saml2.idpIssuer]
+description = "L'ID del vostre proveïdor"
+label = "Emissor de l'IdP"
+
+[provider.saml2.idpMetadataUri]
+description = "L'URI de les metadades del vostre proveïdor"
+label = "URI de metadades de l'IdP"
+
+[provider.saml2.idpSingleLoginUrl]
+description = "La URL per iniciar l'SSO"
+label = "URL d'inici de sessió únic de l'IdP"
+
+[provider.saml2.idpSingleLogoutUrl]
+description = "La URL per iniciar el SLO"
+label = "URL de tancament de sessió únic de l'IdP"
+
+[provider.saml2.privateKey]
+description = "El camí de la vostra clau privada"
+label = "Clau privada"
+
+[provider.saml2.provider]
+description = "El nom del vostre proveïdor SAML2"
+label = "Nom del proveïdor"
+
+[provider.saml2.registrationId]
+description = "El nom de la vostra aplicació del Proveïdor de Servei (SP)"
+label = "ID de registre"
+
+[provider.saml2.spCert]
+description = "El camí del vostre certificat de signatura"
+label = "Certificat del SP"
+
+[provider.smtp]
+name = "Correu SMTP"
+scope = "Notificacions per correu electrònic"
+
+[provider.smtp.enabled]
+description = "Habilita les notificacions per correu i la funcionalitat SMTP"
+label = "Habilita el correu"
+
+[provider.smtp.from]
+description = "L'adreça de correu electrònic a utilitzar com a remitent"
+label = "Adreça del remitent"
+
+[provider.smtp.host]
+description = "El nom d'amfitrió o l'adreça IP del vostre servidor SMTP"
+label = "Servidor SMTP"
+
+[provider.smtp.password]
+description = "Contrasenya per a l'autenticació SMTP"
+label = "Contrasenya SMTP"
+
+[provider.smtp.port]
+description = "El número de port per a la connexió SMTP (normalment 25, 465 o 587)"
+label = "Port SMTP"
+
+[provider.smtp.username]
+description = "Nom d'usuari per a l'autenticació SMTP"
+label = "Nom d'usuari SMTP"
 
 [quickAccess]
 account = "Compte"
@@ -5204,15 +5434,15 @@ title = "Paraules a redactar"
 failed = "S'ha produït un error en aplicar la redacció al PDF."
 
 [redact.manual]
+activate = "Activa l'eina d'ocultació"
+active = "Mode d'ocultació actiu"
 apply = "Aplica"
 applyChanges = "Aplica els canvis"
 applyRedactions = "Apply Redactions"
 applyWarning = "⚠️ Aplicació permanent: no es pot desfer i les dades que hi ha a sota s'eliminaran"
 boxRedaction = "Redacció dibuixant quadres"
-colourPicker = "Selector de color"
 colorLabel = "Color d'ocultació"
-active = "Mode d'ocultació actiu"
-activate = "Activa l'eina d'ocultació"
+colourPicker = "Selector de color"
 controlsTitle = "Controls de redacció manuals"
 convertPDFToImageLabel = "Converteix PDF a PDF-imatge (S'utilitza per eliminar el text darrere del quadre)"
 export = "Exporta"
@@ -5608,6 +5838,44 @@ title = "Alt contrast"
 text = "Inverteix completament tots els colors del PDF, creant un efecte similar a un negatiu. Útil per crear versions en mode fosc dels documents o reduir la fatiga visual en condicions de poca llum."
 title = "Inverteix tots els colors"
 
+[rightRail]
+annotations = "Anotacions"
+applyRedactionsFirst = "Aplica primer les redaccions"
+closePdf = "Tanca el PDF"
+closeSelected = "Tanca els fitxers seleccionats"
+deleteSelected = "Suprimeix les pàgines seleccionades"
+deselectAll = "Desselecciona-ho tot"
+downloadAll = "Descarrega-ho tot"
+downloadSelected = "Descarrega els fitxers seleccionats"
+draw = "Dibuixa"
+exitRedaction = "Surt del mode de redacció"
+exportAll = "Exporta el PDF"
+exportSelected = "Exporta les pàgines seleccionades"
+formFill = "Omplir formulari"
+language = "Idioma"
+panMode = "Mode de desplaçament"
+print = "Imprimeix el PDF"
+readAloud = "Read Aloud"
+readAloudLanguage = "Language"
+readAloudSpeed = "Speed"
+redact = "Redacta"
+rotateLeft = "Gira a l'esquerra"
+rotateRight = "Gira a la dreta"
+ruler = "Regle / Mesura"
+save = "Desa"
+saveAll = "Desa-ho tot"
+saveAs = "Save As"
+saveChanges = "Desa els canvis"
+search = "Cerca al PDF"
+selectAll = "Selecciona-ho tot"
+selectByNumber = "Selecciona per números de pàgina"
+selectLanguage = "Select language"
+toggleAnnotations = "Mostra/oculta les anotacions"
+toggleAttachments = "Mostra/amaga els adjunts"
+toggleBookmarks = "Mostra/amaga marcadors"
+toggleSidebar = "Mostra/oculta la barra lateral"
+toggleTheme = "Canvia el tema"
+
 [rotate]
 rotateLeft = "Gira en sentit antihorari"
 rotateRight = "Gira en sentit horari"
@@ -5755,6 +6023,14 @@ placeholder = "Escriu el terme de cerca..."
 searching = "Cercant..."
 title = "Cerca al PDF"
 
+[selfHosted.offline]
+hideTools = "Hide unavailable tools ▴"
+messageNoFallback = "Tools are unavailable until your server comes back online."
+messageWithFallback = "Some tools require a server connection."
+showTools = "View unavailable tools ▾"
+title = "Your Stirling-PDF server is unreachable"
+toolNotAvailableLocally = "Your Stirling-PDF server is offline and \"{{endpoint}}\" is not available on the local backend."
+
 [session]
 expired = "La teva sessió ha expirat. Si us plau, actualitza la pàgina i torna a intentar-ho."
 refreshPage = "Actualitza la pàgina"
@@ -5776,70 +6052,6 @@ user = "Sessió iniciada com"
 [settings.connection.mode]
 saas = "Stirling Cloud"
 selfhosted = "Autoallotjat"
-
-[settings.planBilling]
-currentPlan = "Pla actual"
-loading = "S'està carregant la informació de facturació..."
-notAvailable = "Pla i Facturació només disponible quan esteu connectats a Stirling Cloud (mode SaaS)."
-title = "Pla i Facturació"
-
-[settings.planBilling.billing]
-manageBilling = "Gestiona la facturació"
-nextBillingDate = "Data de la propera facturació"
-overageCost = "Cost d'excés actual: {{amount}} ({{credits}} crèdits)"
-
-[settings.planBilling.credits]
-estimatedCost = "Cost estimat: {{amount}}"
-freeTierInfo = "El pla gratuït inclou {{freeCredits}} crèdits per mes. Actualitzeu a Team per {{teamCredits}} crèdits/mes i facturació per excés segons ús."
-included = "{{count}} crèdits/mes (inclosos)"
-noOverage = "Aquest mes no hi ha càrrecs per excés. Esteu utilitzant els {{count}} crèdits inclosos."
-overage = "+ {{count}} per excés"
-overageInfo = "Els crèdits per excés es facturen a {{price}} per crèdit. Només pagareu el que utilitzeu més enllà de la vostra assignació mensual."
-title = "Ús de crèdits"
-
-[settings.planBilling.errors]
-fetchFailed = "No s'han pogut obtenir les dades de facturació"
-retry = "Torna-ho a provar"
-
-[settings.planBilling.status]
-active = "Actiu"
-canceled = "Cancel·lat"
-pastDue = "Vençut"
-trial = "Prova"
-
-[settings.planBilling.tier]
-enterprise = "Enterprise"
-enterpriseDescription = "Funcions i suport d'empresa personalitzats"
-free = "Gratuït"
-freeDescription = "50 crèdits per mes"
-team = "Team"
-teamBadge = "Team"
-teamDescription = "500 crèdits/mes inclosos, facturació automàtica per excés per a un servei ininterromput"
-teamTooltipCredits = "El pla Team inclou {{credits}} crèdits/mes."
-teamTooltipFineprint = "Només pagueu allò que utilitzeu més enllà dels crèdits inclosos."
-teamTooltipOverage = "La facturació automàtica per excés a {{price}}/crèdit garanteix un servei ininterromput."
-
-[settings.planBilling.team]
-managedByTeam = "Gestionat per l'equip"
-memberCount = "{{count}} membres de l'equip"
-
-[settings.planBilling.trial]
-daysRemaining = "Queden {{days}} dies"
-daysRemainingFull = "La vostra prova finalitza d'aquí a {{days}} dies"
-endDate = "Caduca: {{date}}"
-endsOn = "Fi de la prova"
-title = "Prova gratuïta activa"
-
-[settings.planBilling.upgrade]
-cta = "Actualitza a Team"
-featureApi = "Accés d'API per a automatització"
-featureCredits = "{{teamCredits}} crèdits per mes (vs {{freeCredits}} en Gratuït)"
-featureMembers = "Membres d'equip il·limitats"
-featureSupport = "Suport prioritari"
-featureThroughput = "Taxa de processament més ràpida"
-opensInBrowser = "S'obre al navegador per completar l'actualització"
-subtitle = "Actualitzeu a Team per:"
-title = "Actualitzeu el vostre pla"
 
 [settings.developer]
 apiKeys = "Claus API"
@@ -5923,6 +6135,70 @@ plan = "Pla"
 title = "Llicències i analítiques"
 usageAnalytics = "Analítiques d'ús"
 
+[settings.planBilling]
+currentPlan = "Pla actual"
+loading = "S'està carregant la informació de facturació..."
+notAvailable = "Pla i Facturació només disponible quan esteu connectats a Stirling Cloud (mode SaaS)."
+title = "Pla i Facturació"
+
+[settings.planBilling.billing]
+manageBilling = "Gestiona la facturació"
+nextBillingDate = "Data de la propera facturació"
+overageCost = "Cost d'excés actual: {{amount}} ({{credits}} crèdits)"
+
+[settings.planBilling.credits]
+estimatedCost = "Cost estimat: {{amount}}"
+freeTierInfo = "El pla gratuït inclou {{freeCredits}} crèdits per mes. Actualitzeu a Team per {{teamCredits}} crèdits/mes i facturació per excés segons ús."
+included = "{{count}} crèdits/mes (inclosos)"
+noOverage = "Aquest mes no hi ha càrrecs per excés. Esteu utilitzant els {{count}} crèdits inclosos."
+overage = "+ {{count}} per excés"
+overageInfo = "Els crèdits per excés es facturen a {{price}} per crèdit. Només pagareu el que utilitzeu més enllà de la vostra assignació mensual."
+title = "Ús de crèdits"
+
+[settings.planBilling.errors]
+fetchFailed = "No s'han pogut obtenir les dades de facturació"
+retry = "Torna-ho a provar"
+
+[settings.planBilling.status]
+active = "Actiu"
+canceled = "Cancel·lat"
+pastDue = "Vençut"
+trial = "Prova"
+
+[settings.planBilling.team]
+managedByTeam = "Gestionat per l'equip"
+memberCount = "{{count}} membres de l'equip"
+
+[settings.planBilling.tier]
+enterprise = "Enterprise"
+enterpriseDescription = "Funcions i suport d'empresa personalitzats"
+free = "Gratuït"
+freeDescription = "50 crèdits per mes"
+team = "Team"
+teamBadge = "Team"
+teamDescription = "500 crèdits/mes inclosos, facturació automàtica per excés per a un servei ininterromput"
+teamTooltipCredits = "El pla Team inclou {{credits}} crèdits/mes."
+teamTooltipFineprint = "Només pagueu allò que utilitzeu més enllà dels crèdits inclosos."
+teamTooltipOverage = "La facturació automàtica per excés a {{price}}/crèdit garanteix un servei ininterromput."
+
+[settings.planBilling.trial]
+daysRemaining = "Queden {{days}} dies"
+daysRemainingFull = "La vostra prova finalitza d'aquí a {{days}} dies"
+endDate = "Caduca: {{date}}"
+endsOn = "Fi de la prova"
+title = "Prova gratuïta activa"
+
+[settings.planBilling.upgrade]
+cta = "Actualitza a Team"
+featureApi = "Accés d'API per a automatització"
+featureCredits = "{{teamCredits}} crèdits per mes (vs {{freeCredits}} en Gratuït)"
+featureMembers = "Membres d'equip il·limitats"
+featureSupport = "Suport prioritari"
+featureThroughput = "Taxa de processament més ràpida"
+opensInBrowser = "S'obre al navegador per completar l'actualització"
+subtitle = "Actualitzeu a Team per:"
+title = "Actualitzeu el vostre pla"
+
 [settings.policiesPrivacy]
 legal = "Legal"
 privacy = "Privadesa"
@@ -5930,6 +6206,9 @@ title = "Polítiques i privadesa"
 
 [settings.preferences]
 title = "Preferències"
+
+[settings.search]
+placeholder = "Search settings pages..."
 
 [settings.security]
 description = "Actualitza la contrasenya per mantenir segur el compte."
@@ -5956,6 +6235,9 @@ security = "Seguretat"
 telegram = "Telegram"
 title = "Seguretat i autenticació"
 
+[settings.team]
+title = "Equip"
+
 [settings.tooltips]
 enableLoginFirst = "Activa primer el mode d'inici de sessió"
 requiresEnterprise = "Requereix llicència Enterprise"
@@ -5964,9 +6246,6 @@ requiresEnterprise = "Requereix llicència Enterprise"
 people = "Persones"
 teams = "Equips"
 title = "Espai de treball"
-
-[settings.team]
-title = "Equip"
 
 [setup]
 description = "Comença triant com vols usar Stirling PDF"
@@ -6290,15 +6569,15 @@ desc = "Separació automàtica amb fulls separadors"
 name = "Separador de pàgina"
 tooltip = "Utilitza fulls separadors amb codis QR entre documents quan escanegis"
 
-[split.methods.byPoster]
-name = "Fragments imprimibles"
-desc = "Divideix pàgines grans en mides imprimibles"
-tooltip = "Divideix pàgines sobredimensionades en fragments més petits adequats per imprimir en paper estàndard (A4, Letter, etc.)"
-
 [split.methods.byPages]
 desc = "Extreu pàgines específiques (1,3,5-10)"
 name = "Números de pàgina"
 tooltip = "Introdueix números de pàgina separats per comes o intervals amb guions"
+
+[split.methods.byPoster]
+desc = "Divideix pàgines grans en mides imprimibles"
+name = "Fragments imprimibles"
+tooltip = "Divideix pàgines sobredimensionades en fragments més petits adequats per imprimir en paper estàndard (A4, Letter, etc.)"
 
 [split.methods.bySections]
 desc = "Divideix les pàgines en seccions de quadrícula"
@@ -6326,27 +6605,27 @@ title = "Tria el teu mètode de divisió"
 text = "Tria com vols dividir el teu document PDF. Cada mètode està optimitzat per a casos d'ús i tipus de document diferents."
 title = "Selecció del mètode de divisió"
 
+[split.poster]
+rightToLeft = "Divideix de dreta a esquerra"
+
+[split.poster.pageSize]
+description = "Mida de les pàgines de sortida per a la impressió"
+label = "Mida de pàgina de destinació"
+
+[split.poster.xFactor]
+description = "Nombre de columnes en què dividir cada pàgina"
+label = "Divisions horitzontals"
+
+[split.poster.yFactor]
+description = "Nombre de files en què dividir cada pàgina"
+label = "Divisions verticals"
+
 [split.settings]
 selectMethodFirst = "Selecciona primer un mètode de divisió"
 
 [split.steps]
 chooseMethod = "Tria mètode"
 settings = "Opcions"
-
-[split.poster]
-rightToLeft = "Divideix de dreta a esquerra"
-
-[split.poster.pageSize]
-label = "Mida de pàgina de destinació"
-description = "Mida de les pàgines de sortida per a la impressió"
-
-[split.poster.xFactor]
-label = "Divisions horitzontals"
-description = "Nombre de columnes en què dividir cada pàgina"
-
-[split.poster.yFactor]
-label = "Divisions verticals"
-description = "Nombre de files en què dividir cada pàgina"
 
 [split.tooltip.byChapters]
 bullet1 = "Nivell de marcador: en quin nivell dividir (1=nív. superior)"
@@ -6385,6 +6664,13 @@ bullet5 = "Activa el mode dúplex si escaneges ambdós costats dels fulls separa
 text = "Divideix automàticament documents escanejats utilitzant fulls separadors físics amb codis QR. Perfecte per processar diversos documents escanejats junts."
 title = "Divideix per separador de pàgina"
 
+[split.tooltip.byPages]
+bullet1 = "Punts de divisió simples: 3,7 (divideix després de les pàgines 3 i 7)"
+bullet2 = "Punts de divisió per interval: 3-8 (divideix abans de la pàgina 3 i després de la pàgina 8)"
+bullet3 = "Mixt: 2,5-10,15 (divideix després de la pàgina 2, abans de la 5, després de la 10 i després de la 15)"
+text = "Divideix el teu PDF en números de pàgina específics. Amb 'n' divideix després de la pàgina n. Amb 'n-m' divideix abans de la pàgina n i després de la pàgina m."
+title = "Divideix en números de pàgina"
+
 [split.tooltip.byPoster]
 bullet1 = "Mida de pàgina de destinació: Trieu la mida del paper de sortida (A4, Letter, etc.)"
 bullet2 = "Divisions horitzontals/verticals: Mida de la quadrícula per a la divisió"
@@ -6392,13 +6678,6 @@ bullet3 = "De dreta a esquerra: Inverteix l'ordre de les columnes per a disposic
 bullet4 = "Imprimiu i munteu les peces per crear el pòster"
 text = "Divideix pàgines PDF grans en fragments més petits imprimibles adequats per a mides de paper estàndard. Perfecte per crear pòsters a partir de pàgines sobredimensionades."
 title = "Divideix per imprimir pòster"
-
-[split.tooltip.byPages]
-bullet1 = "Punts de divisió simples: 3,7 (divideix després de les pàgines 3 i 7)"
-bullet2 = "Punts de divisió per interval: 3-8 (divideix abans de la pàgina 3 i després de la pàgina 8)"
-bullet3 = "Mixt: 2,5-10,15 (divideix després de la pàgina 2, abans de la 5, després de la 10 i després de la 15)"
-text = "Divideix el teu PDF en números de pàgina específics. Amb 'n' divideix després de la pàgina n. Amb 'n-m' divideix abans de la pàgina n i després de la pàgina m."
-title = "Divideix en números de pàgina"
 
 [split.tooltip.bySections]
 bullet1 = "Horitzontal: nombre de files a crear"
@@ -6541,6 +6820,82 @@ title = "Documentació de l'API"
 [tableExtraxt]
 tags = "CSV,Extracció de taules,extreure,convertir"
 
+[team]
+cancelInviteError = "No s'ha pogut cancel·lar la invitació"
+confirmCancelInvite = "Esteu segur que voleu cancel·lar aquesta invitació?"
+confirmLeave = "Esteu segur que voleu sortir d'aquest equip?"
+confirmLeaveLeader = "Com a líder d'equip, sortir us eliminarà de l'equip. N'esteu segur?"
+confirmRemove = "Esteu segur que voleu eliminar aquest membre?"
+editName = "Edita el nom de l'equip"
+inviteCancelled = "Invitació cancel·lada"
+inviteError = "No s'ha pogut enviar la invitació"
+inviteSent = "Invitació enviada correctament"
+leader = "Líder"
+leaveButton = "Surt de l'equip"
+leaveError = "No s'ha pogut sortir de l'equip"
+leaveSuccess = "Heu sortit de l'equip correctament"
+loading = "S'està carregant la informació de l'equip..."
+memberCount = "{{count}} membres"
+memberRemoved = "Membre eliminat correctament"
+namePlaceholder = "Introduïu el nom de l'equip"
+personal = "Personal"
+removeError = "No s'ha pogut eliminar el membre"
+renameError = "No s'ha pogut canviar el nom de l'equip"
+renameSuccess = "S'ha canviat el nom de l'equip correctament"
+
+[team.features]
+badge = "Funcions d'equip"
+subtitle = "Col·laboreu amb el vostre equip"
+title = "Col·laboració d'equip"
+viewPlans = "Mostra els plans"
+
+[team.features.billing]
+description = "Gestiona la facturació i les subscripcions"
+title = "Gestió de facturació"
+
+[team.features.credits]
+description = "Bossa de crèdits compartida per a tots els membres"
+title = "Crèdits compartits"
+
+[team.features.dashboard]
+description = "Visualitza l'activitat i l'ús de l'equip"
+title = "Tauler de l'equip"
+
+[team.features.invite]
+description = "Afegeix membres al vostre equip"
+title = "Convida membres"
+
+[team.invitationBanner]
+acceptButton = "Accepta"
+message = "us ha convidat a unir-vos"
+rejectButton = "Rebutja"
+
+[team.invite]
+cancelLabel = "Cancel·la"
+invalidEmail = "Adreça de correu electrònic no vàlida"
+placeholder = "Introduïu l'adreça de correu electrònic"
+sendButton = "Envia la invitació"
+title = "Convida un membre de l'equip"
+
+[team.members]
+emailColumn = "Correu electrònic"
+empty = "Encara no hi ha membres de l'equip"
+nameColumn = "Nom"
+pending = "Pendent"
+remove = "Elimina"
+roleColumn = "Rol"
+title = "Membres de l'equip"
+
+[team.upgrade]
+button = "Actualitza a Team"
+description = "Desbloqueja les funcions de col·laboració d'equip"
+title = "Actualitza al pla Team"
+
+[textAlign]
+center = "Centre"
+left = "Esquerra"
+right = "Dreta"
+
 [theme]
 toggle = "Commuta el tema"
 
@@ -6557,6 +6912,7 @@ favorites = "Preferits"
 heading = "Totes les eines (vista a pantalla completa)"
 noResults = "Prova d'ajustar la cerca o activa/desactiva les descripcions per trobar el que necessites."
 recommended = "Recomanat"
+selfHostedOffline = "Requires your Stirling-PDF server (currently offline):"
 showDetails = "Mostra els detalls"
 unavailable = "Desactivat per l'administrador del servidor:"
 unavailableDependency = "No disponible: falta l'eina necessària al servidor:"
@@ -6819,6 +7175,37 @@ invalid = "El certificat no es troba en el magatzem de confiança - no es pot ve
 fileManager = "Gestor de fitxers"
 pageEditor = "Editor de pàgines"
 viewer = "Visor"
+
+[viewer]
+cannotPreviewFile = "No es pot previsualitzar el fitxer"
+dualPageView = "Vista de dues pàgines"
+firstPage = "Primera pàgina"
+lastPage = "Última pàgina"
+nextPage = "Pàgina següent"
+onlyPdfSupported = "El visualitzador només admet fitxers PDF. Aquest fitxer sembla ser d'un format diferent."
+previousPage = "Pàgina anterior"
+singlePageView = "Vista d'una sola pàgina"
+unknownFile = "Fitxer desconegut"
+zoomIn = "Amplia"
+zoomOut = "Redueix"
+
+[viewer.attachments]
+empty = "No hi ha adjunts en aquest document"
+loading = "Carregant els adjunts..."
+noDocument = "Obre un PDF per veure'n els adjunts."
+noMatch = "No hi ha adjunts que coincideixin amb la cerca"
+noSupport = "Aquest visor no admet adjunts."
+searchPlaceholder = "Cerca adjunts"
+title = "Adjunts"
+
+[viewer.formBar]
+apply = "Aplica els canvis"
+dismiss = "Descarta"
+download = "Descarrega el PDF"
+hasFieldsDesc = "Aquest PDF conté camps emplenables"
+title = "Camps del formulari"
+unsavedBadge = "No desats"
+unsavedDesc = "Tens canvis no desats"
 
 [viewPdf]
 header = "Visualitza PDF"
@@ -7259,278 +7646,3 @@ cancel = "Cancel·la"
 confirm = "Extreu"
 message = "Aquest ZIP conté {{count}} fitxers. Vols extreure'l igualment?"
 title = "Fitxer ZIP gran"
-
-[cloudBadge]
-tooltip = "Aquesta operació utilitzarà els vostres crèdits del núvol"
-
-[team]
-cancelInviteError = "No s'ha pogut cancel·lar la invitació"
-confirmCancelInvite = "Esteu segur que voleu cancel·lar aquesta invitació?"
-confirmLeave = "Esteu segur que voleu sortir d'aquest equip?"
-confirmLeaveLeader = "Com a líder d'equip, sortir us eliminarà de l'equip. N'esteu segur?"
-confirmRemove = "Esteu segur que voleu eliminar aquest membre?"
-editName = "Edita el nom de l'equip"
-inviteCancelled = "Invitació cancel·lada"
-inviteError = "No s'ha pogut enviar la invitació"
-inviteSent = "Invitació enviada correctament"
-leader = "Líder"
-leaveButton = "Surt de l'equip"
-leaveError = "No s'ha pogut sortir de l'equip"
-leaveSuccess = "Heu sortit de l'equip correctament"
-loading = "S'està carregant la informació de l'equip..."
-memberCount = "{{count}} membres"
-memberRemoved = "Membre eliminat correctament"
-namePlaceholder = "Introduïu el nom de l'equip"
-personal = "Personal"
-removeError = "No s'ha pogut eliminar el membre"
-renameError = "No s'ha pogut canviar el nom de l'equip"
-renameSuccess = "S'ha canviat el nom de l'equip correctament"
-
-[team.invitationBanner]
-message = "us ha convidat a unir-vos"
-acceptButton = "Accepta"
-rejectButton = "Rebutja"
-
-[team.features]
-badge = "Funcions d'equip"
-subtitle = "Col·laboreu amb el vostre equip"
-title = "Col·laboració d'equip"
-viewPlans = "Mostra els plans"
-
-[team.features.billing]
-description = "Gestiona la facturació i les subscripcions"
-title = "Gestió de facturació"
-
-[team.features.credits]
-description = "Bossa de crèdits compartida per a tots els membres"
-title = "Crèdits compartits"
-
-[team.features.dashboard]
-description = "Visualitza l'activitat i l'ús de l'equip"
-title = "Tauler de l'equip"
-
-[team.features.invite]
-description = "Afegeix membres al vostre equip"
-title = "Convida membres"
-
-[team.invite]
-cancelLabel = "Cancel·la"
-invalidEmail = "Adreça de correu electrònic no vàlida"
-placeholder = "Introduïu l'adreça de correu electrònic"
-sendButton = "Envia la invitació"
-title = "Convida un membre de l'equip"
-
-[team.members]
-emailColumn = "Correu electrònic"
-empty = "Encara no hi ha membres de l'equip"
-nameColumn = "Nom"
-pending = "Pendent"
-remove = "Elimina"
-roleColumn = "Rol"
-title = "Membres de l'equip"
-
-[team.upgrade]
-button = "Actualitza a Team"
-description = "Desbloqueja les funcions de col·laboració d'equip"
-title = "Actualitza al pla Team"
-
-[provider.oauth2.google]
-scope = "Autenticació d'inici de sessió"
-
-[provider.oauth2.google.clientId]
-label = "ID de client"
-description = "L'ID de client OAuth2 de Google Cloud Console"
-
-[provider.oauth2.google.clientSecret]
-label = "Secret del client"
-description = "El secret de client OAuth2 de Google Cloud Console"
-
-[provider.oauth2.google.scopes]
-label = "Àmbits"
-description = "Àmbits OAuth2 separats per comes"
-
-[provider.oauth2.google.useAsUsername]
-label = "Utilitza com a nom d'usuari"
-description = "Camp a utilitzar com a nom d'usuari (email, name, given_name, family_name)"
-
-[provider.oauth2.github]
-scope = "Autenticació d'inici de sessió"
-
-[provider.oauth2.github.clientId]
-label = "ID de client"
-description = "L'ID de client OAuth2 de GitHub Developer Settings"
-
-[provider.oauth2.github.clientSecret]
-label = "Secret del client"
-description = "El secret de client OAuth2 de GitHub Developer Settings"
-
-[provider.oauth2.github.scopes]
-label = "Àmbits"
-description = "Àmbits OAuth2 separats per comes"
-
-[provider.oauth2.github.useAsUsername]
-label = "Utilitza com a nom d'usuari"
-description = "Camp a utilitzar com a nom d'usuari (email, login, name)"
-
-[provider.oauth2.keycloak]
-scope = "SSO"
-
-[provider.oauth2.keycloak.issuer]
-label = "URL de l'emissor"
-description = "URL del punt final OpenID Connect Discovery del reialme de Keycloak"
-
-[provider.oauth2.keycloak.clientId]
-label = "ID de client"
-description = "L'ID de client OAuth2 de Keycloak"
-
-[provider.oauth2.keycloak.clientSecret]
-label = "Secret del client"
-description = "El secret de client OAuth2 de Keycloak"
-
-[provider.oauth2.keycloak.scopes]
-label = "Àmbits"
-description = "Àmbits OAuth2 separats per comes"
-
-[provider.oauth2.keycloak.useAsUsername]
-label = "Utilitza com a nom d'usuari"
-description = "Camp a utilitzar com a nom d'usuari (email, name, given_name, family_name, preferred_username)"
-
-[provider.oauth2.generic]
-name = "OAuth2 genèric"
-scope = "SSO"
-
-[provider.oauth2.generic.enabled]
-label = "Habilita OAuth2 genèric"
-description = "Habilita l'autenticació utilitzant un proveïdor OAuth2 personalitzat"
-
-[provider.oauth2.generic.provider]
-label = "Nom del proveïdor"
-description = "El nom del vostre proveïdor OAuth2 (p. ex., Azure AD, Okta)"
-
-[provider.oauth2.generic.issuer]
-label = "URL de l'emissor"
-description = "Proveïdor que admet OpenID Connect Discovery (/.well-known/openid-configuration)"
-
-[provider.oauth2.generic.clientId]
-label = "ID de client"
-description = "L'ID de client OAuth2 del vostre proveïdor"
-
-[provider.oauth2.generic.clientSecret]
-label = "Secret del client"
-description = "El secret de client OAuth2 del vostre proveïdor"
-
-[provider.oauth2.generic.scopes]
-label = "Àmbits"
-description = "Àmbits OAuth2 separats per comes"
-
-[provider.oauth2.generic.useAsUsername]
-label = "Utilitza com a nom d'usuari"
-description = "Camp a utilitzar com a nom d'usuari"
-
-[provider.oauth2.generic.autoCreateUser]
-label = "Crea usuaris automàticament"
-description = "Crea automàticament comptes d'usuari en el primer inici de sessió amb OAuth2"
-
-[provider.oauth2.generic.blockRegistration]
-label = "Bloca el registre"
-description = "Impedeix el registre de nous usuaris via OAuth2"
-
-[provider.smtp]
-name = "Correu SMTP"
-scope = "Notificacions per correu electrònic"
-
-[provider.smtp.enabled]
-label = "Habilita el correu"
-description = "Habilita les notificacions per correu i la funcionalitat SMTP"
-
-[provider.smtp.host]
-label = "Servidor SMTP"
-description = "El nom d'amfitrió o l'adreça IP del vostre servidor SMTP"
-
-[provider.smtp.port]
-label = "Port SMTP"
-description = "El número de port per a la connexió SMTP (normalment 25, 465 o 587)"
-
-[provider.smtp.username]
-label = "Nom d'usuari SMTP"
-description = "Nom d'usuari per a l'autenticació SMTP"
-
-[provider.smtp.password]
-label = "Contrasenya SMTP"
-description = "Contrasenya per a l'autenticació SMTP"
-
-[provider.smtp.from]
-label = "Adreça del remitent"
-description = "L'adreça de correu electrònic a utilitzar com a remitent"
-
-[provider.saml2]
-name = "SAML2"
-scope = "SSO (SAML)"
-
-[provider.saml2.enabled]
-label = "Habilita SAML2"
-description = "Habilita l'autenticació SAML2 (només Enterprise)"
-
-[provider.saml2.provider]
-label = "Nom del proveïdor"
-description = "El nom del vostre proveïdor SAML2"
-
-[provider.saml2.registrationId]
-label = "ID de registre"
-description = "El nom de la vostra aplicació del Proveïdor de Servei (SP)"
-
-[provider.saml2.idpMetadataUri]
-label = "URI de metadades de l'IdP"
-description = "L'URI de les metadades del vostre proveïdor"
-
-[provider.saml2.idpSingleLoginUrl]
-label = "URL d'inici de sessió únic de l'IdP"
-description = "La URL per iniciar l'SSO"
-
-[provider.saml2.idpSingleLogoutUrl]
-label = "URL de tancament de sessió únic de l'IdP"
-description = "La URL per iniciar el SLO"
-
-[provider.saml2.idpIssuer]
-label = "Emissor de l'IdP"
-description = "L'ID del vostre proveïdor"
-
-[provider.saml2.idpCert]
-label = "Certificat de l'IdP"
-description = "El camí del certificat (p. ex., classpath:okta.cert)"
-
-[provider.saml2.privateKey]
-label = "Clau privada"
-description = "El camí de la vostra clau privada"
-
-[provider.saml2.spCert]
-label = "Certificat del SP"
-description = "El camí del vostre certificat de signatura"
-
-[provider.saml2.autoCreateUser]
-label = "Crea usuaris automàticament"
-description = "Crea automàticament comptes d'usuari en el primer inici de sessió amb SAML2"
-
-[provider.saml2.blockRegistration]
-label = "Bloca el registre"
-description = "Impedeix el registre de nous usuaris via SAML2"
-
-[provider.googledrive]
-name = "Google Drive"
-scope = "Importació de fitxers"
-
-[provider.googledrive.enabled]
-label = "Habilita el selector de fitxers de Google Drive"
-description = "Permet als usuaris importar fitxers directament des de Google Drive"
-
-[provider.googledrive.clientId]
-label = "ID de client"
-description = "ID de client OAuth 2.0 de Google de Google Cloud Console"
-
-[provider.googledrive.apiKey]
-label = "Clau d'API"
-description = "Clau d'API de Google per a l'API Google Picker de Google Cloud Console"
-
-[provider.googledrive.appId]
-label = "ID d'aplicació"
-description = "ID d'aplicació de Google Drive de Google Cloud Console"

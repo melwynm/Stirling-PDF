@@ -16,13 +16,13 @@ comingSoon = "Kommer snart"
 confirmClose = "Bekreft lukking"
 confirmCloseCancel = "Avbryt"
 confirmCloseConfirm = "Lukk fil"
-confirmCloseMessage = "Er du sikker på at du vil lukke denne filen?"
 confirmCloseDiscard = "Forkast endringer og lukk"
+confirmCloseMessage = "Er du sikker på at du vil lukke denne filen?"
 confirmCloseSave = "Lagre og lukk"
+confirmCloseSaveFailed = "Lagret med feil. {{count}} fil{{plural}} kunne ikke lagres."
+confirmCloseSaveFailedTitle = "Lagring mislyktes"
 confirmCloseUnsaved = "Denne filen har ulagrede endringer."
 confirmCloseUnsavedList = "Du har {{count}} fil{{plural}} med ulagrede endringer.\n\n{{fileList}}"
-confirmCloseSaveFailedTitle = "Lagring mislyktes"
-confirmCloseSaveFailed = "Lagret med feil. {{count}} fil{{plural}} kunne ikke lagres."
 confirmPasswordErrorMessage = "Nytt passord og Bekreft nytt passord må være like."
 custom = "Tilpasset..."
 customPosition = "Egendefinert posisjon"
@@ -42,11 +42,12 @@ downloadComplete = "Nedlasting Fullført"
 downloadPdf = "Last ned PDF"
 downloadUnavailable = "Nedlasting ikke tilgjengelig for dette elementet"
 edit = "Rediger"
+editSecret = "Rediger denne verdien"
 editYourNewFiles = "Rediger den nye filen(e)"
 exportAndContinue = "Eksporter og fortsett"
 false = "Usann"
-fileSavedToDisk = "Fil lagret til disk"
 fileNotSavedToDisk = "Ikke lagret til disk"
+fileSavedToDisk = "Fil lagret til disk"
 fileSelected = "Valgt: {{filename}}"
 filesSelected = "filer valgt"
 font = "Skrifttype"
@@ -60,12 +61,15 @@ help = "Hjelp"
 imgPrompt = "Velg Bilde(r)"
 incorrectPasswordMessage = "Nåværende passord er feil."
 info = "Info"
+insufficientCredits = "Insufficient credits. Required: {{requiredCredits}}, Available: {{currentBalance}}, Shortfall: {{shortfall}}"
 invalidPasswordMessage = "Passordet kan ikke være tomt og må ikke ha mellomrom i begynnelsen eller slutten."
 invalidUndoData = "Kan ikke angre: ugyldige operasjonsdata"
 invalidUsernameMessage = "Ugyldig brukernavn, brukernavnet kan bare inneholde bokstaver, tall og følgende spesialtegn @._+- eller må være en gyldig e-postadresse."
 joinDiscord = "Bli med på vår Discord-server"
 keepWorking = "Fortsett å jobbe"
 loading = "Laster..."
+loadingCredits = "Checking credits..."
+loadingProStatus = "Checking subscription status..."
 logOut = "Logg ut"
 marginTooltip = "Avstand mellom sidetallet og kanten av siden."
 moreOptions = "Flere alternativer"
@@ -79,6 +83,7 @@ noFilesToUndo = "Kan ikke angre: ingen filer ble behandlet i forrige operasjon"
 noOperationToUndo = "Ingen operasjon å angre"
 notAuthenticatedMessage = "Bruker ikke autentisert."
 nothingToUndo = "Ingenting å angre"
+noticeTopUpOrPlan = "Not enough credits, please top up or upgrade to a plan"
 noValidFiles = "Ingen gyldige filer å behandle"
 oops = "Ops!"
 openInViewer = "Åpne i visningsprogram"
@@ -95,9 +100,9 @@ pendingRedactionsTitle = "Ikke anvendte sladdinger"
 pin = "Fest fil (hold aktiv etter verktøykjøring)"
 poweredBy = "Drevet av"
 pro = "Pro"
-processTimeWarning = "Denne prosessen kan ta opptil ett minutt avhengig av filstørrelse"
 processingComplete = "Filen din er klar."
 processingCompleteMultiple = "{{count}} filer er klare."
+processTimeWarning = "Denne prosessen kan ta opptil ett minutt avhengig av filstørrelse"
 property = "Egenskap"
 quickPosition = "Hurtigposisjon"
 red = "Rød"
@@ -107,7 +112,6 @@ save = "Lagre"
 saveToBrowser = "Lagre til Nettleser"
 saveUnavailable = "Lagring er ikke tilgjengelig for dette elementet"
 seeDockerHub = "Se Docker Hub"
-editSecret = "Rediger denne verdien"
 selectFillter = "-- Velg --"
 size = "Størrelse"
 sponsor = "Sponsor"
@@ -845,6 +849,14 @@ title = "API-endepunkter"
 userDefaults = "Standardverdier for brukerpreferanser"
 userDefaultsDescription = "Angi standardverdier for brukerpreferanser. Brukere kan overstyre disse i sine personlige innstillinger."
 
+[admin.settings.endpoints.defaultHideUnavailableConversions]
+description = "Fjern deaktiverte konverteringer i stedet for å vise dem nedtonet"
+label = "Skjul utilgjengelige konverteringer som standard"
+
+[admin.settings.endpoints.defaultHideUnavailableTools]
+description = "Fjern deaktiverte verktøy i stedet for å vise dem nedtonet"
+label = "Skjul utilgjengelige verktøy som standard"
+
 [admin.settings.endpoints.groupsToRemove]
 description = "Velg endepunktgrupper som skal deaktiveres"
 label = "Deaktiverte endepunktgrupper"
@@ -852,14 +864,6 @@ label = "Deaktiverte endepunktgrupper"
 [admin.settings.endpoints.toRemove]
 description = "Velg individuelle endepunkter som skal deaktiveres"
 label = "Deaktiverte endepunkter"
-
-[admin.settings.endpoints.defaultHideUnavailableTools]
-description = "Fjern deaktiverte verktøy i stedet for å vise dem nedtonet"
-label = "Skjul utilgjengelige verktøy som standard"
-
-[admin.settings.endpoints.defaultHideUnavailableConversions]
-description = "Fjern deaktiverte konverteringer i stedet for å vise dem nedtonet"
-label = "Skjul utilgjengelige konverteringer som standard"
 
 [admin.settings.enterpriseRequired]
 message = "En Enterprise-lisens kreves for å få tilgang til {{featureName}}. Du ser demodata som referanse."
@@ -968,6 +972,10 @@ label = "Standard lokalitet"
 description = "Maksimal filopplastingsstørrelse (f.eks. 100MB, 1GB)"
 label = "Grense for filopplasting"
 
+[admin.settings.general.frontendUrl]
+description = "Basis-URL for frontend (f.eks. https://pdf.example.com). Brukes for e-postinvitasjonslenker og mobile QR-kodeopplastinger. La stå tomt for å bruke backend-URL."
+label = "Frontend URL"
+
 [admin.settings.general.hideDisabledTools]
 description = "Skjul deaktiverte verktøy fra grensesnittet"
 label = "Skjul deaktiverte verktøy"
@@ -979,10 +987,6 @@ label = "Skjul Google Drive"
 [admin.settings.general.hideDisabledTools.mobileScanner]
 description = "Skjul mobil QR-skanner-knappen når den ikke er aktivert"
 label = "Skjul mobilskanner"
-
-[admin.settings.general.frontendUrl]
-description = "Basis-URL for frontend (f.eks. https://pdf.example.com). Brukes for e-postinvitasjonslenker og mobile QR-kodeopplastinger. La stå tomt for å bruke backend-URL."
-label = "Frontend URL"
 
 [admin.settings.general.homeDescription]
 description = "Beskrivelsesteksten som vises på startsiden"
@@ -1163,9 +1167,25 @@ description = "Konfigurer autentisering, innloggingsatferd og sikkerhetspolicyer
 title = "Sikkerhet"
 
 [admin.settings.security.audit]
+hideDetails = "Skjul detaljer for revisjonsnivå"
 label = "Revisjonslogging"
 showDetails = "Vis detaljer for revisjonsnivå"
-hideDetails = "Skjul detaljer for revisjonsnivå"
+
+[admin.settings.security.audit.advancedOptions]
+description = "Følgende alternativer øker prosesseringstid og minnebruk. Aktiver bare hvis det virkelig trengs."
+title = "Avanserte alternativer"
+
+[admin.settings.security.audit.captureFileHash]
+description = "Hent ut SHA-256-hash av opplastede PDF-filer for integritetsverifisering. Uavhengig av revisjonsnivå."
+label = "Registrer filhash (SHA-256)"
+
+[admin.settings.security.audit.captureOperationResults]
+description = "Registrer metoders returverdier. Anbefales ikke: øker loggvolum og diskbruk betydelig."
+label = "Registrer operasjonsresultater"
+
+[admin.settings.security.audit.capturePdfAuthor]
+description = "Hent ut forfatterfelt fra PDF-dokumenter under prosessering. Krever PDF-parsing, øker ventetiden. Uavhengig av revisjonsnivå."
+label = "Registrer PDF-forfattermetadata"
 
 [admin.settings.security.audit.enabled]
 description = "Spor brukerhandlinger og systemhendelser for etterlevelse og sikkerhetsovervåking"
@@ -1176,30 +1196,14 @@ description = "0=OFF, 1=BASIC, 2=STANDARD, 3=VERBOSE"
 label = "Revisjonsnivå"
 
 [admin.settings.security.audit.levelDetails]
-off = "Ingen revisjonslogging (unntatt kritiske sikkerhetshendelser)"
 basic = "PDF-filoperasjoner (komprimer, del, slå sammen osv.) og endringer i innstillinger. Registrerer: operasjonsstatus (suksess/feil), metodeparametere, tidsbruk. Minimalt loggvolum."
+off = "Ingen revisjonslogging (unntatt kritiske sikkerhetshendelser)"
 standard = "BASIC-hendelser pluss: brukerinnlogging/-utlogging, kontoendringer, generelle GET-forespørsler. Ekskluderer kontinuerlige polling-kall (/auth/me, /app-config, /health osv.) for å redusere loggstøy. Ideelt for de fleste installasjoner."
 verbose = "STANDARD-hendelser pluss: kontinuerlige polling-kall, alle GET-forespørsler, detaljert tidsbruk. Advarsel: høyt loggvolum og ytelsespåvirkning."
 
 [admin.settings.security.audit.retentionDays]
 description = "Antall dager revisjonslogger beholdes"
 label = "Bevaring av revisjon (dager)"
-
-[admin.settings.security.audit.advancedOptions]
-title = "Avanserte alternativer"
-description = "Følgende alternativer øker prosesseringstid og minnebruk. Aktiver bare hvis det virkelig trengs."
-
-[admin.settings.security.audit.captureFileHash]
-description = "Hent ut SHA-256-hash av opplastede PDF-filer for integritetsverifisering. Uavhengig av revisjonsnivå."
-label = "Registrer filhash (SHA-256)"
-
-[admin.settings.security.audit.capturePdfAuthor]
-description = "Hent ut forfatterfelt fra PDF-dokumenter under prosessering. Krever PDF-parsing, øker ventetiden. Uavhengig av revisjonsnivå."
-label = "Registrer PDF-forfattermetadata"
-
-[admin.settings.security.audit.captureOperationResults]
-description = "Registrer metoders returverdier. Anbefales ikke: øker loggvolum og diskbruk betydelig."
-label = "Registrer operasjonsresultater"
 
 [admin.settings.security.csrfDisabled]
 description = "Deaktiver Cross-Site Request Forgery-beskyttelse (anbefales ikke)"
@@ -1268,6 +1272,14 @@ label = "Første brukernavn"
 [admin.settings.security.jwt]
 label = "JWT-konfigurasjon"
 
+[admin.settings.security.jwt.allowedClockSkewSeconds]
+description = "Toleranse for klient/server tidsavvik under tokenvalidering (standard: 60 sekunder)"
+label = "Toleranse for klokkeavvik (sekunder)"
+
+[admin.settings.security.jwt.desktopTokenExpiryMinutes]
+description = "Levetid for tilgangstoken i minutter for desktop-klienter. Desktop-apper oppdages automatisk via User-Agent og får lengre økter for bedre brukeropplevelse (standard: 43200 = 30 dager)"
+label = "Utløp for desktop-token (minutter)"
+
 [admin.settings.security.jwt.enableKeyCleanup]
 description = "Fjern automatisk utløpte JWT-nøkler"
 label = "Aktiver opprydding av nøkler"
@@ -1276,29 +1288,21 @@ label = "Aktiver opprydding av nøkler"
 description = "Roter automatisk JWT-signeringsnøkler periodisk"
 label = "Aktiver nøkkelrotasjon"
 
-[admin.settings.security.jwt.tokenExpiryMinutes]
-description = "Levetid for tilgangstoken i minutter for nettklienter (standard: 1440 = 24 timer)"
-label = "Utløp for webtoken (minutter)"
-
-[admin.settings.security.jwt.desktopTokenExpiryMinutes]
-description = "Levetid for tilgangstoken i minutter for desktop-klienter. Desktop-apper oppdages automatisk via User-Agent og får lengre økter for bedre brukeropplevelse (standard: 43200 = 30 dager)"
-label = "Utløp for desktop-token (minutter)"
-
-[admin.settings.security.jwt.allowedClockSkewSeconds]
-description = "Toleranse for klient/server tidsavvik under tokenvalidering (standard: 60 sekunder)"
-label = "Toleranse for klokkeavvik (sekunder)"
+[admin.settings.security.jwt.persistence]
+description = "Lagre JWT-nøkler vedvarende for å tåle serveromstarter"
+label = "Aktiver nøkkelpersistens"
 
 [admin.settings.security.jwt.refreshGraceMinutes]
 description = "Tillat fornyelse av token innen så mange minutter etter utløp (standard: 15 minutter, maks 3 forsøk)"
 label = "Fornyelsesfrist (minutter)"
 
-[admin.settings.security.jwt.persistence]
-description = "Lagre JWT-nøkler vedvarende for å tåle serveromstarter"
-label = "Aktiver nøkkelpersistens"
-
 [admin.settings.security.jwt.secureCookie]
 description = "Krev HTTPS for JWT-informasjonskapsler (anbefales for produksjon)"
 label = "Sikker informasjonskapsel"
+
+[admin.settings.security.jwt.tokenExpiryMinutes]
+description = "Levetid for tilgangstoken i minutter for nettklienter (standard: 1440 = 24 timer)"
+label = "Utløp for webtoken (minutter)"
 
 [admin.settings.security.loginAttemptCount]
 description = "Maksimalt antall mislykkede innloggingsforsøk før kontolåsing"
@@ -1586,68 +1590,6 @@ goToSettings = "Gå til revisjonsinnstillinger"
 notAvailable = "Revisjonssystemet er ikke tilgjengelig"
 notAvailableMessage = "Revisjonssystemet er ikke konfigurert eller ikke tilgjengelig."
 
-[audit.error]
-title = "Feil ved innlasting av revisjonssystemet"
-
-[audit.export]
-clearFilters = "Tøm"
-description = "Eksporter revisjonshendelser til CSV- eller JSON-format. Bruk filtre for å begrense de eksporterte dataene."
-endDate = "Sluttdato"
-error = "Kunne ikke eksportere data"
-exportButton = "Eksporter data"
-fieldAuthor = "Forfatter (fra PDF)"
-fieldDate = "Dato"
-fieldDocumentName = "Dokumentnavn"
-fieldFileHash = "Filhash (SHA-256)"
-fieldIpAddress = "IP-adresse"
-fieldOperationResults = "Operasjonsresultater"
-fieldOutcome = "Resultat (suksess/feil)"
-fieldTool = "Verktøy"
-fieldUsername = "Brukernavn"
-filterByType = "Filtrer etter type"
-filterByUser = "Filtrer etter bruker"
-filters = "Filtre (valgfritt)"
-format = "Eksportformat"
-selectFields = "Velg felt som skal tas med"
-startDate = "Startdato"
-title = "Eksporter revisjonsdata"
-verboseRequired = "Krever VERBOSE revisjonsnivå"
-
-[audit.systemStatus]
-autoRefresh = "Automatisk oppdatering"
-autoRefreshLabel = "Oppdater automatisk hvert 30. sekund"
-captureBySettings = "Aktiver i innstillinger"
-capturedFields = "Registrerte felt"
-date = "Dato"
-days = "dager"
-disabled = "Deaktivert"
-documentName = "Dokumentnavn"
-enabled = "Aktivert"
-fileHash = "Filhash"
-level = "Revisjonsnivå"
-pdfAuthor = "PDF-forfatter"
-retention = "Oppbevaringsperiode"
-status = "Revisjonslogging"
-title = "Systemstatus"
-tool = "Verktøy"
-totalEvents = "Totalt antall hendelser"
-username = "Brukernavn"
-verboseOnly = "Kun VERBOSE"
-
-[audit.stats]
-activeUsers = "Aktive brukere"
-attention = "Krever oppmerksomhet"
-avgLatency = "Gjennomsnittlig ventetid"
-error = "Feil ved lasting av statistikk"
-errorLoadingStats = "Kunne ikke laste statistikk"
-excellent = "Utmerket"
-good = "Bra"
-noData = "N/A"
-successRate = "Suksessrate"
-title = "Sammendrag"
-totalEvents = "Totale hendelser"
-vsLastPeriod = "vs forrige periode"
-
 [audit.charts]
 byTool = "Mest brukte verktøy"
 byType = "Hendelser etter type"
@@ -1660,6 +1602,27 @@ noData = "Ingen data for denne perioden"
 overTime = "Hendelser over tid"
 title = "Revisjonsdashbord"
 week = "Uke"
+
+[audit.clearData]
+cancel = "Avbryt"
+codeDoesNotMatch = "Koden stemmer ikke"
+codePlaceholder = "Skriv inn koden her"
+confirmationCode = "Bekreftelseskode"
+confirmationRequired = "Slett alle revisjonsdata"
+confirmMessage = "Dette vil permanent fjerne alle revisjonslogger. Skriv inn bekreftelseskoden nedenfor for å fortsette."
+confirmTitle = "Bekreft at du vil slette"
+deleteButton = "Slett"
+enterCode = "Bekreftelseskode"
+enterCodeBelow = "Skriv inn koden nøyaktig som vist ovenfor (skiller mellom store og små bokstaver)"
+initiateDelete = "Slett alle data"
+irreversible = "IRREVERSIBELT"
+success = "Vellykket"
+successMessage = "Alle revisjonsdata er blitt slettet"
+warning1 = "Denne handlingen kan ikke angres"
+warning2 = "Sletting av revisjonsdata vil permanent fjerne alle historiske revisjonslogger, inkludert sikkerhetshendelser, brukeraktiviteter og filoperasjoner fra databasen."
+
+[audit.error]
+title = "Feil ved innlasting av revisjonssystemet"
 
 [audit.events]
 actions = "Handlinger"
@@ -1687,40 +1650,81 @@ type = "Type"
 user = "Bruker"
 viewDetails = "Vis detaljer"
 
+[audit.export]
+clearFilters = "Tøm"
+description = "Eksporter revisjonshendelser til CSV- eller JSON-format. Bruk filtre for å begrense de eksporterte dataene."
+endDate = "Sluttdato"
+error = "Kunne ikke eksportere data"
+exportButton = "Eksporter data"
+fieldAuthor = "Forfatter (fra PDF)"
+fieldDate = "Dato"
+fieldDocumentName = "Dokumentnavn"
+fieldFileHash = "Filhash (SHA-256)"
+fieldIpAddress = "IP-adresse"
+fieldOperationResults = "Operasjonsresultater"
+fieldOutcome = "Resultat (suksess/feil)"
+fieldTool = "Verktøy"
+fieldUsername = "Brukernavn"
+filterByType = "Filtrer etter type"
+filterByUser = "Filtrer etter bruker"
+filters = "Filtre (valgfritt)"
+format = "Eksportformat"
+selectFields = "Velg felt som skal tas med"
+startDate = "Startdato"
+title = "Eksporter revisjonsdata"
+verboseRequired = "Krever VERBOSE revisjonsnivå"
+
 [audit.filters]
 allOutcomes = "Alle"
 failureOnly = "Kun feil"
-last7Days = "Siste 7 dager"
 last30Days = "Siste 30 dager"
+last7Days = "Siste 7 dager"
 outcomeFilter = "Resultat"
 quickPresets = "Hurtigfiltre"
 successOnly = "Kun vellykket"
 thisMonth = "Denne måneden"
 today = "I dag"
 
+[audit.stats]
+activeUsers = "Aktive brukere"
+attention = "Krever oppmerksomhet"
+avgLatency = "Gjennomsnittlig ventetid"
+error = "Feil ved lasting av statistikk"
+errorLoadingStats = "Kunne ikke laste statistikk"
+excellent = "Utmerket"
+good = "Bra"
+noData = "N/A"
+successRate = "Suksessrate"
+title = "Sammendrag"
+totalEvents = "Totale hendelser"
+vsLastPeriod = "vs forrige periode"
+
+[audit.systemStatus]
+autoRefresh = "Automatisk oppdatering"
+autoRefreshLabel = "Oppdater automatisk hvert 30. sekund"
+captureBySettings = "Aktiver i innstillinger"
+capturedFields = "Registrerte felt"
+date = "Dato"
+days = "dager"
+disabled = "Deaktivert"
+documentName = "Dokumentnavn"
+enabled = "Aktivert"
+fileHash = "Filhash"
+level = "Revisjonsnivå"
+pdfAuthor = "PDF-forfatter"
+retention = "Oppbevaringsperiode"
+status = "Revisjonslogging"
+title = "Systemstatus"
+tool = "Verktøy"
+totalEvents = "Totalt antall hendelser"
+username = "Brukernavn"
+verboseOnly = "Kun VERBOSE"
+
 [audit.tabs]
 clearData = "Tøm data"
 dashboard = "Dashbord"
 events = "Revisjonshendelser"
 export = "Eksporter"
-
-[audit.clearData]
-cancel = "Avbryt"
-codeDoesNotMatch = "Koden stemmer ikke"
-codePlaceholder = "Skriv inn koden her"
-confirmationCode = "Bekreftelseskode"
-confirmationRequired = "Slett alle revisjonsdata"
-confirmMessage = "Dette vil permanent fjerne alle revisjonslogger. Skriv inn bekreftelseskoden nedenfor for å fortsette."
-confirmTitle = "Bekreft at du vil slette"
-deleteButton = "Slett"
-enterCode = "Bekreftelseskode"
-enterCodeBelow = "Skriv inn koden nøyaktig som vist ovenfor (skiller mellom store og små bokstaver)"
-initiateDelete = "Slett alle data"
-irreversible = "IRREVERSIBELT"
-success = "Vellykket"
-successMessage = "Alle revisjonsdata er blitt slettet"
-warning1 = "Denne handlingen kan ikke angres"
-warning2 = "Sletting av revisjonsdata vil permanent fjerne alle historiske revisjonslogger, inkludert sikkerhetshendelser, brukeraktiviteter og filoperasjoner fra databasen."
 
 [auth]
 accessDenied = "Tilgang nektet"
@@ -2358,6 +2362,9 @@ title = "Endre tillatelser"
 [changePermissions.tooltip.warning]
 text = "For å gjøre disse tillatelsene uforanderlige, bruk verktøyet Legg til passord for å sette et eierpassord."
 
+[cloudBadge]
+tooltip = "Denne operasjonen vil bruke skykreditter"
+
 [colorPicker]
 title = "Velg farge"
 
@@ -2574,10 +2581,48 @@ title = "Kvalitetsjustering"
 [compressPdfs]
 tags = "komprimer,liten,tiny"
 
+[config]
+plan = "Plan"
+
 [config.account.overview]
+confirmDelete = "Delete My Account"
+deleteAccount = "Delete Account"
+deleteAccountTitle = "Delete Account"
+deleteFailed = "Failed to delete account."
+deleteFailedTitle = "Unable to delete account"
+deleteWarning = "This action is permanent and cannot be undone. All your data will be deleted."
+enterEmailConfirm = "To confirm deletion, please type your email address ({{email}}) below:"
 guestDescription = "Du er logget inn som gjest. Vurder å oppgradere kontoen din ovenfor."
+label = "Overview"
 manageAccountPreferences = "Administrer kontoinnstillingene dine"
+signedInAs = "Signed in as"
 title = "Kontoinnstillinger"
+
+[config.account.profilePicture]
+description = "Upload an image to personalize your account."
+help = "PNG, JPG, or WebP up to 2MB."
+remove = "Remove"
+sizeError = "Please select an image smaller than 2MB."
+switchedToCustom = "Switched to custom picture. You can now upload your own."
+title = "Profile picture"
+upload = "Upload"
+useCustom = "Use custom picture"
+usingProvider = "Using {{provider}} profile picture"
+
+[config.account.profilePicture.cropper]
+cropError = "Failed to crop image. Please try again."
+invalidImage = "Invalid image file. Please select a valid PNG, JPG, or WebP file."
+processing = "Processing crop..."
+save = "Save Cropped Image"
+sizeErrorAfterCrop = "Cropped image is too large. Please zoom out or crop a smaller area."
+title = "Crop Profile Picture"
+zoom = "Zoom"
+
+[config.account.security]
+changePassword = "Change password"
+description = "Manage your password and security settings."
+title = "Passwords & Security"
+update = "Update password"
 
 [config.account.upgrade]
 description = "Koble kontoen din for å bevare historikken og få tilgang til flere funksjoner!"
@@ -2595,6 +2640,7 @@ upgradeButton = "Oppgrader konto"
 [config.apiKeys]
 chartAriaLabel = "Kredittbruk: inkludert {{includedUsed}} av {{includedTotal}}, kjøpt {{purchasedUsed}} av {{purchasedTotal}}"
 copyKeyAriaLabel = "Kopier API-nøkkel"
+creditsRemaining = "Credits Remaining"
 description = "API-nøkkelen din for tilgang til Stirlings pakke med PDF-verktøy. Kopier den til prosjektet ditt eller oppdater for å generere en ny."
 docsDescription = "Lær mer om integrasjon med Stirling PDF:"
 docsLink = "API-dokumentasjon"
@@ -2651,9 +2697,11 @@ blackwhite = "Svart-hvitt"
 cbrDpi = "DPI for bildegjengivelse"
 cbrOptions = "CBR-alternativer"
 cbrOutputOptions = "Alternativer for PDF til CBR"
+cbrToPdf = "CBR → PDF"
 cbzDpi = "DPI for bildegjengivelse"
 cbzOptions = "Alternativer for CBZ til PDF"
 cbzOutputOptions = "Alternativer for PDF til CBZ"
+cbzToPdf = "CBZ → PDF"
 color = "Farge"
 colorType = "Fargetype"
 combineImages = "Kombiner bilder"
@@ -2671,13 +2719,16 @@ desc = "Konverter filer mellom ulike formater"
 downloadConverted = "Last ned konvertert fil"
 downloadHtml = "Last ned HTML-mellomfil i stedet for PDF"
 dpi = "DPI"
+ebookToPdf = "eBook → PDF"
 emailOptions = "Alternativer for e-post til PDF"
+emlToPdf = "Email → PDF"
 errorConversion = "Det oppstod en feil under konvertering av filen."
 errorNoFiles = "Velg minst én fil å konvertere."
 errorNoFormat = "Velg både kilde- og målformat."
 errorNotSupported = "Konvertering fra {{from}} til {{to}} støttes ikke."
 fileFormat = "Filformat"
 files = "Filer"
+fileToPdf = "Office/Document → PDF"
 fillPage = "Fyll side"
 fitDocumentToPage = "Tilpass dokument til side"
 fitOption = "Tilpasningsvalg"
@@ -2705,6 +2756,9 @@ pdfaFormat = "PDF/A-format"
 pdfaNote = "PDF/A-1b er mer kompatibel, PDF/A-2b støtter flere funksjoner."
 pdfaOptions = "PDF/A-alternativer"
 pdfOptions = "PDF-alternativer"
+pdfToCbr = "PDF → CBR"
+pdfToCbz = "PDF → CBZ"
+pdfToEpub = "PDF → EPUB"
 pdfxDescription = "PDF/X er en ISO-standardisert PDF-undermengde for pålitelig utskrift og grafikkutveksling."
 pdfxDigitalSignatureWarning = "PDF-en inneholder en digital signatur. Denne vil bli fjernet i neste trinn."
 pptExt = "PowerPoint (.pptx)"
@@ -2719,6 +2773,7 @@ sourceFormatPlaceholder = "Kildeformat"
 strictMode = "Strict Mode"
 strictModeDesc = "Error if conversion is not perfect (uses VeraPDF verification)"
 svgPdfOptions = "SVG to PDF Options"
+svgToPdf = "SVG → PDF"
 svgVectorNote = "SVG files are rendered as vector graphics for crisp output at any resolution. Dimensions from the SVG determine the PDF page size."
 targetFormatPlaceholder = "Målformat"
 textRtf = "Tekst/RTF"
@@ -2791,6 +2846,77 @@ description = "These cookies are essential for the website to function properly.
 [cookieBanner.services]
 posthog = "PostHog Analytics"
 scarf = "Scarf Pixel"
+
+[credits]
+enableOverageBilling = "Aktiver overforbruksfakturering"
+maybeLater = "Kanskje senere"
+upgrade = "Oppgrader"
+
+[credits.insufficient]
+brief = "Utilstrekkelige kreditter. Du trenger {{required}} kreditter, men har {{current}}."
+freeTier = "Oppgrader til Team for 10x flere kreditter og ubegrenset overforbruksfakturering."
+managedMember = "Ta kontakt med teamlederen din for hjelp."
+message = "Du har ikke nok kreditter til å kjøre {{tool}}. Du har for øyeblikket {{current}} kreditter."
+messageWithAmount = "Du trenger {{required}} kreditter for å kjøre {{tool}}, men du har bare {{current}}."
+teamMember = "Aktiver overforbruksfakturering for aldri å gå tom for kreditter."
+title = "Utilstrekkelige kreditter"
+
+[credits.modal]
+advancedMonitoring = "Avansert overvåking"
+allInOneWorkspace = "Alt-i-ett PDF-arbeidsområde (viser, verktøy og agent)"
+apiSandbox = "API-sandkasse"
+contactSales = "Kontakt salg"
+creditsRemaining = "{{current}} av {{total}} gjenstår"
+creditsThisMonth = "Månedlige kreditter"
+current = "Gjeldende plan"
+customPricing = "Egendefinert"
+customSmartFolders = "Egendefinerte smarte mapper"
+dedicatedSupportSlas = "Dedikert støtte og SLA-er"
+enterpriseSubscription = "Enterprise"
+everythingInCredits = "Alt i Credits, pluss:"
+everythingInFree = "Alt i Free, pluss:"
+fasterThroughput = "10x raskere gjennomstrømming"
+forRegularWork = "For vanlig PDF-arbeid:"
+freeTier = "Gratisnivå"
+fullyPrivateFiles = "Fullt private filer"
+largeFileProcessing = "Behandling av store filer"
+managedMemberMessage = "Du har ubegrenset tilgang til kreditter gjennom teamet ditt. Hvis du trenger hjelp, kontakt teamlederen din."
+managedMemberTitle = "Ubegrensede kreditter"
+meteringBillingNote = "Overforbrukskreditter faktureres månedlig sammen med Team-abonnementet ditt. Følg med på bruken din når som helst i kontoinnstillingene."
+meteringExplanation = "Team-planen din inkluderer {{credits}} kreditter per måned. Når de tar slutt, gir overforbruksfakturering automatisk ekstra kreditter slik at du aldri må stoppe arbeidet."
+meteringIncluded = "{{credits}} kreditter/måned inkludert i Team"
+meteringNeverRunOut = "Gå aldri tom for kreditter"
+meteringNoCommitment = "Ingen binding, kan sies opp når som helst"
+meteringPayAsYouGo = "Betal kun for det du bruker"
+meteringPrice = "Ekstra kreditter til {{price}}/kreditt"
+meteringTitle = "Overforbruksfakturering – betal for det du bruker"
+monthlyCredits = "månedlige kreditter"
+orgWideAccess = "Organisasjonsomfattende tilgangskontroller"
+overage = "overforbruk"
+perMonth = "/måned"
+popular = "Populær"
+premiumAiModels = "Premium AI-modeller"
+prioritySupport = "Prioritert støtte"
+privateDocCloud = "Privat dokumentsky"
+ragFineTuning = "RAG + finjustering"
+secureApiAccess = "Sikker API-tilgang"
+selfHostLink = "Se gjennom dokumentasjon og planer"
+selfHostPrompt = "Vil du egenhoste?"
+standardThroughput = "Standard gjennomstrømming"
+subtitle = "Oppgrader til Team for 10x flere kreditter og raskere prosessering."
+subtitlePro = "Aktiver automatisk overforbruksfakturering for aldri å gå tom for kreditter."
+teamLeaderOnly = "Bare teamledere kan aktivere overforbruksfakturering"
+teamSubscription = "Team"
+titleExhausted = "Du har brukt opp gratiskredittene dine"
+titleExhaustedPro = "Du har gått tom for kreditter"
+unlimitedApiAccess = "Ubegrenset API-tilgang"
+unlimitedMonthlyCredits = "Site-lisens"
+unlimitedSeats = "Ubegrensede plasser"
+
+[credits.modal.features]
+everythingInCredits = "Alt i Credits, pluss:"
+everythingInFree = "Alt i Free, pluss:"
+forRegularWork = "For vanlig PDF-arbeid:"
 
 [crop]
 autoCrop = "Beskjær hvite mellomrom automatisk"
@@ -3469,10 +3595,6 @@ desc = "Bygg flertrinns arbeidsflyter ved å lenke sammen PDF-handlinger. Ideelt
 tags = "arbeidsflyt,sekvens,automatisering"
 title = "Automatiser"
 
-[home.formFill]
-desc = "Fyll ut felter i PDF-skjemaer interaktivt med en visuell editor"
-title = "Fyll ut skjema"
-
 [home.autoRename]
 desc = "Gir automatisk nytt navn til en PDF-fil basert på den oppdagede overskriften"
 tags = "autogjenkjenning,overskriftsbasert,organiser,gi nytt navn"
@@ -3567,6 +3689,10 @@ title = "Trekk ut Sider"
 desc = "Fjern alle interaktive elementer og skjemaer fra en PDF"
 tags = "forenkle,fjern,interaktiv"
 title = "Gjøre flat"
+
+[home.formFill]
+desc = "Fyll ut felter i PDF-skjemaer interaktivt med en visuell editor"
+title = "Fyll ut skjema"
 
 [home.getPdfInfo]
 desc = "Fanger opp all tilgjengelig informasjon om PDF-er"
@@ -3854,6 +3980,7 @@ version = "Versjon"
 accountCreatedSuccess = "Konto opprettet! Du kan nå logge inn."
 alreadyLoggedIn = "Du er allerede innlogget på"
 alreadyLoggedIn2 = "enheter. Logg ut og forsøk igjen"
+backToSignIn = "Back to sign in"
 cancel = "Avbryt"
 changePasswordWarning = "Endre passordet ditt etter at du har logget inn for første gang"
 credentialsUpdated = "Innloggingsinformasjonen din er oppdatert. Logg inn på nytt."
@@ -3895,13 +4022,17 @@ or = "Eller"
 password = "Passord"
 passwordChangedSuccess = "Passord endret! Logg inn med det nye passordet."
 passwordResetSent = "Lenke for tilbakestilling av passord sendt til {{email}}! Sjekk e-posten din og følg instruksjonene."
+passwordUpdatedSuccess = "Your password has been updated successfully."
 pleaseEnterBoth = "Vennligst oppgi både e-post og passord"
 pleaseEnterEmail = "Vennligst oppgi e-postadressen din"
 relyingPartyRegistrationNotFound = "Ingen konfigurasjon funnet for Relying Party\""
 rememberme = "Husk meg"
+resetHelp = "Enter your email to receive a secure link to reset your password. If the link has expired, please request a new one."
+resetYourPassword = "Reset your password"
 saml2RequiresLicense = "SAML-pålogging krever en betalt lisens (Server eller Enterprise). Kontakt administratoren for å oppgradere planen din."
 sending = "Sender…"
 sendMagicLink = "Send magisk lenke"
+sendResetLink = "Send reset link"
 sessionExpired = "Økten din har utløpt. Logg inn på nytt."
 signin = "Logg inn"
 signInAnonymously = "Registrer deg som gjest"
@@ -3910,9 +4041,11 @@ signinTitle = "Vennligst logg inn"
 signInWith = "Logg inn med"
 signOut = "Logg ut"
 ssoSignIn = "Logg inn via Enkel Pålogging"
+subtitle = "Sign back in to Stirling PDF"
 title = "Logg inn"
 toManySessions = "Du har for mange aktive økter"
 unexpectedError = "Uventet feil: {{message}}"
+updatePassword = "Update password"
 useEmailInstead = "Logg inn med e-post"
 useMagicLink = "Bruk magisk lenke i stedet"
 userIsDisabled = "Bruker er deaktivert, innlogging er for øyeblikket blokkert med dette brukernavnet. Vennligst kontakt administrator"
@@ -4235,6 +4368,15 @@ body = "Stirling fungerer best som en skrivebordsapp. Du kan bruke den offline, 
 title = "Last ned"
 titleWithOs = "Last ned for {{osLabel}}"
 
+[onboarding.freeTrial]
+afterTrialWithoutPayment = "After your trial ends, you'll continue with our free tier. Add a payment method to keep Pro access."
+afterTrialWithPayment = "Your Pro subscription will start automatically when the trial ends."
+body = "You have full access to Stirling PDF Pro features during your trial. Enjoy unlimited conversions, larger file sizes, and priority processing."
+daysRemaining = "{{days}} days remaining"
+daysRemainingSingular = "{{days}} day remaining"
+title = "Your 30-Day Pro Trial"
+trialEnds = "Trial ends {{date}}"
+
 [onboarding.planOverview]
 adminBodyLoginDisabled = "Når du aktiverer innloggingsmodus, kan du administrere brukere, konfigurere innstillinger og overvåke serverstatus. De første <strong>{{freeTierLimit}}</strong> på serveren din kan bruke Stirling gratis."
 adminBodyLoginEnabled = "Som admin kan du administrere brukere, konfigurere innstillinger og overvåke serverstatus. De første <strong>{{freeTierLimit}}</strong> på serveren din kan bruke Stirling gratis."
@@ -4370,75 +4512,6 @@ title = "Sideeditor"
 zoomIn = "Zoom inn"
 zoomOut = "Zoom ut"
 
-[viewer]
-cannotPreviewFile = "Kan ikke forhåndsvise fil"
-dualPageView = "Dobbelsidevisning"
-firstPage = "Første side"
-lastPage = "Siste side"
-nextPage = "Neste side"
-onlyPdfSupported = "Visningsprogrammet støtter bare PDF-filer. Denne filen ser ut til å ha et annet format."
-previousPage = "Forrige side"
-singlePageView = "Enkeltsidevisning"
-unknownFile = "Ukjent fil"
-zoomIn = "Zoom inn"
-zoomOut = "Zoom ut"
-
-[viewer.attachments]
-title = "Vedlegg"
-searchPlaceholder = "Søk i vedlegg"
-noSupport = "Støtte for vedlegg er ikke tilgjengelig i denne viseren."
-noDocument = "Åpne en PDF for å se vedleggene."
-loading = "Laster vedlegg..."
-empty = "Ingen vedlegg i dette dokumentet"
-noMatch = "Ingen vedlegg samsvarer med søket ditt"
-
-[viewer.formBar]
-title = "Skjemafelter"
-unsavedBadge = "Ulagret"
-unsavedDesc = "Du har ulagrede endringer"
-hasFieldsDesc = "Denne PDF-en inneholder utfyllbare felter"
-dismiss = "Avvis"
-apply = "Bruk endringer"
-download = "Last ned PDF"
-
-[rightRail]
-closeSelected = "Lukk valgte filer"
-selectAll = "Velg alle"
-deselectAll = "Fjern all markering"
-selectByNumber = "Velg etter sidenummer"
-deleteSelected = "Slett valgte sider"
-closePdf = "Lukk PDF"
-exportAll = "Eksporter PDF"
-downloadSelected = "Last ned valgte filer"
-annotations = "Merknader"
-exportSelected = "Eksporter valgte sider"
-formFill = "Fyll ut skjema"
-saveChanges = "Lagre endringer"
-toggleAttachments = "Vis/skjul vedlegg"
-toggleTheme = "Bytt tema"
-language = "Språk"
-toggleAnnotations = "Vis/skjul merknader"
-search = "Søk i PDF"
-panMode = "Panoreringsmodus"
-applyRedactionsFirst = "Bruk sladding først"
-rotateLeft = "Roter til venstre"
-rotateRight = "Roter til høyre"
-toggleSidebar = "Vis/skjul sidepanel"
-toggleBookmarks = "Veksle bokmerker"
-print = "Skriv ut PDF"
-ruler = "Linjal / Måling"
-draw = "Tegn"
-redact = "Sladd"
-exitRedaction = "Avslutt sladdemodus"
-save = "Lagre"
-downloadAll = "Last ned alle"
-saveAll = "Lagre alle"
-
-[textAlign]
-left = "Venstre"
-center = "Sentrert"
-right = "Høyre"
-
 [pageExtracter]
 header = "Trekk ut Sider"
 placeholder = "(f.eks. 1,2,8 eller 4,7,12-16 eller 2n-1)"
@@ -4547,6 +4620,9 @@ title = "Tips"
 autoClose = "Dette vinduet lukkes automatisk..."
 billingPeriod = "Faktureringsperiode"
 canCloseWindow = "Du kan nå lukke dette vinduet."
+checkoutInstructions = "Fullfør kjøpet i nettleservinduet som nettopp åpnet. Etter at betalingen er fullført, kom tilbake hit og klikk knappen nedenfor for å oppdatere faktureringsinformasjonen."
+checkoutOpened = "Kasse åpnet i nettleser"
+closeLater = "Jeg gjør dette senere"
 emailInvalid = "Angi en gyldig e-postadresse"
 enterpriseNote = "Plasser kan justeres i kassen (1–1000)."
 error = "Betalingsfeil"
@@ -4568,6 +4644,7 @@ perMonth = "/måned"
 perYear = "/år"
 preparing = "Forbereder kassen..."
 redirecting = "Videresender til sikker betaling..."
+refreshBilling = "Jeg har fullført betalingen – oppdater fakturering"
 stripeNotConfigured = "Stripe ikke konfigurert"
 stripeNotConfiguredMessage = "Stripe-betalingsintegrasjon er ikke konfigurert. Kontakt administratoren din."
 success = "Betaling vellykket!"
@@ -4579,10 +4656,6 @@ upgradeCompleteMessage = "Abonnementet ditt er oppgradert. Den eksisterende lise
 upgradeSuccess = "Betaling vellykket! Abonnementet ditt er oppgradert. Lisensen er oppdatert på serveren din. Du mottar snart en bekreftelses-e-post."
 upgradeTitle = "Oppgrader til {{planName}}"
 yearly = "Årlig"
-checkoutOpened = "Kasse åpnet i nettleser"
-checkoutInstructions = "Fullfør kjøpet i nettleservinduet som nettopp åpnet. Etter at betalingen er fullført, kom tilbake hit og klikk knappen nedenfor for å oppdatere faktureringsinformasjonen."
-refreshBilling = "Jeg har fullført betalingen – oppdater fakturering"
-closeLater = "Jeg gjør dette senere"
 
 [payment.emailStage]
 continue = "Fortsett"
@@ -4806,13 +4879,6 @@ prompt = "Velg side for å trekke ut tabell"
 submit = "Trekke ut"
 title = "PDF til CSV"
 
-[PDFToXLSX]
-header = "PDF til Excel"
-prompt = "Velg sider for å hente ut tabeller"
-submit = "Konverter"
-title = "PDF til Excel (XLSX)"
-tags = "regneark,excel,xlsx,tabell,ekstraher,konverter"
-
 [PDFToHTML]
 credit = "Denne tjenesten bruker pdftohtml for filkonvertering."
 header = "PDF til HTML"
@@ -4911,6 +4977,13 @@ title = "PDF til Word"
 [PDFToWord.selectText]
 1 = "Utdatafilformat"
 
+[PDFToXLSX]
+header = "PDF til Excel"
+prompt = "Velg sider for å hente ut tabeller"
+submit = "Konverter"
+tags = "regneark,excel,xlsx,tabell,ekstraher,konverter"
+title = "PDF til Excel (XLSX)"
+
 [PDFToXML]
 credit = "Denne tjenesten bruker LibreOffice for filkonvertering."
 header = "PDF til XML"
@@ -4976,8 +5049,11 @@ manage = "Administrer"
 perMonth = "/måned"
 perSeat = "/plass"
 popular = "Populær"
+purchase = "Purchase"
+selectCredits = "Select Credit Amount"
 selectPlan = "Velg plan"
 showComparison = "Sammenlign alle funksjoner"
+totalCost = "Total Cost"
 upgrade = "Oppgrader"
 withServer = "+ Server-plan"
 
@@ -4985,19 +5061,29 @@ withServer = "+ Server-plan"
 subtitle = "Detaljer om ditt nåværende abonnement"
 title = "Aktiv plan"
 
+[plan.api]
+large = "5,000 Credits"
+medium = "1,000 Credits"
+small = "500 Credits"
+xsmall = "100 Credits"
+
+[plan.apiPackages]
+subtitle = "Purchase API credits for your applications"
+title = "API Credit Packages"
+
 [plan.availablePlans]
-subtitle = "Velg planen som passer dine behov"
 loadError = "Kan ikke laste planpriser. Bruker standardverdier."
+subtitle = "Velg planen som passer dine behov"
 title = "Tilgjengelige planer"
 
 [plan.enterprise]
-siteLicense = "Site-lisens"
 highlight1 = "Tilpasset prising"
 highlight2 = "Dedikert støtte"
 highlight3 = "Nyeste funksjoner"
 name = "Enterprise"
 requiresServer = "Krever server"
 requiresServerMessage = "Oppgrader til Server-planen først før du oppgraderer til Enterprise."
+siteLicense = "Site-lisens"
 
 [plan.feature]
 api = "API-tilgang"
@@ -5069,76 +5155,19 @@ successMessage = "Lisensen din er aktivert. Du kan nå lukke dette vinduet."
 name = "Team"
 siteLicense = "Site-lisens"
 
-[credits]
-enableOverageBilling = "Aktiver overforbruksfakturering"
-maybeLater = "Kanskje senere"
-upgrade = "Oppgrader"
-
-[credits.modal]
-advancedMonitoring = "Avansert overvåking"
-allInOneWorkspace = "Alt-i-ett PDF-arbeidsområde (viser, verktøy og agent)"
-apiSandbox = "API-sandkasse"
-contactSales = "Kontakt salg"
-creditsRemaining = "{{current}} av {{total}} gjenstår"
-creditsThisMonth = "Månedlige kreditter"
-current = "Gjeldende plan"
-customPricing = "Egendefinert"
-customSmartFolders = "Egendefinerte smarte mapper"
-dedicatedSupportSlas = "Dedikert støtte og SLA-er"
-enterpriseSubscription = "Enterprise"
-everythingInCredits = "Alt i Credits, pluss:"
-everythingInFree = "Alt i Free, pluss:"
-fasterThroughput = "10x raskere gjennomstrømming"
-forRegularWork = "For vanlig PDF-arbeid:"
-freeTier = "Gratisnivå"
-fullyPrivateFiles = "Fullt private filer"
-largeFileProcessing = "Behandling av store filer"
-managedMemberMessage = "Du har ubegrenset tilgang til kreditter gjennom teamet ditt. Hvis du trenger hjelp, kontakt teamlederen din."
-managedMemberTitle = "Ubegrensede kreditter"
-meteringBillingNote = "Overforbrukskreditter faktureres månedlig sammen med Team-abonnementet ditt. Følg med på bruken din når som helst i kontoinnstillingene."
-meteringExplanation = "Team-planen din inkluderer {{credits}} kreditter per måned. Når de tar slutt, gir overforbruksfakturering automatisk ekstra kreditter slik at du aldri må stoppe arbeidet."
-meteringIncluded = "{{credits}} kreditter/måned inkludert i Team"
-meteringNoCommitment = "Ingen binding, kan sies opp når som helst"
-meteringNeverRunOut = "Gå aldri tom for kreditter"
-meteringPayAsYouGo = "Betal kun for det du bruker"
-meteringPrice = "Ekstra kreditter til {{price}}/kreditt"
-meteringTitle = "Overforbruksfakturering – betal for det du bruker"
-monthlyCredits = "månedlige kreditter"
-orgWideAccess = "Organisasjonsomfattende tilgangskontroller"
-overage = "overforbruk"
-perMonth = "/måned"
-popular = "Populær"
-premiumAiModels = "Premium AI-modeller"
-prioritySupport = "Prioritert støtte"
-privateDocCloud = "Privat dokumentsky"
-ragFineTuning = "RAG + finjustering"
-secureApiAccess = "Sikker API-tilgang"
-selfHostLink = "Se gjennom dokumentasjon og planer"
-selfHostPrompt = "Vil du egenhoste?"
-standardThroughput = "Standard gjennomstrømming"
-subtitle = "Oppgrader til Team for 10x flere kreditter og raskere prosessering."
-subtitlePro = "Aktiver automatisk overforbruksfakturering for aldri å gå tom for kreditter."
-teamLeaderOnly = "Bare teamledere kan aktivere overforbruksfakturering"
-teamSubscription = "Team"
-titleExhausted = "Du har brukt opp gratiskredittene dine"
-titleExhaustedPro = "Du har gått tom for kreditter"
-unlimitedApiAccess = "Ubegrenset API-tilgang"
-unlimitedMonthlyCredits = "Site-lisens"
-unlimitedSeats = "Ubegrensede plasser"
-
-[credits.modal.features]
-everythingInCredits = "Alt i Credits, pluss:"
-everythingInFree = "Alt i Free, pluss:"
-forRegularWork = "For vanlig PDF-arbeid:"
-
-[credits.insufficient]
-brief = "Utilstrekkelige kreditter. Du trenger {{required}} kreditter, men har {{current}}."
-freeTier = "Oppgrader til Team for 10x flere kreditter og ubegrenset overforbruksfakturering."
-managedMember = "Ta kontakt med teamlederen din for hjelp."
-message = "Du har ikke nok kreditter til å kjøre {{tool}}. Du har for øyeblikket {{current}} kreditter."
-messageWithAmount = "Du trenger {{required}} kreditter for å kjøre {{tool}}, men du har bare {{current}}."
-teamMember = "Aktiver overforbruksfakturering for aldri å gå tom for kreditter."
-title = "Utilstrekkelige kreditter"
+[plan.trial]
+badge = "Trial"
+continueWithFree = "Continue with Free"
+daysRemaining = "Your trial ends in {{days}} days"
+endDate = "Expires: {{date}}"
+expired = "Your Trial Has Ended"
+expiredMessage = "Your 30-day Pro trial has expired. Subscribe to Pro to continue accessing premium features, or continue with our free tier."
+freeTierLimitations = "Free tier includes basic PDF tools with usage limits."
+message = ""
+subscribe = "Subscribe to Pro"
+subscribeToPro = "Subscribe to Pro"
+subscriptionScheduled = "Subscription scheduled - starts {{date}}"
+title = "Free Trial Active"
 
 [printFile]
 header = "Skriv ut fil til skriver"
@@ -5148,6 +5177,207 @@ title = "Skriv ut fil"
 [printFile.selectText]
 1 = "Velg fil som skal skrives ut"
 2 = "Skriv inn skrivernavn"
+
+[provider.googledrive]
+name = "Google Drive"
+scope = "Filimport"
+
+[provider.googledrive.apiKey]
+description = "Google API-nøkkel for Google Picker API fra Google Cloud Console"
+label = "API-nøkkel"
+
+[provider.googledrive.appId]
+description = "Google Drive App-ID fra Google Cloud Console"
+label = "App-ID"
+
+[provider.googledrive.clientId]
+description = "Google OAuth 2.0-klient-ID fra Google Cloud Console"
+label = "Klient-ID"
+
+[provider.googledrive.enabled]
+description = "Tillat brukere å importere filer direkte fra Google Drive"
+label = "Aktiver Google Drive-filvelger"
+
+[provider.oauth2.generic]
+name = "Generisk OAuth2"
+scope = "SSO"
+
+[provider.oauth2.generic.autoCreateUser]
+description = "Opprett automatisk brukerkontoer ved første OAuth2-pålogging"
+label = "Opprett brukere automatisk"
+
+[provider.oauth2.generic.blockRegistration]
+description = "Hindre ny brukerregistrering via OAuth2"
+label = "Blokker registrering"
+
+[provider.oauth2.generic.clientId]
+description = "OAuth2-klient-ID fra leverandøren din"
+label = "Klient-ID"
+
+[provider.oauth2.generic.clientSecret]
+description = "OAuth2-klienthemmeligheten fra leverandøren din"
+label = "Klienthemmelighet"
+
+[provider.oauth2.generic.enabled]
+description = "Aktiver autentisering med en egendefinert OAuth2-leverandør"
+label = "Aktiver generisk OAuth2"
+
+[provider.oauth2.generic.issuer]
+description = "Leverandør som støtter OpenID Connect Discovery (/.well-known/openid-configuration)"
+label = "Utsteder-URL"
+
+[provider.oauth2.generic.provider]
+description = "Navnet på OAuth2-leverandøren din (f.eks. Azure AD, Okta)"
+label = "Leverandørnavn"
+
+[provider.oauth2.generic.scopes]
+description = "Kommaseparerte OAuth2-scopes"
+label = "Scopes"
+
+[provider.oauth2.generic.useAsUsername]
+description = "Felt som skal brukes som brukernavn"
+label = "Bruk som brukernavn"
+
+[provider.oauth2.github]
+scope = "Innloggingsautentisering"
+
+[provider.oauth2.github.clientId]
+description = "OAuth2-klient-ID fra GitHub Developer Settings"
+label = "Klient-ID"
+
+[provider.oauth2.github.clientSecret]
+description = "OAuth2-klienthemmeligheten fra GitHub Developer Settings"
+label = "Klienthemmelighet"
+
+[provider.oauth2.github.scopes]
+description = "Kommaseparerte OAuth2-scopes"
+label = "Scopes"
+
+[provider.oauth2.github.useAsUsername]
+description = "Felt som skal brukes som brukernavn (email, login, name)"
+label = "Bruk som brukernavn"
+
+[provider.oauth2.google]
+scope = "Innloggingsautentisering"
+
+[provider.oauth2.google.clientId]
+description = "OAuth2-klient-ID fra Google Cloud Console"
+label = "Klient-ID"
+
+[provider.oauth2.google.clientSecret]
+description = "OAuth2-klienthemmeligheten fra Google Cloud Console"
+label = "Klienthemmelighet"
+
+[provider.oauth2.google.scopes]
+description = "Kommaseparerte OAuth2-scopes"
+label = "Scopes"
+
+[provider.oauth2.google.useAsUsername]
+description = "Felt som skal brukes som brukernavn (email, name, given_name, family_name)"
+label = "Bruk som brukernavn"
+
+[provider.oauth2.keycloak]
+scope = "SSO"
+
+[provider.oauth2.keycloak.clientId]
+description = "OAuth2-klient-ID fra Keycloak"
+label = "Klient-ID"
+
+[provider.oauth2.keycloak.clientSecret]
+description = "OAuth2-klienthemmeligheten fra Keycloak"
+label = "Klienthemmelighet"
+
+[provider.oauth2.keycloak.issuer]
+description = "URL-en til Keycloak-realmens OpenID Connect Discovery-endepunkt"
+label = "Utsteder-URL"
+
+[provider.oauth2.keycloak.scopes]
+description = "Kommaseparerte OAuth2-scopes"
+label = "Scopes"
+
+[provider.oauth2.keycloak.useAsUsername]
+description = "Felt som skal brukes som brukernavn (email, name, given_name, family_name, preferred_username)"
+label = "Bruk som brukernavn"
+
+[provider.saml2]
+name = "SAML2"
+scope = "SSO (SAML)"
+
+[provider.saml2.autoCreateUser]
+description = "Opprett automatisk brukerkontoer ved første SAML2-pålogging"
+label = "Opprett brukere automatisk"
+
+[provider.saml2.blockRegistration]
+description = "Hindre ny brukerregistrering via SAML2"
+label = "Blokker registrering"
+
+[provider.saml2.enabled]
+description = "Aktiver SAML2-autentisering (kun Enterprise)"
+label = "Aktiver SAML2"
+
+[provider.saml2.idpCert]
+description = "Sertifikatsti (f.eks. classpath:okta.cert)"
+label = "IDP-sertifikat"
+
+[provider.saml2.idpIssuer]
+description = "ID-en til leverandøren din"
+label = "IDP-utsteder"
+
+[provider.saml2.idpMetadataUri]
+description = "URI for leverandørens metadata"
+label = "IDP Metadata URI"
+
+[provider.saml2.idpSingleLoginUrl]
+description = "URL for å initiere SSO"
+label = "IDP Single Login URL"
+
+[provider.saml2.idpSingleLogoutUrl]
+description = "URL for å initiere SLO"
+label = "IDP Single Logout URL"
+
+[provider.saml2.privateKey]
+description = "Stien til din private nøkkel"
+label = "Privat nøkkel"
+
+[provider.saml2.provider]
+description = "Navnet på SAML2-leverandøren din"
+label = "Leverandørnavn"
+
+[provider.saml2.registrationId]
+description = "Navnet på Service Provider (SP)-appen din"
+label = "Registrerings-ID"
+
+[provider.saml2.spCert]
+description = "Stien til ditt signeringssertifikat"
+label = "SP-sertifikat"
+
+[provider.smtp]
+name = "SMTP-e-post"
+scope = "E-postvarsler"
+
+[provider.smtp.enabled]
+description = "Aktiver e-postvarsler og SMTP-funksjonalitet"
+label = "Aktiver e-post"
+
+[provider.smtp.from]
+description = "E-postadressen som skal brukes som avsender"
+label = "Fra-adresse"
+
+[provider.smtp.host]
+description = "Vertsnavn eller IP-adresse til SMTP-serveren din"
+label = "SMTP-vert"
+
+[provider.smtp.password]
+description = "Passord for SMTP-autentisering"
+label = "SMTP-passord"
+
+[provider.smtp.port]
+description = "Portnummer for SMTP-tilkobling (vanligvis 25, 465 eller 587)"
+label = "SMTP-port"
+
+[provider.smtp.username]
+description = "Brukernavn for SMTP-autentisering"
+label = "SMTP-brukernavn"
 
 [quickAccess]
 account = "Konto"
@@ -5204,15 +5434,15 @@ title = "Ord som skal sladdes"
 failed = "Det oppstod en feil under sladding av PDF-en."
 
 [redact.manual]
+activate = "Aktiver sladdeverktøy"
+active = "Sladdemodus aktiv"
 apply = "Bruk"
 applyChanges = "Bruk endringer"
 applyRedactions = "Apply Redactions"
 applyWarning = "⚠️ Permanent handling, kan ikke angres og data under blir slettet"
 boxRedaction = "Sladding ved å tegne boks"
-colourPicker = "Fargevelger"
 colorLabel = "Farge for sladding"
-active = "Sladdemodus aktiv"
-activate = "Aktiver sladdeverktøy"
+colourPicker = "Fargevelger"
 controlsTitle = "Manuelle sladdekontroller"
 convertPDFToImageLabel = "Konverter PDF til PDF-bilde (brukes til å fjerne tekst bak boksen)"
 export = "Eksporter"
@@ -5608,6 +5838,44 @@ title = "Høy kontrast"
 text = "Inverterer alle farger i PDF-en fullstendig og skaper en negativ-effekt. Nyttig for å lage mørk-modus-versjoner av dokumenter eller redusere øyebelastning i lite lys."
 title = "Inverter alle farger"
 
+[rightRail]
+annotations = "Merknader"
+applyRedactionsFirst = "Bruk sladding først"
+closePdf = "Lukk PDF"
+closeSelected = "Lukk valgte filer"
+deleteSelected = "Slett valgte sider"
+deselectAll = "Fjern all markering"
+downloadAll = "Last ned alle"
+downloadSelected = "Last ned valgte filer"
+draw = "Tegn"
+exitRedaction = "Avslutt sladdemodus"
+exportAll = "Eksporter PDF"
+exportSelected = "Eksporter valgte sider"
+formFill = "Fyll ut skjema"
+language = "Språk"
+panMode = "Panoreringsmodus"
+print = "Skriv ut PDF"
+readAloud = "Read Aloud"
+readAloudLanguage = "Language"
+readAloudSpeed = "Speed"
+redact = "Sladd"
+rotateLeft = "Roter til venstre"
+rotateRight = "Roter til høyre"
+ruler = "Linjal / Måling"
+save = "Lagre"
+saveAll = "Lagre alle"
+saveAs = "Save As"
+saveChanges = "Lagre endringer"
+search = "Søk i PDF"
+selectAll = "Velg alle"
+selectByNumber = "Velg etter sidenummer"
+selectLanguage = "Select language"
+toggleAnnotations = "Vis/skjul merknader"
+toggleAttachments = "Vis/skjul vedlegg"
+toggleBookmarks = "Veksle bokmerker"
+toggleSidebar = "Vis/skjul sidepanel"
+toggleTheme = "Bytt tema"
+
 [rotate]
 rotateLeft = "Roter mot klokken"
 rotateRight = "Roter med klokken"
@@ -5755,6 +6023,14 @@ placeholder = "Skriv inn søkeord..."
 searching = "Søker..."
 title = "Søk i PDF"
 
+[selfHosted.offline]
+hideTools = "Hide unavailable tools ▴"
+messageNoFallback = "Tools are unavailable until your server comes back online."
+messageWithFallback = "Some tools require a server connection."
+showTools = "View unavailable tools ▾"
+title = "Your Stirling-PDF server is unreachable"
+toolNotAvailableLocally = "Your Stirling-PDF server is offline and \"{{endpoint}}\" is not available on the local backend."
+
 [session]
 expired = "Økten din har utløpt. Vennligst oppdater siden og prøv igjen."
 refreshPage = "Oppdater Side"
@@ -5776,70 +6052,6 @@ user = "Logget inn som"
 [settings.connection.mode]
 saas = "Stirling Cloud"
 selfhosted = "Selvhostet"
-
-[settings.planBilling]
-currentPlan = "Gjeldende plan"
-loading = "Laster faktureringsinformasjon..."
-notAvailable = "Plan og fakturering er bare tilgjengelig når du er koblet til Stirling Cloud (SaaS-modus)."
-title = "Plan og fakturering"
-
-[settings.planBilling.billing]
-manageBilling = "Administrer fakturering"
-nextBillingDate = "Neste faktureringsdato"
-overageCost = "Nåværende overforbrukskostnad: {{amount}} ({{credits}} kreditter)"
-
-[settings.planBilling.credits]
-estimatedCost = "Estimert kostnad: {{amount}}"
-freeTierInfo = "Gratisplanen inkluderer {{freeCredits}} kreditter per måned. Oppgrader til Team for {{teamCredits}} kreditter/måned og forbruksbasert overforbruksfakturering."
-included = "{{count}} kreditter/måned (inkludert)"
-noOverage = "Ingen overforbrukskostnader denne måneden. Du bruker dine inkluderte {{count}} kreditter."
-overage = "+ {{count}} overforbruk"
-overageInfo = "Overforbrukskreditter faktureres med {{price}} per kreditt. Du betaler bare for det du bruker utover din månedlige kvote."
-title = "Kredittbruk"
-
-[settings.planBilling.errors]
-fetchFailed = "Kan ikke hente faktureringsdata"
-retry = "Prøv igjen"
-
-[settings.planBilling.status]
-active = "Aktiv"
-canceled = "Kansellert"
-pastDue = "Forfalt"
-trial = "Prøve"
-
-[settings.planBilling.tier]
-enterprise = "Enterprise"
-enterpriseDescription = "Egendefinerte enterprise-funksjoner og støtte"
-free = "Gratis"
-freeDescription = "50 kreditter per måned"
-team = "Team"
-teamBadge = "Team"
-teamDescription = "500 kreditter/måned inkludert, automatisk overforbruksfakturering for uavbrutt tjeneste"
-teamTooltipCredits = "Team-planen inkluderer {{credits}} kreditter/måned."
-teamTooltipFineprint = "Betal kun for det du bruker utover inkluderte kreditter."
-teamTooltipOverage = "Automatisk overforbruksfakturering på {{price}}/kreditt sikrer uavbrutt tjeneste."
-
-[settings.planBilling.team]
-managedByTeam = "Administrert av team"
-memberCount = "{{count}} teammedlemmer"
-
-[settings.planBilling.trial]
-daysRemaining = "{{days}} dager igjen"
-daysRemainingFull = "Prøveperioden din avsluttes om {{days}} dager"
-endDate = "Utløper: {{date}}"
-endsOn = "Prøveperioden slutter"
-title = "Aktiv gratis prøveperiode"
-
-[settings.planBilling.upgrade]
-cta = "Oppgrader til Team"
-featureApi = "API-tilgang for automatisering"
-featureCredits = "{{teamCredits}} kreditter per måned (mot {{freeCredits}} på Gratis)"
-featureMembers = "Ubegrensede teammedlemmer"
-featureSupport = "Prioritert støtte"
-featureThroughput = "Raskere prosesseringshastighet"
-opensInBrowser = "Åpnes i nettleser for å fullføre oppgraderingen"
-subtitle = "Oppgrader til Team for:"
-title = "Oppgrader planen din"
 
 [settings.developer]
 apiKeys = "API-nøkler"
@@ -5923,6 +6135,70 @@ plan = "Plan"
 title = "Lisensiering og analyse"
 usageAnalytics = "Bruksanalyse"
 
+[settings.planBilling]
+currentPlan = "Gjeldende plan"
+loading = "Laster faktureringsinformasjon..."
+notAvailable = "Plan og fakturering er bare tilgjengelig når du er koblet til Stirling Cloud (SaaS-modus)."
+title = "Plan og fakturering"
+
+[settings.planBilling.billing]
+manageBilling = "Administrer fakturering"
+nextBillingDate = "Neste faktureringsdato"
+overageCost = "Nåværende overforbrukskostnad: {{amount}} ({{credits}} kreditter)"
+
+[settings.planBilling.credits]
+estimatedCost = "Estimert kostnad: {{amount}}"
+freeTierInfo = "Gratisplanen inkluderer {{freeCredits}} kreditter per måned. Oppgrader til Team for {{teamCredits}} kreditter/måned og forbruksbasert overforbruksfakturering."
+included = "{{count}} kreditter/måned (inkludert)"
+noOverage = "Ingen overforbrukskostnader denne måneden. Du bruker dine inkluderte {{count}} kreditter."
+overage = "+ {{count}} overforbruk"
+overageInfo = "Overforbrukskreditter faktureres med {{price}} per kreditt. Du betaler bare for det du bruker utover din månedlige kvote."
+title = "Kredittbruk"
+
+[settings.planBilling.errors]
+fetchFailed = "Kan ikke hente faktureringsdata"
+retry = "Prøv igjen"
+
+[settings.planBilling.status]
+active = "Aktiv"
+canceled = "Kansellert"
+pastDue = "Forfalt"
+trial = "Prøve"
+
+[settings.planBilling.team]
+managedByTeam = "Administrert av team"
+memberCount = "{{count}} teammedlemmer"
+
+[settings.planBilling.tier]
+enterprise = "Enterprise"
+enterpriseDescription = "Egendefinerte enterprise-funksjoner og støtte"
+free = "Gratis"
+freeDescription = "50 kreditter per måned"
+team = "Team"
+teamBadge = "Team"
+teamDescription = "500 kreditter/måned inkludert, automatisk overforbruksfakturering for uavbrutt tjeneste"
+teamTooltipCredits = "Team-planen inkluderer {{credits}} kreditter/måned."
+teamTooltipFineprint = "Betal kun for det du bruker utover inkluderte kreditter."
+teamTooltipOverage = "Automatisk overforbruksfakturering på {{price}}/kreditt sikrer uavbrutt tjeneste."
+
+[settings.planBilling.trial]
+daysRemaining = "{{days}} dager igjen"
+daysRemainingFull = "Prøveperioden din avsluttes om {{days}} dager"
+endDate = "Utløper: {{date}}"
+endsOn = "Prøveperioden slutter"
+title = "Aktiv gratis prøveperiode"
+
+[settings.planBilling.upgrade]
+cta = "Oppgrader til Team"
+featureApi = "API-tilgang for automatisering"
+featureCredits = "{{teamCredits}} kreditter per måned (mot {{freeCredits}} på Gratis)"
+featureMembers = "Ubegrensede teammedlemmer"
+featureSupport = "Prioritert støtte"
+featureThroughput = "Raskere prosesseringshastighet"
+opensInBrowser = "Åpnes i nettleser for å fullføre oppgraderingen"
+subtitle = "Oppgrader til Team for:"
+title = "Oppgrader planen din"
+
 [settings.policiesPrivacy]
 legal = "Juridisk"
 privacy = "Personvern"
@@ -5930,6 +6206,9 @@ title = "Retningslinjer og personvern"
 
 [settings.preferences]
 title = "Preferanser"
+
+[settings.search]
+placeholder = "Search settings pages..."
 
 [settings.security]
 description = "Oppdater passordet ditt for å holde kontoen sikker."
@@ -5956,6 +6235,9 @@ security = "Sikkerhet"
 telegram = "Telegram"
 title = "Sikkerhet og autentisering"
 
+[settings.team]
+title = "Team"
+
 [settings.tooltips]
 enableLoginFirst = "Aktiver påloggingsmodus først"
 requiresEnterprise = "Krever Enterprise-lisens"
@@ -5964,9 +6246,6 @@ requiresEnterprise = "Krever Enterprise-lisens"
 people = "Personer"
 teams = "Team"
 title = "Arbeidsområde"
-
-[settings.team]
-title = "Team"
 
 [setup]
 description = "Kom i gang ved å velge hvordan du vil bruke Stirling PDF"
@@ -6290,15 +6569,15 @@ desc = "Automatisk deling med skilleark"
 name = "Skilleark"
 tooltip = "Bruk QR-kode-skilleark mellom dokumenter ved skanning"
 
-[split.methods.byPoster]
-name = "Utskrivbare deler"
-desc = "Del opp store sider i utskriftsvennlige størrelser"
-tooltip = "Del opp overdimensjonerte sider i mindre deler egnet for utskrift på standardpapir (A4, Letter osv.)"
-
 [split.methods.byPages]
 desc = "Trekk ut bestemte sider (1,3,5-10)"
 name = "Sidetall"
 tooltip = "Skriv inn sidetall separert med komma eller områder med bindestrek"
+
+[split.methods.byPoster]
+desc = "Del opp store sider i utskriftsvennlige størrelser"
+name = "Utskrivbare deler"
+tooltip = "Del opp overdimensjonerte sider i mindre deler egnet for utskrift på standardpapir (A4, Letter osv.)"
 
 [split.methods.bySections]
 desc = "Del sider i rutenettseksjoner"
@@ -6326,27 +6605,27 @@ title = "Velg delingsmetode"
 text = "Velg hvordan du vil dele PDF-dokumentet. Hver metode er optimalisert for ulike brukstilfeller og dokumenttyper."
 title = "Valg av delingsmetode"
 
+[split.poster]
+rightToLeft = "Del høyre-til-venstre"
+
+[split.poster.pageSize]
+description = "Størrelse på sidene som skal skrives ut"
+label = "Mål-sidestørrelse"
+
+[split.poster.xFactor]
+description = "Antall kolonner hver side skal deles i"
+label = "Horisontale inndelinger"
+
+[split.poster.yFactor]
+description = "Antall rader hver side skal deles i"
+label = "Vertikale inndelinger"
+
 [split.settings]
 selectMethodFirst = "Velg en delingsmetode først"
 
 [split.steps]
 chooseMethod = "Velg metode"
 settings = "Innstillinger"
-
-[split.poster]
-rightToLeft = "Del høyre-til-venstre"
-
-[split.poster.pageSize]
-label = "Mål-sidestørrelse"
-description = "Størrelse på sidene som skal skrives ut"
-
-[split.poster.xFactor]
-label = "Horisontale inndelinger"
-description = "Antall kolonner hver side skal deles i"
-
-[split.poster.yFactor]
-label = "Vertikale inndelinger"
-description = "Antall rader hver side skal deles i"
 
 [split.tooltip.byChapters]
 bullet1 = "Bokmerkenivå: Hvilket nivå det skal deles på (1=toppnivå)"
@@ -6385,6 +6664,13 @@ bullet5 = "Aktiver dupleksmodus hvis du skanner begge sider av skillearkene"
 text = "Del automatisk skannede dokumenter ved hjelp av fysiske skilleark med QR-koder. Perfekt for å behandle flere dokumenter skannet sammen."
 title = "Del etter skilleark"
 
+[split.tooltip.byPages]
+bullet1 = "Enkle delingspunkter: 3,7 (deler etter sidene 3 og 7)"
+bullet2 = "Områdepunkter: 3-8 (deler før side 3 og etter side 8)"
+bullet3 = "Blandet: 2,5-10,15 (deler etter side 2, før side 5, etter side 10 og etter side 15)"
+text = "Del PDF-en ved bestemte sidetall. Ved bruk av 'n' splittes etter side n. Ved bruk av 'n-m' splittes før side n og etter side m."
+title = "Del ved sidetall"
+
 [split.tooltip.byPoster]
 bullet1 = "Mål-sidestørrelse: Velg utgående papirstørrelse (A4, Letter osv.)"
 bullet2 = "Horisontale/vertikale inndelinger: Rutenettstørrelse for deling"
@@ -6392,13 +6678,6 @@ bullet3 = "Høyre-til-venstre: Reverser kolonnerekkefølgen for RTL-oppsett"
 bullet4 = "Skriv ut og sett sammen delene for å lage plakaten din"
 text = "Del opp store PDF-sider i mindre, utskriftsvennlige deler som passer til standard papirstørrelser. Perfekt for å lage plakatutskrifter fra overdimensjonerte sider."
 title = "Del for plakatutskrift"
-
-[split.tooltip.byPages]
-bullet1 = "Enkle delingspunkter: 3,7 (deler etter sidene 3 og 7)"
-bullet2 = "Områdepunkter: 3-8 (deler før side 3 og etter side 8)"
-bullet3 = "Blandet: 2,5-10,15 (deler etter side 2, før side 5, etter side 10 og etter side 15)"
-text = "Del PDF-en ved bestemte sidetall. Ved bruk av 'n' splittes etter side n. Ved bruk av 'n-m' splittes før side n og etter side m."
-title = "Del ved sidetall"
 
 [split.tooltip.bySections]
 bullet1 = "Horisontal: Antall rader som skal lages"
@@ -6541,6 +6820,82 @@ title = "API-dokumentasjon"
 [tableExtraxt]
 tags = "CSV,tabelluttrekk,ekstrahere,konvertere"
 
+[team]
+cancelInviteError = "Kunne ikke avbryte invitasjonen"
+confirmCancelInvite = "Er du sikker på at du vil avbryte denne invitasjonen?"
+confirmLeave = "Er du sikker på at du vil forlate dette teamet?"
+confirmLeaveLeader = "Som teamleder vil du bli fjernet fra teamet hvis du forlater. Er du sikker?"
+confirmRemove = "Er du sikker på at du vil fjerne dette medlemmet?"
+editName = "Rediger teamnavn"
+inviteCancelled = "Invitasjon avbrutt"
+inviteError = "Kunne ikke sende invitasjon"
+inviteSent = "Invitasjon sendt"
+leader = "Leder"
+leaveButton = "Forlat team"
+leaveError = "Kunne ikke forlate teamet"
+leaveSuccess = "Forlot teamet"
+loading = "Laster teaminformasjon..."
+memberCount = "{{count}} medlemmer"
+memberRemoved = "Medlem fjernet"
+namePlaceholder = "Skriv inn teamnavn"
+personal = "Personlig"
+removeError = "Kunne ikke fjerne medlem"
+renameError = "Kunne ikke gi nytt navn til teamet"
+renameSuccess = "Teamet har fått nytt navn"
+
+[team.features]
+badge = "Teamfunksjoner"
+subtitle = "Samarbeid med teamet ditt"
+title = "Teamsamarbeid"
+viewPlans = "Se planer"
+
+[team.features.billing]
+description = "Administrer fakturering og abonnementer"
+title = "Faktureringsadministrasjon"
+
+[team.features.credits]
+description = "Delt kredittpott for alle medlemmer"
+title = "Delte kreditter"
+
+[team.features.dashboard]
+description = "Se teamaktivitet og bruk"
+title = "Team-dashbord"
+
+[team.features.invite]
+description = "Legg til medlemmer i teamet ditt"
+title = "Inviter medlemmer"
+
+[team.invitationBanner]
+acceptButton = "Godta"
+message = "har invitert deg til å bli med"
+rejectButton = "Avslå"
+
+[team.invite]
+cancelLabel = "Avbryt"
+invalidEmail = "Ugyldig e-postadresse"
+placeholder = "Skriv inn e-postadresse"
+sendButton = "Send invitasjon"
+title = "Inviter teammedlem"
+
+[team.members]
+emailColumn = "E-post"
+empty = "Ingen teammedlemmer ennå"
+nameColumn = "Navn"
+pending = "Avventer"
+remove = "Fjern"
+roleColumn = "Rolle"
+title = "Teammedlemmer"
+
+[team.upgrade]
+button = "Oppgrader til Team"
+description = "Lås opp team-samarbeidsfunksjoner"
+title = "Oppgrader til Team-plan"
+
+[textAlign]
+center = "Sentrert"
+left = "Venstre"
+right = "Høyre"
+
 [theme]
 toggle = "Bytt tema"
 
@@ -6557,6 +6912,7 @@ favorites = "Favoritter"
 heading = "Alle verktøy (fullskjermsvisning)"
 noResults = "Prøv å justere søket eller slå av/på beskrivelser for å finne det du trenger."
 recommended = "Anbefalt"
+selfHostedOffline = "Requires your Stirling-PDF server (currently offline):"
 showDetails = "Vis detaljer"
 unavailable = "Deaktivert av serveradministrator:"
 unavailableDependency = "Utilgjengelig – nødvendig verktøy mangler på serveren:"
@@ -6819,6 +7175,37 @@ invalid = "Sertifikatet er ikke i tillitslager - kilden kan ikke verifiseres"
 fileManager = "Filbehandling"
 pageEditor = "Sideeditor"
 viewer = "Visning"
+
+[viewer]
+cannotPreviewFile = "Kan ikke forhåndsvise fil"
+dualPageView = "Dobbelsidevisning"
+firstPage = "Første side"
+lastPage = "Siste side"
+nextPage = "Neste side"
+onlyPdfSupported = "Visningsprogrammet støtter bare PDF-filer. Denne filen ser ut til å ha et annet format."
+previousPage = "Forrige side"
+singlePageView = "Enkeltsidevisning"
+unknownFile = "Ukjent fil"
+zoomIn = "Zoom inn"
+zoomOut = "Zoom ut"
+
+[viewer.attachments]
+empty = "Ingen vedlegg i dette dokumentet"
+loading = "Laster vedlegg..."
+noDocument = "Åpne en PDF for å se vedleggene."
+noMatch = "Ingen vedlegg samsvarer med søket ditt"
+noSupport = "Støtte for vedlegg er ikke tilgjengelig i denne viseren."
+searchPlaceholder = "Søk i vedlegg"
+title = "Vedlegg"
+
+[viewer.formBar]
+apply = "Bruk endringer"
+dismiss = "Avvis"
+download = "Last ned PDF"
+hasFieldsDesc = "Denne PDF-en inneholder utfyllbare felter"
+title = "Skjemafelter"
+unsavedBadge = "Ulagret"
+unsavedDesc = "Du har ulagrede endringer"
 
 [viewPdf]
 header = "Vis PDF"
@@ -7259,278 +7646,3 @@ cancel = "Avbryt"
 confirm = "Pakk ut"
 message = "Denne ZIP-en inneholder {{count}} filer. Pakk ut likevel?"
 title = "Stor ZIP-fil"
-
-[cloudBadge]
-tooltip = "Denne operasjonen vil bruke skykreditter"
-
-[team]
-cancelInviteError = "Kunne ikke avbryte invitasjonen"
-confirmCancelInvite = "Er du sikker på at du vil avbryte denne invitasjonen?"
-confirmLeave = "Er du sikker på at du vil forlate dette teamet?"
-confirmLeaveLeader = "Som teamleder vil du bli fjernet fra teamet hvis du forlater. Er du sikker?"
-confirmRemove = "Er du sikker på at du vil fjerne dette medlemmet?"
-editName = "Rediger teamnavn"
-inviteCancelled = "Invitasjon avbrutt"
-inviteError = "Kunne ikke sende invitasjon"
-inviteSent = "Invitasjon sendt"
-leader = "Leder"
-leaveButton = "Forlat team"
-leaveError = "Kunne ikke forlate teamet"
-leaveSuccess = "Forlot teamet"
-loading = "Laster teaminformasjon..."
-memberCount = "{{count}} medlemmer"
-memberRemoved = "Medlem fjernet"
-namePlaceholder = "Skriv inn teamnavn"
-personal = "Personlig"
-removeError = "Kunne ikke fjerne medlem"
-renameError = "Kunne ikke gi nytt navn til teamet"
-renameSuccess = "Teamet har fått nytt navn"
-
-[team.invitationBanner]
-message = "har invitert deg til å bli med"
-acceptButton = "Godta"
-rejectButton = "Avslå"
-
-[team.features]
-badge = "Teamfunksjoner"
-subtitle = "Samarbeid med teamet ditt"
-title = "Teamsamarbeid"
-viewPlans = "Se planer"
-
-[team.features.billing]
-description = "Administrer fakturering og abonnementer"
-title = "Faktureringsadministrasjon"
-
-[team.features.credits]
-description = "Delt kredittpott for alle medlemmer"
-title = "Delte kreditter"
-
-[team.features.dashboard]
-description = "Se teamaktivitet og bruk"
-title = "Team-dashbord"
-
-[team.features.invite]
-description = "Legg til medlemmer i teamet ditt"
-title = "Inviter medlemmer"
-
-[team.invite]
-cancelLabel = "Avbryt"
-invalidEmail = "Ugyldig e-postadresse"
-placeholder = "Skriv inn e-postadresse"
-sendButton = "Send invitasjon"
-title = "Inviter teammedlem"
-
-[team.members]
-emailColumn = "E-post"
-empty = "Ingen teammedlemmer ennå"
-nameColumn = "Navn"
-pending = "Avventer"
-remove = "Fjern"
-roleColumn = "Rolle"
-title = "Teammedlemmer"
-
-[team.upgrade]
-button = "Oppgrader til Team"
-description = "Lås opp team-samarbeidsfunksjoner"
-title = "Oppgrader til Team-plan"
-
-[provider.oauth2.google]
-scope = "Innloggingsautentisering"
-
-[provider.oauth2.google.clientId]
-label = "Klient-ID"
-description = "OAuth2-klient-ID fra Google Cloud Console"
-
-[provider.oauth2.google.clientSecret]
-label = "Klienthemmelighet"
-description = "OAuth2-klienthemmeligheten fra Google Cloud Console"
-
-[provider.oauth2.google.scopes]
-label = "Scopes"
-description = "Kommaseparerte OAuth2-scopes"
-
-[provider.oauth2.google.useAsUsername]
-label = "Bruk som brukernavn"
-description = "Felt som skal brukes som brukernavn (email, name, given_name, family_name)"
-
-[provider.oauth2.github]
-scope = "Innloggingsautentisering"
-
-[provider.oauth2.github.clientId]
-label = "Klient-ID"
-description = "OAuth2-klient-ID fra GitHub Developer Settings"
-
-[provider.oauth2.github.clientSecret]
-label = "Klienthemmelighet"
-description = "OAuth2-klienthemmeligheten fra GitHub Developer Settings"
-
-[provider.oauth2.github.scopes]
-label = "Scopes"
-description = "Kommaseparerte OAuth2-scopes"
-
-[provider.oauth2.github.useAsUsername]
-label = "Bruk som brukernavn"
-description = "Felt som skal brukes som brukernavn (email, login, name)"
-
-[provider.oauth2.keycloak]
-scope = "SSO"
-
-[provider.oauth2.keycloak.issuer]
-label = "Utsteder-URL"
-description = "URL-en til Keycloak-realmens OpenID Connect Discovery-endepunkt"
-
-[provider.oauth2.keycloak.clientId]
-label = "Klient-ID"
-description = "OAuth2-klient-ID fra Keycloak"
-
-[provider.oauth2.keycloak.clientSecret]
-label = "Klienthemmelighet"
-description = "OAuth2-klienthemmeligheten fra Keycloak"
-
-[provider.oauth2.keycloak.scopes]
-label = "Scopes"
-description = "Kommaseparerte OAuth2-scopes"
-
-[provider.oauth2.keycloak.useAsUsername]
-label = "Bruk som brukernavn"
-description = "Felt som skal brukes som brukernavn (email, name, given_name, family_name, preferred_username)"
-
-[provider.oauth2.generic]
-name = "Generisk OAuth2"
-scope = "SSO"
-
-[provider.oauth2.generic.enabled]
-label = "Aktiver generisk OAuth2"
-description = "Aktiver autentisering med en egendefinert OAuth2-leverandør"
-
-[provider.oauth2.generic.provider]
-label = "Leverandørnavn"
-description = "Navnet på OAuth2-leverandøren din (f.eks. Azure AD, Okta)"
-
-[provider.oauth2.generic.issuer]
-label = "Utsteder-URL"
-description = "Leverandør som støtter OpenID Connect Discovery (/.well-known/openid-configuration)"
-
-[provider.oauth2.generic.clientId]
-label = "Klient-ID"
-description = "OAuth2-klient-ID fra leverandøren din"
-
-[provider.oauth2.generic.clientSecret]
-label = "Klienthemmelighet"
-description = "OAuth2-klienthemmeligheten fra leverandøren din"
-
-[provider.oauth2.generic.scopes]
-label = "Scopes"
-description = "Kommaseparerte OAuth2-scopes"
-
-[provider.oauth2.generic.useAsUsername]
-label = "Bruk som brukernavn"
-description = "Felt som skal brukes som brukernavn"
-
-[provider.oauth2.generic.autoCreateUser]
-label = "Opprett brukere automatisk"
-description = "Opprett automatisk brukerkontoer ved første OAuth2-pålogging"
-
-[provider.oauth2.generic.blockRegistration]
-label = "Blokker registrering"
-description = "Hindre ny brukerregistrering via OAuth2"
-
-[provider.smtp]
-name = "SMTP-e-post"
-scope = "E-postvarsler"
-
-[provider.smtp.enabled]
-label = "Aktiver e-post"
-description = "Aktiver e-postvarsler og SMTP-funksjonalitet"
-
-[provider.smtp.host]
-label = "SMTP-vert"
-description = "Vertsnavn eller IP-adresse til SMTP-serveren din"
-
-[provider.smtp.port]
-label = "SMTP-port"
-description = "Portnummer for SMTP-tilkobling (vanligvis 25, 465 eller 587)"
-
-[provider.smtp.username]
-label = "SMTP-brukernavn"
-description = "Brukernavn for SMTP-autentisering"
-
-[provider.smtp.password]
-label = "SMTP-passord"
-description = "Passord for SMTP-autentisering"
-
-[provider.smtp.from]
-label = "Fra-adresse"
-description = "E-postadressen som skal brukes som avsender"
-
-[provider.saml2]
-name = "SAML2"
-scope = "SSO (SAML)"
-
-[provider.saml2.enabled]
-label = "Aktiver SAML2"
-description = "Aktiver SAML2-autentisering (kun Enterprise)"
-
-[provider.saml2.provider]
-label = "Leverandørnavn"
-description = "Navnet på SAML2-leverandøren din"
-
-[provider.saml2.registrationId]
-label = "Registrerings-ID"
-description = "Navnet på Service Provider (SP)-appen din"
-
-[provider.saml2.idpMetadataUri]
-label = "IDP Metadata URI"
-description = "URI for leverandørens metadata"
-
-[provider.saml2.idpSingleLoginUrl]
-label = "IDP Single Login URL"
-description = "URL for å initiere SSO"
-
-[provider.saml2.idpSingleLogoutUrl]
-label = "IDP Single Logout URL"
-description = "URL for å initiere SLO"
-
-[provider.saml2.idpIssuer]
-label = "IDP-utsteder"
-description = "ID-en til leverandøren din"
-
-[provider.saml2.idpCert]
-label = "IDP-sertifikat"
-description = "Sertifikatsti (f.eks. classpath:okta.cert)"
-
-[provider.saml2.privateKey]
-label = "Privat nøkkel"
-description = "Stien til din private nøkkel"
-
-[provider.saml2.spCert]
-label = "SP-sertifikat"
-description = "Stien til ditt signeringssertifikat"
-
-[provider.saml2.autoCreateUser]
-label = "Opprett brukere automatisk"
-description = "Opprett automatisk brukerkontoer ved første SAML2-pålogging"
-
-[provider.saml2.blockRegistration]
-label = "Blokker registrering"
-description = "Hindre ny brukerregistrering via SAML2"
-
-[provider.googledrive]
-name = "Google Drive"
-scope = "Filimport"
-
-[provider.googledrive.enabled]
-label = "Aktiver Google Drive-filvelger"
-description = "Tillat brukere å importere filer direkte fra Google Drive"
-
-[provider.googledrive.clientId]
-label = "Klient-ID"
-description = "Google OAuth 2.0-klient-ID fra Google Cloud Console"
-
-[provider.googledrive.apiKey]
-label = "API-nøkkel"
-description = "Google API-nøkkel for Google Picker API fra Google Cloud Console"
-
-[provider.googledrive.appId]
-label = "App-ID"
-description = "Google Drive App-ID fra Google Cloud Console"

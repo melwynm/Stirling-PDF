@@ -16,13 +16,13 @@ comingSoon = "Tezliklə"
 confirmClose = "Bağlamağı təsdiq et"
 confirmCloseCancel = "Ləğv et"
 confirmCloseConfirm = "Faylı bağla"
-confirmCloseMessage = "Bu faylı bağlamaq istədiyinizə əminsiniz?"
 confirmCloseDiscard = "Dəyişiklikləri at və bağla"
+confirmCloseMessage = "Bu faylı bağlamaq istədiyinizə əminsiniz?"
 confirmCloseSave = "Yadda saxla və bağla"
+confirmCloseSaveFailed = "Xətalarla yadda saxlanılıb. {{count}} fayl{{plural}} yadda saxlanıla bilmədi."
+confirmCloseSaveFailedTitle = "Yadda saxlanma uğursuz oldu"
 confirmCloseUnsaved = "Bu faylda yadda saxlanılmamış dəyişikliklər var."
 confirmCloseUnsavedList = "Sizdə yadda saxlanılmamış dəyişiklikləri olan {{count}} fayl{{plural}} var.\n\n{{fileList}}"
-confirmCloseSaveFailedTitle = "Yadda saxlanma uğursuz oldu"
-confirmCloseSaveFailed = "Xətalarla yadda saxlanılıb. {{count}} fayl{{plural}} yadda saxlanıla bilmədi."
 confirmPasswordErrorMessage = "Yeni Şifr və Yeni Şifri Doğrula uyğun olmalıdır."
 custom = "Xüsusi..."
 customPosition = "Xüsusi mövqe"
@@ -42,11 +42,12 @@ downloadComplete = "Yükləmə Tamamlandı"
 downloadPdf = "PDF Yüklə"
 downloadUnavailable = "Bu element üçün endirmə mövcud deyil"
 edit = "Redaktə et"
+editSecret = "Bu dəyəri redaktə et"
 editYourNewFiles = "Yeni fayl(lar)ınızı redaktə edin"
 exportAndContinue = "İxrac et və davam et"
 false = "Yanlış"
-fileSavedToDisk = "Fayl diskə yadda saxlanıldı"
 fileNotSavedToDisk = "Diskə yadda saxlanılmadı"
+fileSavedToDisk = "Fayl diskə yadda saxlanıldı"
 fileSelected = "Seçilən: {{filename}}"
 filesSelected = "seçilmiş fayllar"
 font = "Şrift"
@@ -60,12 +61,15 @@ help = "Yardım"
 imgPrompt = "Şəkil(lər)i Seç"
 incorrectPasswordMessage = "Cari şifr yanlışdır."
 info = "Məlumat"
+insufficientCredits = "Insufficient credits. Required: {{requiredCredits}}, Available: {{currentBalance}}, Shortfall: {{shortfall}}"
 invalidPasswordMessage = "Şifr boş olmamalıdır, başlanğıc və sonunda boşluqdan istifadə edilməməlidir."
 invalidUndoData = "Geri alma mümkün deyil: etibarsız əməliyyat məlumatı"
 invalidUsernameMessage = "Yanlış istifadəçi adı, istifadəçi adı sadəcə hərflərdən, rəqəmlərdən və @._+- xüsusi simvollarından ibarət ola bilər və ya düzgün email ünvanı olmalıdır."
 joinDiscord = "Discord serverimizə qatıl"
 keepWorking = "İşə davam et"
 loading = "Yüklənir..."
+loadingCredits = "Checking credits..."
+loadingProStatus = "Checking subscription status..."
 logOut = "Hesabdan çıx"
 marginTooltip = "Səhifə nömrəsi ilə səhifənin kənarı arasındakı məsafə."
 moreOptions = "Daha çox seçim"
@@ -79,6 +83,7 @@ noFilesToUndo = "Geri alma mümkün deyil: son əməliyyatda heç bir fayl emal 
 noOperationToUndo = "Geri alınacaq əməliyyat yoxdur"
 notAuthenticatedMessage = "İstifadəçinin kimliyi təsdiqlənməyib."
 nothingToUndo = "Geri alınacaq heç nə yoxdur"
+noticeTopUpOrPlan = "Not enough credits, please top up or upgrade to a plan"
 noValidFiles = "Emal üçün etibarlı fayl yoxdur"
 oops = "Bağışlayın!"
 openInViewer = "Baxışda aç"
@@ -95,9 +100,9 @@ pendingRedactionsTitle = "Tətbiq olunmamış məxfiləşdirmələr"
 pin = "Faylı bərkid (alət icrasından sonra aktiv saxla)"
 poweredBy = "Təchiz edilmişdir"
 pro = "Pro"
-processTimeWarning = "Xəbərdarlıq: Bu proses fayl ölçüsündən asılı olaraq bir dəqiqəyə qədər vaxt ala bilər"
 processingComplete = "Faylınız hazırdır."
 processingCompleteMultiple = "{{count}} fayl hazırdır."
+processTimeWarning = "Xəbərdarlıq: Bu proses fayl ölçüsündən asılı olaraq bir dəqiqəyə qədər vaxt ala bilər"
 property = "Xüsusiyyət"
 quickPosition = "Sürətli mövqe"
 red = "Qırmızı"
@@ -107,7 +112,6 @@ save = "Saxla"
 saveToBrowser = "Brauzerdə Saxla"
 saveUnavailable = "Bu element üçün saxlama mövcud deyil"
 seeDockerHub = "Docker Hub-a bax"
-editSecret = "Bu dəyəri redaktə et"
 selectFillter = "-- Seç --"
 size = "Ölçü"
 sponsor = "Sponsor"
@@ -845,6 +849,14 @@ title = "API Endpointlər"
 userDefaults = "İstifadəçi Seçimlərinin İlkin Dəyərləri"
 userDefaultsDescription = "İstifadəçi seçimləri üçün ilkin dəyərləri təyin edin. İstifadəçilər bunları şəxsi ayarlarında dəyişə bilər."
 
+[admin.settings.endpoints.defaultHideUnavailableConversions]
+description = "Deaktiv edilmiş çevirmə seçimlərini boz rəngdə göstərmək əvəzinə gizlədin"
+label = "Standart olaraq mövcud olmayan çevirmələri gizlət"
+
+[admin.settings.endpoints.defaultHideUnavailableTools]
+description = "Deaktiv edilmiş alətləri boz rəngdə göstərmək əvəzinə gizlədin"
+label = "Standart olaraq mövcud olmayan alətləri gizlət"
+
 [admin.settings.endpoints.groupsToRemove]
 description = "Deaktiv ediləcək endpoint qruplarını seçin"
 label = "Deaktiv Edilmiş Endpoint Qrupları"
@@ -852,14 +864,6 @@ label = "Deaktiv Edilmiş Endpoint Qrupları"
 [admin.settings.endpoints.toRemove]
 description = "Deaktiv etmək üçün ayrı-ayrı endpointləri seçin"
 label = "Deaktiv Edilmiş Endpointlər"
-
-[admin.settings.endpoints.defaultHideUnavailableTools]
-description = "Deaktiv edilmiş alətləri boz rəngdə göstərmək əvəzinə gizlədin"
-label = "Standart olaraq mövcud olmayan alətləri gizlət"
-
-[admin.settings.endpoints.defaultHideUnavailableConversions]
-description = "Deaktiv edilmiş çevirmə seçimlərini boz rəngdə göstərmək əvəzinə gizlədin"
-label = "Standart olaraq mövcud olmayan çevirmələri gizlət"
 
 [admin.settings.enterpriseRequired]
 message = "{{featureName}} funksiyasına daxil olmaq üçün Enterprise lisenziyası tələb olunur. Siz istinad üçün demo məlumatlarına baxırsınız."
@@ -968,6 +972,10 @@ label = "Standart Dil"
 description = "Maksimal fayl yükləmə ölçüsü (məs., 100MB, 1GB)"
 label = "Fayl yükləmə limiti"
 
+[admin.settings.general.frontendUrl]
+description = "Frontend üçün əsas URL (məs., https://pdf.example.com). E-poçt dəvət linkləri və mobil QR kod yükləmələri üçün istifadə olunur. Boş saxlayın ki, backend URL istifadə edilsin."
+label = "Frontend URL"
+
 [admin.settings.general.hideDisabledTools]
 description = "Deaktiv edilmiş alətləri interfeysdən gizlət"
 label = "Deaktiv alətləri gizlət"
@@ -979,10 +987,6 @@ label = "Google Drive-ı gizlət"
 [admin.settings.general.hideDisabledTools.mobileScanner]
 description = "Aktiv olmadıqda mobil QR skaner düyməsini gizlət"
 label = "Mobil skaneri gizlət"
-
-[admin.settings.general.frontendUrl]
-description = "Frontend üçün əsas URL (məs., https://pdf.example.com). E-poçt dəvət linkləri və mobil QR kod yükləmələri üçün istifadə olunur. Boş saxlayın ki, backend URL istifadə edilsin."
-label = "Frontend URL"
 
 [admin.settings.general.homeDescription]
 description = "Əsas səhifədə göstərilən təsvir mətni"
@@ -1163,9 +1167,25 @@ description = "Autentifikasiya, giriş davranışı və təhlükəsizlik siyasə
 title = "Təhlükəsizlik"
 
 [admin.settings.security.audit]
+hideDetails = "Audit səviyyəsinin detallarını gizlət"
 label = "Audit Jurnallaşdırma"
 showDetails = "Audit səviyyəsinin detallarını göstər"
-hideDetails = "Audit səviyyəsinin detallarını gizlət"
+
+[admin.settings.security.audit.advancedOptions]
+description = "Aşağıdaki seçimlər işləmə vaxtını və yaddaş istifadəsini artırır. Yalnız həqiqətən lazım olduqda aktiv edin."
+title = "Qabaqcıl seçimlər"
+
+[admin.settings.security.audit.captureFileHash]
+description = "Yüklənən PDF fayllarının bütövlüyünü yoxlamaq üçün onların SHA-256 Hash-ını çıxar. Audit səviyyəsindən asılı deyil."
+label = "Fayl Hash-ını çıxar (SHA-256)"
+
+[admin.settings.security.audit.captureOperationResults]
+description = "Metodun geri qaytardığı dəyərləri qeyd edir. Tövsiyə olunmur: jurnal həcmini və disk istifadəsini əhəmiyyətli dərəcədə artırır."
+label = "Əməliyyat nəticələrini qeyd et"
+
+[admin.settings.security.audit.capturePdfAuthor]
+description = "Emal zamanı PDF sənədlərindən müəllif sahəsini çıxarır. PDF parsinqi tələb edir, gecikməni artırır. Audit səviyyəsindən asılı deyil."
+label = "PDF müəllif metadatasını çıxar"
 
 [admin.settings.security.audit.enabled]
 description = "Uyğunluq və təhlükəsizlik monitorinqi üçün istifadəçi hərəkətlərini və sistem hadisələrini izləyin"
@@ -1176,30 +1196,14 @@ description = "0=OFF, 1=BASIC, 2=STANDARD, 3=VERBOSE"
 label = "Audit Səviyyəsi"
 
 [admin.settings.security.audit.levelDetails]
-off = "Audit jurnalı yoxdur (kritik təhlükəsizlik hadisələri istisna olmaqla)"
 basic = "PDF fayl əməliyyatları (sıxlaşdırma, bölmə, birləşdirmə və s.) və ayarlardakı dəyişikliklər. Qeyd edir: əməliyyat statusu (uğur/uğursuzluq), metod parametrləri, zamanlama. Minimal jurnal həcmi."
+off = "Audit jurnalı yoxdur (kritik təhlükəsizlik hadisələri istisna olmaqla)"
 standard = "BASIC hadisələrə əlavə olaraq: istifadəçinin daxil olması/çıxışı, hesab dəyişiklikləri, ümumi GET sorğuları. Jurnal səs-küyünü azaltmaq üçün fasiləsiz pollinq çağırışlarını (/auth/me, /app-config, /health və s.) istisna edir. Əksər quraşdırmalar üçün uyğundur."
 verbose = "STANDARD hadisələrə əlavə olaraq: fasiləsiz pollinq çağırışları, bütün GET sorğuları, detallı zamanlama. Xəbərdarlıq: yüksək jurnal həcmi və performans təsiri."
 
 [admin.settings.security.audit.retentionDays]
 description = "Audit jurnallarının saxlanılacağı gün sayı"
 label = "Audit saxlanma (gün)"
-
-[admin.settings.security.audit.advancedOptions]
-title = "Qabaqcıl seçimlər"
-description = "Aşağıdaki seçimlər işləmə vaxtını və yaddaş istifadəsini artırır. Yalnız həqiqətən lazım olduqda aktiv edin."
-
-[admin.settings.security.audit.captureFileHash]
-description = "Yüklənən PDF fayllarının bütövlüyünü yoxlamaq üçün onların SHA-256 Hash-ını çıxar. Audit səviyyəsindən asılı deyil."
-label = "Fayl Hash-ını çıxar (SHA-256)"
-
-[admin.settings.security.audit.capturePdfAuthor]
-description = "Emal zamanı PDF sənədlərindən müəllif sahəsini çıxarır. PDF parsinqi tələb edir, gecikməni artırır. Audit səviyyəsindən asılı deyil."
-label = "PDF müəllif metadatasını çıxar"
-
-[admin.settings.security.audit.captureOperationResults]
-description = "Metodun geri qaytardığı dəyərləri qeyd edir. Tövsiyə olunmur: jurnal həcmini və disk istifadəsini əhəmiyyətli dərəcədə artırır."
-label = "Əməliyyat nəticələrini qeyd et"
 
 [admin.settings.security.csrfDisabled]
 description = "Cross-Site Request Forgery mühafizəsini söndür (tövsiyə olunmur)"
@@ -1268,6 +1272,14 @@ label = "İlkin istifadəçi adı"
 [admin.settings.security.jwt]
 label = "JWT Konfiqurasiyası"
 
+[admin.settings.security.jwt.allowedClockSkewSeconds]
+description = "Tokenin təsdiqlənməsi zamanı müştəri/server vaxt sürüşməsinə dözümlülük (standart: 60 saniyə)"
+label = "Vaxt sürüşməsinə dözümlülük (saniyə)"
+
+[admin.settings.security.jwt.desktopTokenExpiryMinutes]
+description = "Masaüstü müştərilər üçün giriş tokeninin ömrü, dəqiqə ilə. Masaüstü tətbiqlər User-Agent vasitəsilə avtomatik aşkar edilir və daha yaxşı UX üçün daha uzun sessiyalar alır (standart: 43200 = 30 gün)"
+label = "Masaüstü tokeninin bitmə vaxtı (dəqiqə)"
+
 [admin.settings.security.jwt.enableKeyCleanup]
 description = "Müddəti bitmiş JWT açarlarını avtomatik sil"
 label = "Açarların təmizlənməsini aktiv et"
@@ -1276,29 +1288,21 @@ label = "Açarların təmizlənməsini aktiv et"
 description = "JWT imzalama açarlarını mütəmadi olaraq avtomatik rotasiya et"
 label = "Açarların rotasiyasını aktiv et"
 
-[admin.settings.security.jwt.tokenExpiryMinutes]
-description = "Veb müştərilər üçün giriş tokeninin ömrü, dəqiqə ilə (standart: 1440 = 24 saat)"
-label = "Veb tokeninin bitmə vaxtı (dəqiqə)"
-
-[admin.settings.security.jwt.desktopTokenExpiryMinutes]
-description = "Masaüstü müştərilər üçün giriş tokeninin ömrü, dəqiqə ilə. Masaüstü tətbiqlər User-Agent vasitəsilə avtomatik aşkar edilir və daha yaxşı UX üçün daha uzun sessiyalar alır (standart: 43200 = 30 gün)"
-label = "Masaüstü tokeninin bitmə vaxtı (dəqiqə)"
-
-[admin.settings.security.jwt.allowedClockSkewSeconds]
-description = "Tokenin təsdiqlənməsi zamanı müştəri/server vaxt sürüşməsinə dözümlülük (standart: 60 saniyə)"
-label = "Vaxt sürüşməsinə dözümlülük (saniyə)"
+[admin.settings.security.jwt.persistence]
+description = "Server yenidən başladıqda itirilməməsi üçün JWT açarlarını davamlı saxla"
+label = "Açarların davamlı saxlanmasını aktiv et"
 
 [admin.settings.security.jwt.refreshGraceMinutes]
 description = "Bitdikdən sonra bu qədər dəqiqə ərzində tokenin yenilənməsinə icazə verin (standart: 15 dəqiqə, maksimum 3 cəhd)"
 label = "Yeniləmə üçün möhlət (dəqiqə)"
 
-[admin.settings.security.jwt.persistence]
-description = "Server yenidən başladıqda itirilməməsi üçün JWT açarlarını davamlı saxla"
-label = "Açarların davamlı saxlanmasını aktiv et"
-
 [admin.settings.security.jwt.secureCookie]
 description = "JWT kukiləri üçün HTTPS tələb et (istehsalat üçün tövsiyə olunur)"
 label = "Təhlükəsiz Cookie"
+
+[admin.settings.security.jwt.tokenExpiryMinutes]
+description = "Veb müştərilər üçün giriş tokeninin ömrü, dəqiqə ilə (standart: 1440 = 24 saat)"
+label = "Veb tokeninin bitmə vaxtı (dəqiqə)"
 
 [admin.settings.security.loginAttemptCount]
 description = "Hesabın bloklanmasından əvvəl maksimal uğursuz giriş cəhdlərinin sayı"
@@ -1586,68 +1590,6 @@ goToSettings = "Audit ayarlarına keç"
 notAvailable = "Audit sistemi əlçatan deyil"
 notAvailableMessage = "Audit sistemi konfiqurasiya edilməyib və ya əlçatan deyil."
 
-[audit.error]
-title = "Audit sistemi yüklənərkən xəta"
-
-[audit.export]
-clearFilters = "Təmizlə"
-description = "Audit hadisələrini CSV və ya JSON formatına ixrac edin. İxrac olunan məlumatı məhdudlaşdırmaq üçün filtrlərdən istifadə edin."
-endDate = "Bitmə tarixi"
-error = "Məlumatın ixracı alınmadı"
-exportButton = "Məlumatı ixrac et"
-fieldAuthor = "Müəllif (PDF-dən)"
-fieldDate = "Tarix"
-fieldDocumentName = "Sənəd adı"
-fieldFileHash = "Fayl Hash (SHA-256)"
-fieldIpAddress = "IP ünvanı"
-fieldOperationResults = "Əməliyyat nəticələri"
-fieldOutcome = "Nəticə (Uğur/Uğursuzluq)"
-fieldTool = "Alət"
-fieldUsername = "İstifadəçi adı"
-filterByType = "Növə görə filtrlə"
-filterByUser = "İstifadəçiyə görə filtrlə"
-filters = "Filtrlər (istəyə bağlı)"
-format = "İxrac formatı"
-selectFields = "Daxil ediləcək sahələri seçin"
-startDate = "Başlanğıc tarixi"
-title = "Audit məlumatlarının ixracı"
-verboseRequired = "VERBOSE audit səviyyəsi tələb olunur"
-
-[audit.systemStatus]
-autoRefresh = "Avto-yeniləmə"
-autoRefreshLabel = "Hər 30 saniyədən bir avto-yenilə"
-captureBySettings = "Ayarlar vasitəsilə aktiv edin"
-capturedFields = "Qeyd olunan sahələr"
-date = "Tarix"
-days = "gün"
-disabled = "Deaktiv"
-documentName = "Sənəd adı"
-enabled = "Aktiv"
-fileHash = "Fayl Hash"
-level = "Audit səviyyəsi"
-pdfAuthor = "PDF müəllifi"
-retention = "Saxlama müddəti"
-status = "Audit jurnalı"
-title = "Sistem statusu"
-tool = "Alət"
-totalEvents = "Cəmi hadisələr"
-username = "İstifadəçi adı"
-verboseOnly = "Yalnız VERBOSE"
-
-[audit.stats]
-activeUsers = "Aktiv istifadəçilər"
-attention = "Diqqət tələb olunur"
-avgLatency = "Orta gecikmə"
-error = "Statistikanı yükləmə xətası"
-errorLoadingStats = "Statistikanı yükləmək mümkün olmadı"
-excellent = "Əla"
-good = "Yaxşı"
-noData = "Yoxdur"
-successRate = "Uğur dərəcəsi"
-title = "Xülasə"
-totalEvents = "Ümumi hadisələr"
-vsLastPeriod = "son dövrlə müqayisədə"
-
 [audit.charts]
 byTool = "Ən çox istifadə olunan alətlər"
 byType = "Növ üzrə hadisələr"
@@ -1660,6 +1602,27 @@ noData = "Bu dövr üçün məlumat yoxdur"
 overTime = "Zamana görə hadisələr"
 title = "Audit paneli"
 week = "Həftə"
+
+[audit.clearData]
+cancel = "Ləğv et"
+codeDoesNotMatch = "Kod uyğun gəlmir"
+codePlaceholder = "Kodu buraya yazın"
+confirmationCode = "Təsdiq kodu"
+confirmationRequired = "Bütün audit məlumatlarını sil"
+confirmMessage = "Bu, bütün audit jurnallarını geri dönüşü olmayan şəkildə siləcək. Davam etmək üçün aşağıda təsdiq kodunu daxil edin."
+confirmTitle = "Silmək istədiyinizi təsdiqləyin"
+deleteButton = "Sil"
+enterCode = "Təsdiq kodu"
+enterCodeBelow = "Kodu yuxarıda göstərildiyi kimi dəqiq daxil edin (böyük-kiçik hərf nəzərə alınır)"
+initiateDelete = "Bütün məlumatları sil"
+irreversible = "GERİ DÖNMƏZ"
+success = "Uğur"
+successMessage = "Bütün audit məlumatları uğurla silindi"
+warning1 = "Bu əməliyyatı geri qaytarmaq mümkün deyil"
+warning2 = "Audit məlumatlarının silinməsi təhlükəsizlik hadisələri, istifadəçi fəaliyyətləri və fayl əməliyyatları daxil olmaqla bütün tarixçəni verilənlər bazasından daimi olaraq siləcək."
+
+[audit.error]
+title = "Audit sistemi yüklənərkən xəta"
 
 [audit.events]
 actions = "Əməliyyatlar"
@@ -1687,40 +1650,81 @@ type = "Növ"
 user = "İstifadəçi"
 viewDetails = "Təfərrüatlara baxın"
 
+[audit.export]
+clearFilters = "Təmizlə"
+description = "Audit hadisələrini CSV və ya JSON formatına ixrac edin. İxrac olunan məlumatı məhdudlaşdırmaq üçün filtrlərdən istifadə edin."
+endDate = "Bitmə tarixi"
+error = "Məlumatın ixracı alınmadı"
+exportButton = "Məlumatı ixrac et"
+fieldAuthor = "Müəllif (PDF-dən)"
+fieldDate = "Tarix"
+fieldDocumentName = "Sənəd adı"
+fieldFileHash = "Fayl Hash (SHA-256)"
+fieldIpAddress = "IP ünvanı"
+fieldOperationResults = "Əməliyyat nəticələri"
+fieldOutcome = "Nəticə (Uğur/Uğursuzluq)"
+fieldTool = "Alət"
+fieldUsername = "İstifadəçi adı"
+filterByType = "Növə görə filtrlə"
+filterByUser = "İstifadəçiyə görə filtrlə"
+filters = "Filtrlər (istəyə bağlı)"
+format = "İxrac formatı"
+selectFields = "Daxil ediləcək sahələri seçin"
+startDate = "Başlanğıc tarixi"
+title = "Audit məlumatlarının ixracı"
+verboseRequired = "VERBOSE audit səviyyəsi tələb olunur"
+
 [audit.filters]
 allOutcomes = "Hamısı"
 failureOnly = "Yalnız uğursuzluqlar"
-last7Days = "Son 7 gün"
 last30Days = "Son 30 gün"
+last7Days = "Son 7 gün"
 outcomeFilter = "Nəticə"
 quickPresets = "Sürətli filtrlər"
 successOnly = "Yalnız uğurlar"
 thisMonth = "Bu ay"
 today = "Bu gün"
 
+[audit.stats]
+activeUsers = "Aktiv istifadəçilər"
+attention = "Diqqət tələb olunur"
+avgLatency = "Orta gecikmə"
+error = "Statistikanı yükləmə xətası"
+errorLoadingStats = "Statistikanı yükləmək mümkün olmadı"
+excellent = "Əla"
+good = "Yaxşı"
+noData = "Yoxdur"
+successRate = "Uğur dərəcəsi"
+title = "Xülasə"
+totalEvents = "Ümumi hadisələr"
+vsLastPeriod = "son dövrlə müqayisədə"
+
+[audit.systemStatus]
+autoRefresh = "Avto-yeniləmə"
+autoRefreshLabel = "Hər 30 saniyədən bir avto-yenilə"
+captureBySettings = "Ayarlar vasitəsilə aktiv edin"
+capturedFields = "Qeyd olunan sahələr"
+date = "Tarix"
+days = "gün"
+disabled = "Deaktiv"
+documentName = "Sənəd adı"
+enabled = "Aktiv"
+fileHash = "Fayl Hash"
+level = "Audit səviyyəsi"
+pdfAuthor = "PDF müəllifi"
+retention = "Saxlama müddəti"
+status = "Audit jurnalı"
+title = "Sistem statusu"
+tool = "Alət"
+totalEvents = "Cəmi hadisələr"
+username = "İstifadəçi adı"
+verboseOnly = "Yalnız VERBOSE"
+
 [audit.tabs]
 clearData = "Məlumatları sil"
 dashboard = "İdarə paneli"
 events = "Audit hadisələri"
 export = "İxrac"
-
-[audit.clearData]
-cancel = "Ləğv et"
-codeDoesNotMatch = "Kod uyğun gəlmir"
-codePlaceholder = "Kodu buraya yazın"
-confirmationCode = "Təsdiq kodu"
-confirmationRequired = "Bütün audit məlumatlarını sil"
-confirmMessage = "Bu, bütün audit jurnallarını geri dönüşü olmayan şəkildə siləcək. Davam etmək üçün aşağıda təsdiq kodunu daxil edin."
-confirmTitle = "Silmək istədiyinizi təsdiqləyin"
-deleteButton = "Sil"
-enterCode = "Təsdiq kodu"
-enterCodeBelow = "Kodu yuxarıda göstərildiyi kimi dəqiq daxil edin (böyük-kiçik hərf nəzərə alınır)"
-initiateDelete = "Bütün məlumatları sil"
-irreversible = "GERİ DÖNMƏZ"
-success = "Uğur"
-successMessage = "Bütün audit məlumatları uğurla silindi"
-warning1 = "Bu əməliyyatı geri qaytarmaq mümkün deyil"
-warning2 = "Audit məlumatlarının silinməsi təhlükəsizlik hadisələri, istifadəçi fəaliyyətləri və fayl əməliyyatları daxil olmaqla bütün tarixçəni verilənlər bazasından daimi olaraq siləcək."
 
 [auth]
 accessDenied = "Giriş rədd edildi"
@@ -2358,6 +2362,9 @@ title = "İcazələri Dəyişdir"
 [changePermissions.tooltip.warning]
 text = "Bu icazələri dəyişdirilməz etmək üçün, Parol əlavə etmə alətindən istifadə edərək sahib parolu təyin edin."
 
+[cloudBadge]
+tooltip = "Bu əməliyyat bulud kreditlərinizi istifadə edəcək"
+
 [colorPicker]
 title = "Rəng seçin"
 
@@ -2574,10 +2581,48 @@ title = "Keyfiyyətin tənzimlənməsi"
 [compressPdfs]
 tags = "sıx,balaca,kiçik"
 
+[config]
+plan = "Plan"
+
 [config.account.overview]
+confirmDelete = "Delete My Account"
+deleteAccount = "Delete Account"
+deleteAccountTitle = "Delete Account"
+deleteFailed = "Failed to delete account."
+deleteFailedTitle = "Unable to delete account"
+deleteWarning = "This action is permanent and cannot be undone. All your data will be deleted."
+enterEmailConfirm = "To confirm deletion, please type your email address ({{email}}) below:"
 guestDescription = "Qonaq kimi daxil olmusunuz. Yuxarıdan hesabınızı yüksəltməyi nəzərdən keçirin."
+label = "Overview"
 manageAccountPreferences = "Hesab seçimlərinizi idarə edin"
+signedInAs = "Signed in as"
 title = "Hesab Ayarları"
+
+[config.account.profilePicture]
+description = "Upload an image to personalize your account."
+help = "PNG, JPG, or WebP up to 2MB."
+remove = "Remove"
+sizeError = "Please select an image smaller than 2MB."
+switchedToCustom = "Switched to custom picture. You can now upload your own."
+title = "Profile picture"
+upload = "Upload"
+useCustom = "Use custom picture"
+usingProvider = "Using {{provider}} profile picture"
+
+[config.account.profilePicture.cropper]
+cropError = "Failed to crop image. Please try again."
+invalidImage = "Invalid image file. Please select a valid PNG, JPG, or WebP file."
+processing = "Processing crop..."
+save = "Save Cropped Image"
+sizeErrorAfterCrop = "Cropped image is too large. Please zoom out or crop a smaller area."
+title = "Crop Profile Picture"
+zoom = "Zoom"
+
+[config.account.security]
+changePassword = "Change password"
+description = "Manage your password and security settings."
+title = "Passwords & Security"
+update = "Update password"
 
 [config.account.upgrade]
 description = "Hesabınızı bağlayın ki, tarixçəniz qorunsun və daha çox xüsusiyyətə çıxış əldə edəsiniz!"
@@ -2595,6 +2640,7 @@ upgradeButton = "Hesabı yüksəlt"
 [config.apiKeys]
 chartAriaLabel = "Kredit istifadəsi: daxili {{includedTotal}}-dən {{includedUsed}}, alınmış {{purchasedTotal}}-dən {{purchasedUsed}}"
 copyKeyAriaLabel = "API açarını kopyala"
+creditsRemaining = "Credits Remaining"
 description = "Stirling-in PDF alətləri paketinə çıxış üçün API açarınız. Layihənizə kopyalayın və ya yenisini yaratmaq üçün yeniləyin."
 docsDescription = "Stirling PDF ilə inteqrasiya haqqında daha çox öyrənin:"
 docsLink = "API Sənədləri"
@@ -2651,9 +2697,11 @@ blackwhite = "Ağ-qara"
 cbrDpi = "Şəkil göstərilməsi üçün DPI"
 cbrOptions = "CBR seçimləri"
 cbrOutputOptions = "PDF-dən CBR-ə seçimlər"
+cbrToPdf = "CBR → PDF"
 cbzDpi = "Şəkil göstərilməsi üçün DPI"
 cbzOptions = "CBZ to PDF seçimləri"
 cbzOutputOptions = "PDF to CBZ seçimləri"
+cbzToPdf = "CBZ → PDF"
 color = "Rəng"
 colorType = "Rəng növü"
 combineImages = "Şəkilləri birləşdir"
@@ -2671,13 +2719,16 @@ desc = "Faylları müxtəlif formatlar arasında çevirin"
 downloadConverted = "Çevrilmiş faylı endir"
 downloadHtml = "PDF əvəzinə ara HTML faylını endir"
 dpi = "DPI"
+ebookToPdf = "eBook → PDF"
 emailOptions = "E-poçtdan PDF-ə seçimlər"
+emlToPdf = "Email → PDF"
 errorConversion = "Faylı çevirərkən xəta baş verdi."
 errorNoFiles = "Zəhmət olmasa çevirmək üçün ən azı bir fayl seçin."
 errorNoFormat = "Zəhmət olmasa həm mənbə, həm də hədəf formatını seçin."
 errorNotSupported = "{{from}} formatından {{to}} formatına çevirmə dəstəklənmir."
 fileFormat = "Fayl formatı"
 files = "Fayllar"
+fileToPdf = "Office/Document → PDF"
 fillPage = "Səhifəni Doldur"
 fitDocumentToPage = "Sənədi səhifəyə sığdır"
 fitOption = "Sığdırma seçimi"
@@ -2705,6 +2756,9 @@ pdfaFormat = "PDF/A formatı"
 pdfaNote = "PDF/A-1b daha uyğundur, PDF/A-2b daha çox funksiyanı dəstəkləyir."
 pdfaOptions = "PDF/A seçimləri"
 pdfOptions = "PDF seçimləri"
+pdfToCbr = "PDF → CBR"
+pdfToCbz = "PDF → CBZ"
+pdfToEpub = "PDF → EPUB"
 pdfxDescription = "PDF/X etibarlı çap və qrafika mübadiləsi üçün ISO standartlı PDF alt dəstidir."
 pdfxDigitalSignatureWarning = "PDF rəqəmsal imza ehtiva edir. Bu imza növbəti addımda silinəcək."
 pptExt = "PowerPoint (.pptx)"
@@ -2719,6 +2773,7 @@ sourceFormatPlaceholder = "Mənbə formatı"
 strictMode = "Strict Mode"
 strictModeDesc = "Error if conversion is not perfect (uses VeraPDF verification)"
 svgPdfOptions = "SVG to PDF Options"
+svgToPdf = "SVG → PDF"
 svgVectorNote = "SVG files are rendered as vector graphics for crisp output at any resolution. Dimensions from the SVG determine the PDF page size."
 targetFormatPlaceholder = "Hədəf formatı"
 textRtf = "Mətn/RTF"
@@ -2791,6 +2846,77 @@ description = "These cookies are essential for the website to function properly.
 [cookieBanner.services]
 posthog = "PostHog Analitika"
 scarf = "Scarf Pixel"
+
+[credits]
+enableOverageBilling = "Həddən artıq istifadə üçün ödənişi aktiv et"
+maybeLater = "Bəlkə sonra"
+upgrade = "Təkmilləşdir"
+
+[credits.insufficient]
+brief = "Kreditlər kifayət deyil. {{required}} kredit lazımdır, sizdə {{current}} var."
+freeTier = "10 dəfə çox kredit və limitsiz həddən artıq istifadə ödənişi üçün Komanda planına yüksəldin."
+managedMember = "Kömək üçün xahiş edirik komanda rəhbərinizlə əlaqə saxlayın."
+message = "{{tool}} işlətmək üçün kifayət qədər kreditiniz yoxdur. Hazırda {{current}} kreditiniz var."
+messageWithAmount = "{{tool}} işlətmək üçün {{required}} kredit lazımdır, lakin sizdə yalnız {{current}} var."
+teamMember = "Kreditin heç vaxt bitməməsi üçün həddən artıq istifadə ödənişini aktiv edin."
+title = "Kifayət qədər kredit yoxdur"
+
+[credits.modal]
+advancedMonitoring = "Qabaqcıl monitorinq"
+allInOneWorkspace = "Hər şey bir yerdə PDF iş məkanı (baxış, alətlər və agent)"
+apiSandbox = "API sandbox"
+contactSales = "Satışla əlaqə saxla"
+creditsRemaining = "{{total}}-dən {{current}} qalıb"
+creditsThisMonth = "Aylıq kreditlər"
+current = "Cari plan"
+customPricing = "Fərdi"
+customSmartFolders = "Fərdi Smart Qovluqlar"
+dedicatedSupportSlas = "Ayrı-ayrı dəstək və SLA-lar"
+enterpriseSubscription = "Enterprise"
+everythingInCredits = "Kreditlərdə olan hər şey və əlavə olaraq:"
+everythingInFree = "Pulsuz plandakı hər şey və əlavə olaraq:"
+fasterThroughput = "10x daha sürətli işləmə"
+forRegularWork = "Müntəzəm PDF işi üçün:"
+freeTier = "Pulsuz səviyyə"
+fullyPrivateFiles = "Tam məxfi fayllar"
+largeFileProcessing = "Böyük faylların emalı"
+managedMemberMessage = "Komandanız vasitəsilə kreditlərə limitsiz çıxışınız var. Köməyə ehtiyacınız olarsa, komanda rəhbərinizlə əlaqə saxlayın."
+managedMemberTitle = "Limitsiz kreditlər"
+meteringBillingNote = "Həddən artıq istifadə kreditləri Komanda abunəliyinizlə birlikdə aylıq hesablanır. İstənilən vaxt hesab ayarlarınızda istifadənizi izləyə bilərsiniz."
+meteringExplanation = "Komanda planınıza ayda {{credits}} kredit daxildir. Bitdikdə, həddən artıq istifadə üçün ödəniş avtomatik olaraq əlavə kreditlər təqdim edir ki, işiniz yarımçıq qalmasın."
+meteringIncluded = "Komanda planı ilə ayda {{credits}} kredit daxildir"
+meteringNeverRunOut = "Heç vaxt kreditiniz bitməsin"
+meteringNoCommitment = "Öhdəlik yoxdur, istənilən vaxt ləğv edin"
+meteringPayAsYouGo = "Yalnız istifadə etdiyiniz qədər ödəyin"
+meteringPrice = "Əlavə kreditlər {{price}}/kredit"
+meteringTitle = "İstifadə qədər ödəniş (overage) hesablama"
+monthlyCredits = "aylıq kreditlər"
+orgWideAccess = "Təşkilat üzrə giriş nəzarətləri"
+overage = "həddən artıq istifadə"
+perMonth = "/ay"
+popular = "Məşhur"
+premiumAiModels = "Premium AI modelləri"
+prioritySupport = "Prioritet dəstək"
+privateDocCloud = "Məxfi Sənəd Buludu"
+ragFineTuning = "RAG + fine-tuning"
+secureApiAccess = "Təhlükəsiz API giriş"
+selfHostLink = "Sənədlərə və planlara baxın"
+selfHostPrompt = "Özünüz host etmək istəyirsiniz?"
+standardThroughput = "Standart işləmə"
+subtitle = "10 dəfə çox kredit və daha sürətli emal üçün Komanda planına yüksəldin."
+subtitlePro = "Kreditin heç vaxt bitməməsi üçün avtomatik həddən artıq istifadə ödənişini aktiv edin."
+teamLeaderOnly = "Yalnız komanda rəhbərləri həddən artıq istifadə ödənişini aktiv edə bilər"
+teamSubscription = "Komanda"
+titleExhausted = "Pulsuz kreditlərinizi istifadə etdiniz"
+titleExhaustedPro = "Kreditləriniz bitib"
+unlimitedApiAccess = "Limitsiz API girişi"
+unlimitedMonthlyCredits = "Sayt lisenziyası"
+unlimitedSeats = "Limitsiz istifadəçi yerləri"
+
+[credits.modal.features]
+everythingInCredits = "Kreditlərdə olan hər şey və əlavə olaraq:"
+everythingInFree = "Pulsuz plandakı hər şey və əlavə olaraq:"
+forRegularWork = "Müntəzəm PDF işi üçün:"
 
 [crop]
 autoCrop = "Boşluqları avtomatik qırp"
@@ -3469,10 +3595,6 @@ desc = "PDF əməliyyatlarını zəncirləyərək çoxaddımlı iş axınları q
 tags = "iş axını,ardıcıllıq,avtomatlaşdırma"
 title = "Avtomatlaşdır"
 
-[home.formFill]
-desc = "PDF forma sahələrini vizual redaktorla interaktiv doldurun"
-title = "Formu doldur"
-
 [home.autoRename]
 desc = "Aşkarlanmış başlığa əsasən PDF faylını avtomatik adlandırır"
 tags = "avto-aşkarlama,başlığa əsasən,təşkil et,yenidən adlandır"
@@ -3567,6 +3689,10 @@ title = "Səhifələri çıxar"
 desc = "Bütün interaktiv elementləri və anketləri PDF-dən sil"
 tags = "sadələşdir,sil,interaktiv"
 title = "Sadələşdir"
+
+[home.formFill]
+desc = "PDF forma sahələrini vizual redaktorla interaktiv doldurun"
+title = "Formu doldur"
 
 [home.getPdfInfo]
 desc = "PDF barədə mümkün olan bütün məlumatları əldə edir"
@@ -3854,6 +3980,7 @@ version = "Versiya"
 accountCreatedSuccess = "Hesab uğurla yaradıldı! İndi daxil ola bilərsiniz."
 alreadyLoggedIn = "Siz artıq daxil olmusunuz"
 alreadyLoggedIn2 = "cihazlar. Zəhmət olmasa, cihazlardan çıxış edin və yenidən cəhd edin."
+backToSignIn = "Back to sign in"
 cancel = "Ləğv et"
 changePasswordWarning = "İlk dəfə daxil olduqdan sonra şifrənizi dəyişin"
 credentialsUpdated = "Giriş məlumatlarınız yeniləndi. Zəhmət olmasa yenidən daxil olun."
@@ -3895,13 +4022,17 @@ or = "Və ya"
 password = "Parol"
 passwordChangedSuccess = "Parol uğurla dəyişdirildi! Zəhmət olmasa yeni parolunuzla daxil olun."
 passwordResetSent = "Parol sıfırlama linki {{email}} ünvanına göndərildi! Zəhmət olmasa e-poçtunuzu yoxlayın və təlimatlara əməl edin."
+passwordUpdatedSuccess = "Your password has been updated successfully."
 pleaseEnterBoth = "Zəhmət olmasa həm e-poçt, həm də parolu daxil edin"
 pleaseEnterEmail = "Zəhmət olmasa e-poçt ünvanınızı daxil edin"
 relyingPartyRegistrationNotFound = "Heç bir relying party qeydiyyatı tapılmadı"
 rememberme = "Məni xatırla"
+resetHelp = "Enter your email to receive a secure link to reset your password. If the link has expired, please request a new one."
+resetYourPassword = "Reset your password"
 saml2RequiresLicense = "SAML ilə giriş üçün ödənişli lisenziya (Server və ya Enterprise) tələb olunur. Planınızı yüksəltmək üçün administratorla əlaqə saxlayın."
 sending = "Göndərilir…"
 sendMagicLink = "Sehrli link göndər"
+sendResetLink = "Send reset link"
 sessionExpired = "Sessiyanızın müddəti bitdi. Zəhmət olmasa yenidən daxil olun."
 signin = "Daxil olun"
 signInAnonymously = "Qonaq kimi qeydiyyatdan keçin"
@@ -3910,9 +4041,11 @@ signinTitle = "Zəhmət olmasa, daxil olun"
 signInWith = "Bununla daxil ol"
 signOut = "Hesabdan çıx"
 ssoSignIn = "Single Sign-on vasitəsilə daxil olun"
+subtitle = "Sign back in to Stirling PDF"
 title = "Daxil olun"
 toManySessions = "Həddindən artıq aktiv sessiyanız var"
 unexpectedError = "Gözlənilməz xəta: {{message}}"
+updatePassword = "Update password"
 useEmailInstead = "E-poçt ilə daxil olun"
 useMagicLink = "Sehrli linkdən istifadə et"
 userIsDisabled = "İstifadəçi deaktivləşdirilmişdir, bu istifadəçi adı ilə giriş hal-hazırda bloklanmışdır. Zəhmət olmasa, administratorla əlaqə saxlayın."
@@ -4235,6 +4368,15 @@ body = "Stirling masaüstü tətbiq kimi ən yaxşı işləyir. Onu oflayn istif
 title = "Yüklə"
 titleWithOs = "{{osLabel}} üçün yüklə"
 
+[onboarding.freeTrial]
+afterTrialWithoutPayment = "After your trial ends, you'll continue with our free tier. Add a payment method to keep Pro access."
+afterTrialWithPayment = "Your Pro subscription will start automatically when the trial ends."
+body = "You have full access to Stirling PDF Pro features during your trial. Enjoy unlimited conversions, larger file sizes, and priority processing."
+daysRemaining = "{{days}} days remaining"
+daysRemainingSingular = "{{days}} day remaining"
+title = "Your 30-Day Pro Trial"
+trialEnds = "Trial ends {{date}}"
+
 [onboarding.planOverview]
 adminBodyLoginDisabled = "Giriş rejimini aktivləşdirdikdən sonra istifadəçiləri idarə edə, ayarları konfiqurasiya edə və serverin vəziyyətini izləyə bilərsiniz. Serverinizdə ilk <strong>{{freeTierLimit}}</strong> nəfər Stirling-dən pulsuz istifadə edir."
 adminBodyLoginEnabled = "Admin kimi istifadəçiləri idarə edə, ayarları konfiqurasiya edə və serverin vəziyyətini izləyə bilərsiniz. Serverinizdə ilk <strong>{{freeTierLimit}}</strong> nəfər Stirling-dən pulsuz istifadə edir."
@@ -4370,75 +4512,6 @@ title = "Səhifə Redaktoru"
 zoomIn = "Böyüt"
 zoomOut = "Kiçilt"
 
-[viewer]
-cannotPreviewFile = "Faylın önizlənməsi mümkün deyil"
-dualPageView = "İki Səhifə Görünüşü"
-firstPage = "Birinci səhifə"
-lastPage = "Son səhifə"
-nextPage = "Növbəti səhifə"
-onlyPdfSupported = "Görüntüləyici yalnız PDF fayllarını dəstəkləyir. Bu fayl fərqli formatda görünür."
-previousPage = "Əvvəlki səhifə"
-singlePageView = "Tək Səhifə Görünüşü"
-unknownFile = "Naməlum fayl"
-zoomIn = "Böyüt"
-zoomOut = "Kiçilt"
-
-[viewer.attachments]
-title = "Qoşmalar"
-searchPlaceholder = "Qoşmalarda axtar"
-noSupport = "Bu görüntüləyici üçün qoşma dəstəyi mövcud deyil."
-noDocument = "Qoşmalarını görmək üçün PDF açın."
-loading = "Qoşmalar yüklənir..."
-empty = "Bu sənəddə qoşma yoxdur"
-noMatch = "Axtarışınıza uyğun qoşma tapılmadı"
-
-[viewer.formBar]
-title = "Forma sahələri"
-unsavedBadge = "Saxlanılmayıb"
-unsavedDesc = "Yadda saxlanılmamış dəyişiklikləriniz var"
-hasFieldsDesc = "Bu PDF-də doldurula bilən sahələr var"
-dismiss = "Bağla"
-apply = "Dəyişiklikləri tətbiq et"
-download = "PDF-i endir"
-
-[rightRail]
-closeSelected = "Seçilmiş faylları bağla"
-selectAll = "Hamısını Seç"
-deselectAll = "Hamısını Seçməni Ləğv Et"
-selectByNumber = "Səhifə nömrələrinə görə seç"
-deleteSelected = "Seçilmiş səhifələri sil"
-closePdf = "PDF-i bağla"
-exportAll = "PDF-i ixrac et"
-downloadSelected = "Seçilmiş faylları yüklə"
-annotations = "Annotasiyalar"
-exportSelected = "Seçilmiş səhifələri ixrac et"
-formFill = "Formu doldur"
-saveChanges = "Dəyişiklikləri yadda saxla"
-toggleAttachments = "Qoşmaları göstər/gizlət"
-toggleTheme = "Mövzunu dəyiş"
-language = "Dil"
-toggleAnnotations = "Annotasiyaların görünməsini dəyiş"
-search = "PDF-də axtar"
-panMode = "Sürüşdürmə rejimi"
-applyRedactionsFirst = "Əvvəlcə məxfiləşdirmələri tətbiq edin"
-rotateLeft = "Sola döndər"
-rotateRight = "Sağa döndər"
-toggleSidebar = "Yan paneli aç/bağla"
-toggleBookmarks = "Əlfəcinləri aç/bağla"
-print = "PDF-i çap et"
-ruler = "Xətkeş / Ölçmə"
-draw = "Rəsm çək"
-redact = "Məxfiləşdir"
-exitRedaction = "Məxfiləşdirmə rejimindən çıx"
-save = "Yadda saxla"
-downloadAll = "Hamısını yüklə"
-saveAll = "Hamısını saxla"
-
-[textAlign]
-left = "Sol"
-center = "Mərkəz"
-right = "Sağ"
-
 [pageExtracter]
 header = "Səhifələri çıxar"
 placeholder = "(məsələn, 1,2,8 və ya 4,7,12-16 və ya 2n-1)"
@@ -4547,6 +4620,9 @@ title = "Məsləhətlər"
 autoClose = "Bu pəncərə avtomatik bağlanacaq..."
 billingPeriod = "Ödəniş dövrü"
 canCloseWindow = "Bu pəncərəni indi bağlaya bilərsiniz."
+checkoutInstructions = "İndi açılan brauzer pəncərəsində alışınızı tamamlayın. Ödəniş tamamlandıqdan sonra buraya qayıdın və hesab-faktura məlumatlarını yeniləmək üçün aşağıdakı düyməyə klikləyin."
+checkoutOpened = "Ödəniş səhifəsi brauzerdə açıldı"
+closeLater = "Bunu sonra edəcəyəm"
 emailInvalid = "Zəhmət olmasa düzgün e-poçt ünvanı daxil edin"
 enterpriseNote = "Yerləri checkout zamanı tənzimləyə bilərsiniz (1-1000)."
 error = "Ödəniş xətası"
@@ -4568,6 +4644,7 @@ perMonth = "/ay"
 perYear = "/il"
 preparing = "Ödənişiniz hazırlanır..."
 redirecting = "Təhlükəsiz checkout-a yönləndirilir..."
+refreshBilling = "Ödənişi tamamladım - Hesab-fakturanı yenilə"
 stripeNotConfigured = "Stripe konfiqurasiya olunmayıb"
 stripeNotConfiguredMessage = "Stripe ödəniş inteqrasiyası konfiqurasiya olunmayıb. Zəhmət olmasa administratorla əlaqə saxlayın."
 success = "Ödəniş uğurludur!"
@@ -4579,10 +4656,6 @@ upgradeCompleteMessage = "Abunəliyiniz uğurla yüksəldildi. Mövcud lisenziya
 upgradeSuccess = "Ödəniş uğurludur! Abunəliyiniz yüksəldildi. Lisenziya serverinizdə yeniləndi. Tezliklə təsdiq e-poçtu alacaqsınız."
 upgradeTitle = "{{planName}} planına yüksəldin"
 yearly = "İllik"
-checkoutOpened = "Ödəniş səhifəsi brauzerdə açıldı"
-checkoutInstructions = "İndi açılan brauzer pəncərəsində alışınızı tamamlayın. Ödəniş tamamlandıqdan sonra buraya qayıdın və hesab-faktura məlumatlarını yeniləmək üçün aşağıdakı düyməyə klikləyin."
-refreshBilling = "Ödənişi tamamladım - Hesab-fakturanı yenilə"
-closeLater = "Bunu sonra edəcəyəm"
 
 [payment.emailStage]
 continue = "Davam et"
@@ -4806,13 +4879,6 @@ prompt = "Çıxartmaq Üçün Səhifə Seç"
 submit = "Çıxart"
 title = "PDF-i CSV-ə"
 
-[PDFToXLSX]
-header = "PDF-dən Excel-ə"
-prompt = "Cədvəlləri çıxarmaq üçün səhifələri seçin"
-submit = "Çevir"
-title = "PDF-dən Excel-ə (XLSX)"
-tags = "elektron cədvəl,excel,xlsx,cədvəl,çıxar,çevir"
-
 [PDFToHTML]
 credit = "Bu Servis Fayl Çevirmək Üçün pdftohtml İşlədir"
 header = "PDF-i HTML-ə"
@@ -4911,6 +4977,13 @@ title = "PDF-i Word-ə"
 [PDFToWord.selectText]
 1 = "Çıxış Fayl Formatı"
 
+[PDFToXLSX]
+header = "PDF-dən Excel-ə"
+prompt = "Cədvəlləri çıxarmaq üçün səhifələri seçin"
+submit = "Çevir"
+tags = "elektron cədvəl,excel,xlsx,cədvəl,çıxar,çevir"
+title = "PDF-dən Excel-ə (XLSX)"
+
 [PDFToXML]
 credit = "Bu Servis Fayl Çevirmək Üçün LibreOffice İşlədir"
 header = "PDF-i XML-ə"
@@ -4976,8 +5049,11 @@ manage = "İdarə et"
 perMonth = "/ay"
 perSeat = "/yer"
 popular = "Məşhur"
+purchase = "Purchase"
+selectCredits = "Select Credit Amount"
 selectPlan = "Plan seç"
 showComparison = "Bütün xüsusiyyətləri müqayisə et"
+totalCost = "Total Cost"
 upgrade = "Yüksəlt"
 withServer = "+ Server Planı"
 
@@ -4985,19 +5061,29 @@ withServer = "+ Server Planı"
 subtitle = "Cari abunəlik detalları"
 title = "Aktiv Plan"
 
+[plan.api]
+large = "5,000 Credits"
+medium = "1,000 Credits"
+small = "500 Credits"
+xsmall = "100 Credits"
+
+[plan.apiPackages]
+subtitle = "Purchase API credits for your applications"
+title = "API Credit Packages"
+
 [plan.availablePlans]
-subtitle = "Ehtiyaclarınıza uyğun planı seçin"
 loadError = "Plan qiymətləri yüklənə bilmədi. Defolt dəyərlər istifadə olunur."
+subtitle = "Ehtiyaclarınıza uyğun planı seçin"
 title = "Mövcud Planlar"
 
 [plan.enterprise]
-siteLicense = "Sayt lisenziyası"
 highlight1 = "Fərdi qiymətləndirmə"
 highlight2 = "Həsr olunmuş dəstək"
 highlight3 = "Ən son xüsusiyyətlər"
 name = "Enterprise"
 requiresServer = "Server tələb edir"
 requiresServerMessage = "Enterprise-a yüksəltmədən əvvəl əvvəlcə Server planına keçin."
+siteLicense = "Sayt lisenziyası"
 
 [plan.feature]
 api = "API Girişi"
@@ -5069,76 +5155,19 @@ successMessage = "Lisenziyanız uğurla aktivləşdirildi. Bu pəncərəni indi 
 name = "Komanda"
 siteLicense = "Sayt lisenziyası"
 
-[credits]
-enableOverageBilling = "Həddən artıq istifadə üçün ödənişi aktiv et"
-maybeLater = "Bəlkə sonra"
-upgrade = "Təkmilləşdir"
-
-[credits.modal]
-advancedMonitoring = "Qabaqcıl monitorinq"
-allInOneWorkspace = "Hər şey bir yerdə PDF iş məkanı (baxış, alətlər və agent)"
-apiSandbox = "API sandbox"
-contactSales = "Satışla əlaqə saxla"
-creditsRemaining = "{{total}}-dən {{current}} qalıb"
-creditsThisMonth = "Aylıq kreditlər"
-current = "Cari plan"
-customPricing = "Fərdi"
-customSmartFolders = "Fərdi Smart Qovluqlar"
-dedicatedSupportSlas = "Ayrı-ayrı dəstək və SLA-lar"
-enterpriseSubscription = "Enterprise"
-everythingInCredits = "Kreditlərdə olan hər şey və əlavə olaraq:"
-everythingInFree = "Pulsuz plandakı hər şey və əlavə olaraq:"
-fasterThroughput = "10x daha sürətli işləmə"
-forRegularWork = "Müntəzəm PDF işi üçün:"
-freeTier = "Pulsuz səviyyə"
-fullyPrivateFiles = "Tam məxfi fayllar"
-largeFileProcessing = "Böyük faylların emalı"
-managedMemberMessage = "Komandanız vasitəsilə kreditlərə limitsiz çıxışınız var. Köməyə ehtiyacınız olarsa, komanda rəhbərinizlə əlaqə saxlayın."
-managedMemberTitle = "Limitsiz kreditlər"
-meteringBillingNote = "Həddən artıq istifadə kreditləri Komanda abunəliyinizlə birlikdə aylıq hesablanır. İstənilən vaxt hesab ayarlarınızda istifadənizi izləyə bilərsiniz."
-meteringExplanation = "Komanda planınıza ayda {{credits}} kredit daxildir. Bitdikdə, həddən artıq istifadə üçün ödəniş avtomatik olaraq əlavə kreditlər təqdim edir ki, işiniz yarımçıq qalmasın."
-meteringIncluded = "Komanda planı ilə ayda {{credits}} kredit daxildir"
-meteringNoCommitment = "Öhdəlik yoxdur, istənilən vaxt ləğv edin"
-meteringNeverRunOut = "Heç vaxt kreditiniz bitməsin"
-meteringPayAsYouGo = "Yalnız istifadə etdiyiniz qədər ödəyin"
-meteringPrice = "Əlavə kreditlər {{price}}/kredit"
-meteringTitle = "İstifadə qədər ödəniş (overage) hesablama"
-monthlyCredits = "aylıq kreditlər"
-orgWideAccess = "Təşkilat üzrə giriş nəzarətləri"
-overage = "həddən artıq istifadə"
-perMonth = "/ay"
-popular = "Məşhur"
-premiumAiModels = "Premium AI modelləri"
-prioritySupport = "Prioritet dəstək"
-privateDocCloud = "Məxfi Sənəd Buludu"
-ragFineTuning = "RAG + fine-tuning"
-secureApiAccess = "Təhlükəsiz API giriş"
-selfHostLink = "Sənədlərə və planlara baxın"
-selfHostPrompt = "Özünüz host etmək istəyirsiniz?"
-standardThroughput = "Standart işləmə"
-subtitle = "10 dəfə çox kredit və daha sürətli emal üçün Komanda planına yüksəldin."
-subtitlePro = "Kreditin heç vaxt bitməməsi üçün avtomatik həddən artıq istifadə ödənişini aktiv edin."
-teamLeaderOnly = "Yalnız komanda rəhbərləri həddən artıq istifadə ödənişini aktiv edə bilər"
-teamSubscription = "Komanda"
-titleExhausted = "Pulsuz kreditlərinizi istifadə etdiniz"
-titleExhaustedPro = "Kreditləriniz bitib"
-unlimitedApiAccess = "Limitsiz API girişi"
-unlimitedMonthlyCredits = "Sayt lisenziyası"
-unlimitedSeats = "Limitsiz istifadəçi yerləri"
-
-[credits.modal.features]
-everythingInCredits = "Kreditlərdə olan hər şey və əlavə olaraq:"
-everythingInFree = "Pulsuz plandakı hər şey və əlavə olaraq:"
-forRegularWork = "Müntəzəm PDF işi üçün:"
-
-[credits.insufficient]
-brief = "Kreditlər kifayət deyil. {{required}} kredit lazımdır, sizdə {{current}} var."
-freeTier = "10 dəfə çox kredit və limitsiz həddən artıq istifadə ödənişi üçün Komanda planına yüksəldin."
-managedMember = "Kömək üçün xahiş edirik komanda rəhbərinizlə əlaqə saxlayın."
-message = "{{tool}} işlətmək üçün kifayət qədər kreditiniz yoxdur. Hazırda {{current}} kreditiniz var."
-messageWithAmount = "{{tool}} işlətmək üçün {{required}} kredit lazımdır, lakin sizdə yalnız {{current}} var."
-teamMember = "Kreditin heç vaxt bitməməsi üçün həddən artıq istifadə ödənişini aktiv edin."
-title = "Kifayət qədər kredit yoxdur"
+[plan.trial]
+badge = "Trial"
+continueWithFree = "Continue with Free"
+daysRemaining = "Your trial ends in {{days}} days"
+endDate = "Expires: {{date}}"
+expired = "Your Trial Has Ended"
+expiredMessage = "Your 30-day Pro trial has expired. Subscribe to Pro to continue accessing premium features, or continue with our free tier."
+freeTierLimitations = "Free tier includes basic PDF tools with usage limits."
+message = ""
+subscribe = "Subscribe to Pro"
+subscribeToPro = "Subscribe to Pro"
+subscriptionScheduled = "Subscription scheduled - starts {{date}}"
+title = "Free Trial Active"
 
 [printFile]
 header = "Faylı printerdə çap edin"
@@ -5148,6 +5177,207 @@ title = "Faylı çap edin"
 [printFile.selectText]
 1 = "Çap etmək üçün Fayl seçin"
 2 = "Printer adını daxil edin"
+
+[provider.googledrive]
+name = "Google Drive"
+scope = "Fayl idxalı"
+
+[provider.googledrive.apiKey]
+description = "Google Cloud Console-dan Google Picker API üçün Google API Key"
+label = "API Key"
+
+[provider.googledrive.appId]
+description = "Google Cloud Console-dan Google Drive App ID"
+label = "App ID"
+
+[provider.googledrive.clientId]
+description = "Google Cloud Console-dan Google OAuth 2.0 Client ID"
+label = "Client ID"
+
+[provider.googledrive.enabled]
+description = "İstifadəçilərə faylları birbaşa Google Drive-dan idxal etməyə icazə ver"
+label = "Google Drive fayl seçicisini aktiv et"
+
+[provider.oauth2.generic]
+name = "Generic OAuth2"
+scope = "SSO"
+
+[provider.oauth2.generic.autoCreateUser]
+description = "İlk OAuth2 daxilolmada istifadəçi hesablarını avtomatik yarat"
+label = "İstifadəçiləri avtomatik yarat"
+
+[provider.oauth2.generic.blockRegistration]
+description = "OAuth2 vasitəsilə yeni istifadəçi qeydiyyatının qarşısını al"
+label = "Qeydiyyatı blokla"
+
+[provider.oauth2.generic.clientId]
+description = "Provayderinizdən OAuth2 client ID"
+label = "Client ID"
+
+[provider.oauth2.generic.clientSecret]
+description = "Provayderinizdən OAuth2 client secret"
+label = "Client Secret"
+
+[provider.oauth2.generic.enabled]
+description = "Fərdi OAuth2 provayderi ilə autentifikasiyanı aktiv et"
+label = "Generic OAuth2-ni aktiv et"
+
+[provider.oauth2.generic.issuer]
+description = "OpenID Connect Discovery-ni dəstəkləyən provayder (/.well-known/openid-configuration)"
+label = "Issuer URL"
+
+[provider.oauth2.generic.provider]
+description = "OAuth2 provayderinizin adı (məs., Azure AD, Okta)"
+label = "Provayderin adı"
+
+[provider.oauth2.generic.scopes]
+description = "Vergüllə ayrılmış OAuth2 scopes"
+label = "Scopes"
+
+[provider.oauth2.generic.useAsUsername]
+description = "İstifadəçi adı kimi istifadə olunacaq sahə"
+label = "İstifadəçi adı kimi istifadə et"
+
+[provider.oauth2.github]
+scope = "Daxilolma autentifikasiyası"
+
+[provider.oauth2.github.clientId]
+description = "GitHub Developer Settings-dən OAuth2 client ID"
+label = "Client ID"
+
+[provider.oauth2.github.clientSecret]
+description = "GitHub Developer Settings-dən OAuth2 client secret"
+label = "Client Secret"
+
+[provider.oauth2.github.scopes]
+description = "Vergüllə ayrılmış OAuth2 scopes"
+label = "Scopes"
+
+[provider.oauth2.github.useAsUsername]
+description = "İstifadəçi adı kimi istifadə olunacaq sahə (email, login, name)"
+label = "İstifadəçi adı kimi istifadə et"
+
+[provider.oauth2.google]
+scope = "Daxilolma autentifikasiyası"
+
+[provider.oauth2.google.clientId]
+description = "Google Cloud Console-dan OAuth2 client ID"
+label = "Client ID"
+
+[provider.oauth2.google.clientSecret]
+description = "Google Cloud Console-dan OAuth2 client secret"
+label = "Client Secret"
+
+[provider.oauth2.google.scopes]
+description = "Vergüllə ayrılmış OAuth2 scopes"
+label = "Scopes"
+
+[provider.oauth2.google.useAsUsername]
+description = "İstifadəçi adı kimi istifadə olunacaq sahə (email, name, given_name, family_name)"
+label = "İstifadəçi adı kimi istifadə et"
+
+[provider.oauth2.keycloak]
+scope = "SSO"
+
+[provider.oauth2.keycloak.clientId]
+description = "Keycloak-dan OAuth2 client ID"
+label = "Client ID"
+
+[provider.oauth2.keycloak.clientSecret]
+description = "Keycloak-dan OAuth2 client secret"
+label = "Client Secret"
+
+[provider.oauth2.keycloak.issuer]
+description = "Keycloak realm-inin OpenID Connect Discovery endpoint URL-i"
+label = "Issuer URL"
+
+[provider.oauth2.keycloak.scopes]
+description = "Vergüllə ayrılmış OAuth2 scopes"
+label = "Scopes"
+
+[provider.oauth2.keycloak.useAsUsername]
+description = "İstifadəçi adı kimi istifadə olunacaq sahə (email, name, given_name, family_name, preferred_username)"
+label = "İstifadəçi adı kimi istifadə et"
+
+[provider.saml2]
+name = "SAML2"
+scope = "SSO (SAML)"
+
+[provider.saml2.autoCreateUser]
+description = "İlk SAML2 daxilolmada istifadəçi hesablarını avtomatik yarat"
+label = "İstifadəçiləri avtomatik yarat"
+
+[provider.saml2.blockRegistration]
+description = "SAML2 vasitəsilə yeni istifadəçi qeydiyyatının qarşısını al"
+label = "Qeydiyyatı blokla"
+
+[provider.saml2.enabled]
+description = "SAML2 autentifikasiyasını aktiv et (yalnız Enterprise)"
+label = "SAML2-ni aktiv et"
+
+[provider.saml2.idpCert]
+description = "Sertifikat yolu (məs., classpath:okta.cert)"
+label = "IDP Certificate"
+
+[provider.saml2.idpIssuer]
+description = "Provayderinizin ID-si"
+label = "IDP Issuer"
+
+[provider.saml2.idpMetadataUri]
+description = "Provayderinizin metadata URI-si"
+label = "IDP Metadata URI"
+
+[provider.saml2.idpSingleLoginUrl]
+description = "SSO-nu başlatmaq üçün URL"
+label = "IDP Single Login URL"
+
+[provider.saml2.idpSingleLogoutUrl]
+description = "SLO-nu başlatmaq üçün URL"
+label = "IDP Single Logout URL"
+
+[provider.saml2.privateKey]
+description = "Şəxsi açar yolunuz"
+label = "Private Key"
+
+[provider.saml2.provider]
+description = "SAML2 provayderinizin adı"
+label = "Provayderin adı"
+
+[provider.saml2.registrationId]
+description = "Service Provider (SP) tətbiqinizin adı"
+label = "Registration ID"
+
+[provider.saml2.spCert]
+description = "İmzalama sertifikatı yolunuz"
+label = "SP Certificate"
+
+[provider.smtp]
+name = "SMTP Mail"
+scope = "Email bildirişləri"
+
+[provider.smtp.enabled]
+description = "Email bildirişlərini və SMTP funksionallığını aktiv et"
+label = "Email-i aktiv et"
+
+[provider.smtp.from]
+description = "Göndərən kimi istifadə olunacaq email ünvanı"
+label = "Göndərən ünvanı"
+
+[provider.smtp.host]
+description = "SMTP serverinizin host adı və ya IP ünvanı"
+label = "SMTP Host"
+
+[provider.smtp.password]
+description = "SMTP autentifikasiyası üçün şifrə"
+label = "SMTP Password"
+
+[provider.smtp.port]
+description = "SMTP bağlantısı üçün port nömrəsi (adətən 25, 465 və ya 587)"
+label = "SMTP Port"
+
+[provider.smtp.username]
+description = "SMTP autentifikasiyası üçün istifadəçi adı"
+label = "SMTP Username"
 
 [quickAccess]
 account = "Hesab"
@@ -5204,15 +5434,15 @@ title = "Məxfiləşdiriləcək sözlər"
 failed = "PDF-də məxfiləşdirmə aparılarkən xəta baş verdi."
 
 [redact.manual]
+activate = "Qaraltma alətini aktiv et"
+active = "Qaraltma rejimi aktivdir"
 apply = "Tətbiq et"
 applyChanges = "Dəyişiklikləri tətbiq et"
 applyRedactions = "Apply Redactions"
 applyWarning = "⚠️ Daimi tətbiqdir, geri qaytarıla bilməz və altındakı məlumat silinəcək"
 boxRedaction = "Qutu çəkərək məxfiləşdirmə"
-colourPicker = "Rəng seçici"
 colorLabel = "Qaraltma rəngi"
-active = "Qaraltma rejimi aktivdir"
-activate = "Qaraltma alətini aktiv et"
+colourPicker = "Rəng seçici"
 controlsTitle = "Əl ilə məxfiləşdirmə idarələri"
 convertPDFToImageLabel = "PDF-i PDF-Image-ə çevir (Qutunun arxasındakı mətni silmək üçün istifadə olunur)"
 export = "İxrac Et"
@@ -5608,6 +5838,44 @@ title = "Yüksək kontrast"
 text = "PDF-dəki bütün rəngləri tam tərsinə çevirərək mənfi effekti kimi görünüş yaradır. Sənədlərin qaranlıq rejim versiyalarını yaratmaq və ya az işıqda göz yorğunluğunu azaltmaq üçün faydalıdır."
 title = "Bütün rəngləri tərsinə çevir"
 
+[rightRail]
+annotations = "Annotasiyalar"
+applyRedactionsFirst = "Əvvəlcə məxfiləşdirmələri tətbiq edin"
+closePdf = "PDF-i bağla"
+closeSelected = "Seçilmiş faylları bağla"
+deleteSelected = "Seçilmiş səhifələri sil"
+deselectAll = "Hamısını Seçməni Ləğv Et"
+downloadAll = "Hamısını yüklə"
+downloadSelected = "Seçilmiş faylları yüklə"
+draw = "Rəsm çək"
+exitRedaction = "Məxfiləşdirmə rejimindən çıx"
+exportAll = "PDF-i ixrac et"
+exportSelected = "Seçilmiş səhifələri ixrac et"
+formFill = "Formu doldur"
+language = "Dil"
+panMode = "Sürüşdürmə rejimi"
+print = "PDF-i çap et"
+readAloud = "Read Aloud"
+readAloudLanguage = "Language"
+readAloudSpeed = "Speed"
+redact = "Məxfiləşdir"
+rotateLeft = "Sola döndər"
+rotateRight = "Sağa döndər"
+ruler = "Xətkeş / Ölçmə"
+save = "Yadda saxla"
+saveAll = "Hamısını saxla"
+saveAs = "Save As"
+saveChanges = "Dəyişiklikləri yadda saxla"
+search = "PDF-də axtar"
+selectAll = "Hamısını Seç"
+selectByNumber = "Səhifə nömrələrinə görə seç"
+selectLanguage = "Select language"
+toggleAnnotations = "Annotasiyaların görünməsini dəyiş"
+toggleAttachments = "Qoşmaları göstər/gizlət"
+toggleBookmarks = "Əlfəcinləri aç/bağla"
+toggleSidebar = "Yan paneli aç/bağla"
+toggleTheme = "Mövzunu dəyiş"
+
 [rotate]
 rotateLeft = "Saat əksinə döndür"
 rotateRight = "Saat istiqamətində döndür"
@@ -5755,6 +6023,14 @@ placeholder = "Axtarış sözünü daxil edin..."
 searching = "Axtarılır..."
 title = "PDF-də axtar"
 
+[selfHosted.offline]
+hideTools = "Hide unavailable tools ▴"
+messageNoFallback = "Tools are unavailable until your server comes back online."
+messageWithFallback = "Some tools require a server connection."
+showTools = "View unavailable tools ▾"
+title = "Your Stirling-PDF server is unreachable"
+toolNotAvailableLocally = "Your Stirling-PDF server is offline and \"{{endpoint}}\" is not available on the local backend."
+
 [session]
 expired = "Sessiyanızın vaxtı bitdi. Səhifəni yeniləyin və yenidən cəhd edin."
 refreshPage = "Səhifəni Yenilə"
@@ -5776,70 +6052,6 @@ user = "Daxil olub:"
 [settings.connection.mode]
 saas = "Stirling Cloud"
 selfhosted = "Öz serverində"
-
-[settings.planBilling]
-currentPlan = "Cari plan"
-loading = "Hesab-faktura məlumatları yüklənir..."
-notAvailable = "Plan və Hesab-faktura yalnız Stirling Cloud-a (SaaS rejimi) qoşulduqda mövcuddur."
-title = "Plan və Hesab-faktura"
-
-[settings.planBilling.billing]
-manageBilling = "Hesab-fakturanı idarə et"
-nextBillingDate = "Növbəti hesab-faktura tarixi"
-overageCost = "Cari həddən artıq istifadə dəyəri: {{amount}} ({{credits}} kredit)"
-
-[settings.planBilling.credits]
-estimatedCost = "Təxmini dəyər: {{amount}}"
-freeTierInfo = "Pulsuz plana ayda {{freeCredits}} kredit daxildir. Ayda {{teamCredits}} kredit və istifadə qədər ödənişli həddən artıq istifadə üçün Komandaya yüksəldin."
-included = "{{count}} kredit/ay (daxildir)"
-noOverage = "Bu ay həddən artıq istifadə ödənişi yoxdur. Daxil olan {{count}} kreditdən istifadə edirsiniz."
-overage = "+ {{count}} həddən artıq istifadə"
-overageInfo = "Həddən artıq istifadə kreditləri hər kredit üçün {{price}} ilə hesablanır. Aylıq limitdən kənar istifadə etdiyiniz qədər ödəyəcəksiniz."
-title = "Kredit istifadəsi"
-
-[settings.planBilling.errors]
-fetchFailed = "Hesab-faktura məlumatları əldə edilə bilmədi"
-retry = "Yenidən cəhd et"
-
-[settings.planBilling.status]
-active = "Aktiv"
-canceled = "Ləğv edilib"
-pastDue = "Gecikmiş"
-trial = "Sınaq"
-
-[settings.planBilling.tier]
-enterprise = "Enterprise"
-enterpriseDescription = "Fərdi enterprise funksiyalar və dəstək"
-free = "Pulsuz"
-freeDescription = "Ayda 50 kredit"
-team = "Komanda"
-teamBadge = "Komanda"
-teamDescription = "Ayda 500 kredit daxildir, fasiləsiz xidmət üçün avtomatik həddən artıq istifadə ödənişi"
-teamTooltipCredits = "Komanda planına ayda {{credits}} kredit daxildir."
-teamTooltipFineprint = "Daxil olan kreditlərdən artıq istifadə etdiyiniz qədər ödəyin."
-teamTooltipOverage = "{{price}}/kredit üzrə avtomatik həddən artıq istifadə ödənişi fasiləsiz xidməti təmin edir."
-
-[settings.planBilling.team]
-managedByTeam = "Komanda tərəfindən idarə olunur"
-memberCount = "{{count}} komanda üzvü"
-
-[settings.planBilling.trial]
-daysRemaining = "{{days}} gün qalıb"
-daysRemainingFull = "Sınaq müddətiniz {{days}} günə bitir"
-endDate = "Bitmə tarixi: {{date}}"
-endsOn = "Sınaq bitir"
-title = "Pulsuz sınaq aktivdir"
-
-[settings.planBilling.upgrade]
-cta = "Komandaya yüksəlt"
-featureApi = "Avtomatlaşdırma üçün API girişi"
-featureCredits = "Ayda {{teamCredits}} kredit (Pulsuz planda {{freeCredits}} ilə müqayisədə)"
-featureMembers = "Limitsiz komanda üzvləri"
-featureSupport = "Prioritet dəstək"
-featureThroughput = "Daha sürətli emal performansı"
-opensInBrowser = "Yüksəltməni tamamlamaq üçün brauzerdə açılır"
-subtitle = "Aşağıdakılar üçün Komandaya yüksəldin:"
-title = "Planınızı yüksəldin"
 
 [settings.developer]
 apiKeys = "API açarları"
@@ -5923,6 +6135,70 @@ plan = "Plan"
 title = "Lisenziyalaşdırma və Analitika"
 usageAnalytics = "İstifadə analitikası"
 
+[settings.planBilling]
+currentPlan = "Cari plan"
+loading = "Hesab-faktura məlumatları yüklənir..."
+notAvailable = "Plan və Hesab-faktura yalnız Stirling Cloud-a (SaaS rejimi) qoşulduqda mövcuddur."
+title = "Plan və Hesab-faktura"
+
+[settings.planBilling.billing]
+manageBilling = "Hesab-fakturanı idarə et"
+nextBillingDate = "Növbəti hesab-faktura tarixi"
+overageCost = "Cari həddən artıq istifadə dəyəri: {{amount}} ({{credits}} kredit)"
+
+[settings.planBilling.credits]
+estimatedCost = "Təxmini dəyər: {{amount}}"
+freeTierInfo = "Pulsuz plana ayda {{freeCredits}} kredit daxildir. Ayda {{teamCredits}} kredit və istifadə qədər ödənişli həddən artıq istifadə üçün Komandaya yüksəldin."
+included = "{{count}} kredit/ay (daxildir)"
+noOverage = "Bu ay həddən artıq istifadə ödənişi yoxdur. Daxil olan {{count}} kreditdən istifadə edirsiniz."
+overage = "+ {{count}} həddən artıq istifadə"
+overageInfo = "Həddən artıq istifadə kreditləri hər kredit üçün {{price}} ilə hesablanır. Aylıq limitdən kənar istifadə etdiyiniz qədər ödəyəcəksiniz."
+title = "Kredit istifadəsi"
+
+[settings.planBilling.errors]
+fetchFailed = "Hesab-faktura məlumatları əldə edilə bilmədi"
+retry = "Yenidən cəhd et"
+
+[settings.planBilling.status]
+active = "Aktiv"
+canceled = "Ləğv edilib"
+pastDue = "Gecikmiş"
+trial = "Sınaq"
+
+[settings.planBilling.team]
+managedByTeam = "Komanda tərəfindən idarə olunur"
+memberCount = "{{count}} komanda üzvü"
+
+[settings.planBilling.tier]
+enterprise = "Enterprise"
+enterpriseDescription = "Fərdi enterprise funksiyalar və dəstək"
+free = "Pulsuz"
+freeDescription = "Ayda 50 kredit"
+team = "Komanda"
+teamBadge = "Komanda"
+teamDescription = "Ayda 500 kredit daxildir, fasiləsiz xidmət üçün avtomatik həddən artıq istifadə ödənişi"
+teamTooltipCredits = "Komanda planına ayda {{credits}} kredit daxildir."
+teamTooltipFineprint = "Daxil olan kreditlərdən artıq istifadə etdiyiniz qədər ödəyin."
+teamTooltipOverage = "{{price}}/kredit üzrə avtomatik həddən artıq istifadə ödənişi fasiləsiz xidməti təmin edir."
+
+[settings.planBilling.trial]
+daysRemaining = "{{days}} gün qalıb"
+daysRemainingFull = "Sınaq müddətiniz {{days}} günə bitir"
+endDate = "Bitmə tarixi: {{date}}"
+endsOn = "Sınaq bitir"
+title = "Pulsuz sınaq aktivdir"
+
+[settings.planBilling.upgrade]
+cta = "Komandaya yüksəlt"
+featureApi = "Avtomatlaşdırma üçün API girişi"
+featureCredits = "Ayda {{teamCredits}} kredit (Pulsuz planda {{freeCredits}} ilə müqayisədə)"
+featureMembers = "Limitsiz komanda üzvləri"
+featureSupport = "Prioritet dəstək"
+featureThroughput = "Daha sürətli emal performansı"
+opensInBrowser = "Yüksəltməni tamamlamaq üçün brauzerdə açılır"
+subtitle = "Aşağıdakılar üçün Komandaya yüksəldin:"
+title = "Planınızı yüksəldin"
+
 [settings.policiesPrivacy]
 legal = "Hüquqi"
 privacy = "Məxfilik"
@@ -5930,6 +6206,9 @@ title = "Siyasətlər və Məxfilik"
 
 [settings.preferences]
 title = "Seçimlər"
+
+[settings.search]
+placeholder = "Search settings pages..."
 
 [settings.security]
 description = "Hesabınızı təhlükəsiz saxlamaq üçün parolunuzu yeniləyin."
@@ -5956,6 +6235,9 @@ security = "Təhlükəsizlik"
 telegram = "Telegram"
 title = "Təhlükəsizlik və Autentifikasiya"
 
+[settings.team]
+title = "Komanda"
+
 [settings.tooltips]
 enableLoginFirst = "Əvvəlcə login rejimini aktiv edin"
 requiresEnterprise = "Enterprise lisenziyası tələb olunur"
@@ -5964,9 +6246,6 @@ requiresEnterprise = "Enterprise lisenziyası tələb olunur"
 people = "İstifadəçilər"
 teams = "Komandalar"
 title = "İş sahəsi"
-
-[settings.team]
-title = "Komanda"
 
 [setup]
 description = "Stirling PDF-dən necə istifadə edəcəyinizi seçərək başlayın"
@@ -6290,15 +6569,15 @@ desc = "Ayırıcı vərəqlərlə avtomatik böl"
 name = "Ayırıcı səhifə"
 tooltip = "Skan edərkən sənədlər arasında QR kodlu ayırıcı vərəqlərdən istifadə edin"
 
-[split.methods.byPoster]
-name = "Çap üçün hissələr"
-desc = "Böyük səhifələri çap ölçülərinə böl"
-tooltip = "Böyük ölçülü səhifələri standart kağızlarda (A4, Letter və s.) çap üçün uyğun kiçik hissələrə bölün"
-
 [split.methods.byPages]
 desc = "Müəyyən səhifələri çıxar (1,3,5-10)"
 name = "Səhifə nömrələri"
 tooltip = "Səhifə nömrələrini vergüllə ayırın və ya diapazonlar üçün tire istifadə edin"
+
+[split.methods.byPoster]
+desc = "Böyük səhifələri çap ölçülərinə böl"
+name = "Çap üçün hissələr"
+tooltip = "Böyük ölçülü səhifələri standart kağızlarda (A4, Letter və s.) çap üçün uyğun kiçik hissələrə bölün"
 
 [split.methods.bySections]
 desc = "Səhifələri tor bölmələrinə ayır"
@@ -6326,27 +6605,27 @@ title = "Bölmə üsulunuzu seçin"
 text = "PDF sənədinizi necə bölmək istədiyinizi seçin. Hər bir üsul müxtəlif istifadə hallarına və sənəd tiplərinə görə optimallaşdırılıb."
 title = "Bölmə üsulunun seçimi"
 
+[split.poster]
+rightToLeft = "Sağdan-sola böl"
+
+[split.poster.pageSize]
+description = "Çap üçün çıxış səhifələrinin ölçüsü"
+label = "Məqsəd səhifə ölçüsü"
+
+[split.poster.xFactor]
+description = "Hər səhifənin neçə sütuna bölünəcəyi"
+label = "Üfiqi bölmələr"
+
+[split.poster.yFactor]
+description = "Hər səhifənin neçə sətirə bölünəcəyi"
+label = "Şaquli bölmələr"
+
 [split.settings]
 selectMethodFirst = "Zəhmət olmasa əvvəlcə bölmə üsulunu seçin"
 
 [split.steps]
 chooseMethod = "Üsulu seçin"
 settings = "Parametrlər"
-
-[split.poster]
-rightToLeft = "Sağdan-sola böl"
-
-[split.poster.pageSize]
-label = "Məqsəd səhifə ölçüsü"
-description = "Çap üçün çıxış səhifələrinin ölçüsü"
-
-[split.poster.xFactor]
-label = "Üfiqi bölmələr"
-description = "Hər səhifənin neçə sütuna bölünəcəyi"
-
-[split.poster.yFactor]
-label = "Şaquli bölmələr"
-description = "Hər səhifənin neçə sətirə bölünəcəyi"
 
 [split.tooltip.byChapters]
 bullet1 = "Əlfəcin səviyyəsi: Hansı səviyyədə bölmək (1=ən üst səviyyə)"
@@ -6385,6 +6664,13 @@ bullet5 = "Ayırıcı vərəqlərin hər iki tərəfini skan edirsinizsə Duplex
 text = "QR kodlu fiziki ayırıcı vərəqlərdən istifadə edərək skan olunmuş sənədləri avtomatik bölün. Birlikdə skan edilmiş bir neçə sənədi emal etmək üçün mükəmməldir."
 title = "Ayırıcı səhifəyə görə böl"
 
+[split.tooltip.byPages]
+bullet1 = "Tək nöqtələr: 3,7 (3 və 7-ci səhifələrdən sonra bölür)"
+bullet2 = "Aralıqlar: 3-8 (3-cü səhifədən əvvəl və 8-ci səhifədən sonra bölür)"
+bullet3 = "Qarışıq: 2,5-10,15 (2-dən sonra, 5-dən əvvəl, 10-dan sonra və 15-dən sonra bölür)"
+text = "PDF-i konkret səhifə nömrələrində bölün. 'n' istifadə edildikdə n-ci səhifədən sonra bölünür. 'n-m' istifadə edildikdə n-dən əvvəl və m-dən sonra bölünür."
+title = "Səhifə nömrələrində böl"
+
 [split.tooltip.byPoster]
 bullet1 = "Məqsəd səhifə ölçüsü: Çıxış kağız ölçüsünü seçin (A4, Letter və s.)"
 bullet2 = "Üfiqi/Şaquli bölmələr: Bölünmə üçün şəbəkə ölçüsü"
@@ -6392,13 +6678,6 @@ bullet3 = "Sağdan-Sola: RTL tərtibatları üçün sütunların tərs düzülü
 bullet4 = "Plakatınızı yaratmaq üçün hissələri çap edib birləşdirin"
 text = "Böyük PDF səhifələrini standart kağız ölçülərinə uyğun, çap edilə bilən kiçik hissələrə bölün. Böyük ölçülü səhifələrdən plakat çapları yaratmaq üçün idealdır."
 title = "Plakat çapı üçün böl"
-
-[split.tooltip.byPages]
-bullet1 = "Tək nöqtələr: 3,7 (3 və 7-ci səhifələrdən sonra bölür)"
-bullet2 = "Aralıqlar: 3-8 (3-cü səhifədən əvvəl və 8-ci səhifədən sonra bölür)"
-bullet3 = "Qarışıq: 2,5-10,15 (2-dən sonra, 5-dən əvvəl, 10-dan sonra və 15-dən sonra bölür)"
-text = "PDF-i konkret səhifə nömrələrində bölün. 'n' istifadə edildikdə n-ci səhifədən sonra bölünür. 'n-m' istifadə edildikdə n-dən əvvəl və m-dən sonra bölünür."
-title = "Səhifə nömrələrində böl"
 
 [split.tooltip.bySections]
 bullet1 = "Üfüqi: Yaradılacaq sətir sayı"
@@ -6541,6 +6820,82 @@ title = "API sənədləşməsi"
 [tableExtraxt]
 tags = "CSV,Cədvəl xaricetmə,xaric et,çevir"
 
+[team]
+cancelInviteError = "Dəvətnaməni ləğv etmək mümkün olmadı"
+confirmCancelInvite = "Bu dəvətnaməni ləğv etmək istədiyinizə əminsiniz?"
+confirmLeave = "Bu komandadan çıxmaq istədiyinizə əminsiniz?"
+confirmLeaveLeader = "Komanda rəhbəri olaraq çıxsanız, komandadan silinəcəksiniz. Əminsiniz?"
+confirmRemove = "Bu üzvü silmək istədiyinizə əminsiniz?"
+editName = "Komanda adını redaktə et"
+inviteCancelled = "Dəvətnamə ləğv edildi"
+inviteError = "Dəvətnamə göndərilə bilmədi"
+inviteSent = "Dəvətnamə uğurla göndərildi"
+leader = "Rəhbər"
+leaveButton = "Komandadan çıx"
+leaveError = "Komandadan çıxmaq mümkün olmadı"
+leaveSuccess = "Komandadan uğurla çıxdınız"
+loading = "Komanda məlumatları yüklənir..."
+memberCount = "{{count}} üzv"
+memberRemoved = "Üzv uğurla silindi"
+namePlaceholder = "Komandanın adını daxil edin"
+personal = "Şəxsi"
+removeError = "Üzvü silmək mümkün olmadı"
+renameError = "Komandanın adını dəyişmək mümkün olmadı"
+renameSuccess = "Komandanın adı uğurla dəyişdirildi"
+
+[team.features]
+badge = "Komanda xüsusiyyətləri"
+subtitle = "Komandanızla əməkdaşlıq edin"
+title = "Komanda əməkdaşlığı"
+viewPlans = "Planlara bax"
+
+[team.features.billing]
+description = "Hesab-fakturanı və abunələri idarə edin"
+title = "Hesab-fakturanın idarə edilməsi"
+
+[team.features.credits]
+description = "Bütün üzvlər üçün paylaşılmış kredit hovuzu"
+title = "Paylaşılan kreditlər"
+
+[team.features.dashboard]
+description = "Komanda fəaliyyəti və istifadəsinə baxın"
+title = "Komanda paneli"
+
+[team.features.invite]
+description = "Komandanıza üzvlər əlavə edin"
+title = "Üzvləri dəvət et"
+
+[team.invitationBanner]
+acceptButton = "Qəbul et"
+message = "sizi qoşulmağa dəvət edib"
+rejectButton = "Rədd et"
+
+[team.invite]
+cancelLabel = "Ləğv et"
+invalidEmail = "Yanlış e-poçt ünvanı"
+placeholder = "E-poçt ünvanını daxil edin"
+sendButton = "Dəvətnamə göndər"
+title = "Komanda üzvünü dəvət et"
+
+[team.members]
+emailColumn = "E-poçt"
+empty = "Hələ komanda üzvü yoxdur"
+nameColumn = "Ad"
+pending = "Gözləyir"
+remove = "Sil"
+roleColumn = "Rol"
+title = "Komanda üzvləri"
+
+[team.upgrade]
+button = "Komandaya yüksəlt"
+description = "Komanda əməkdaşlığı funksiyalarını açın"
+title = "Komanda planına yüksəlt"
+
+[textAlign]
+center = "Mərkəz"
+left = "Sol"
+right = "Sağ"
+
 [theme]
 toggle = "Mövzunu dəyiş"
 
@@ -6557,6 +6912,7 @@ favorites = "Seçilmişlər"
 heading = "Bütün alətlər (tam ekran görünüşü)"
 noResults = "Lazımi aləti tapmaq üçün axtarışı tənzimləyin və ya təsvirləri dəyişin."
 recommended = "Tövsiyə olunur"
+selfHostedOffline = "Requires your Stirling-PDF server (currently offline):"
 showDetails = "Təfərrüatları göstər"
 unavailable = "Server administratoru tərəfindən deaktiv edilib:"
 unavailableDependency = "Mövcud deyil - serverdə tələb olunan alət yoxdur:"
@@ -6819,6 +7175,37 @@ invalid = "Sertifikat etibar anbarında deyil - mənbə təsdiqlənə bilmir"
 fileManager = "Fayl Meneceri"
 pageEditor = "Səhifə Redaktoru"
 viewer = "Görüntüləyici"
+
+[viewer]
+cannotPreviewFile = "Faylın önizlənməsi mümkün deyil"
+dualPageView = "İki Səhifə Görünüşü"
+firstPage = "Birinci səhifə"
+lastPage = "Son səhifə"
+nextPage = "Növbəti səhifə"
+onlyPdfSupported = "Görüntüləyici yalnız PDF fayllarını dəstəkləyir. Bu fayl fərqli formatda görünür."
+previousPage = "Əvvəlki səhifə"
+singlePageView = "Tək Səhifə Görünüşü"
+unknownFile = "Naməlum fayl"
+zoomIn = "Böyüt"
+zoomOut = "Kiçilt"
+
+[viewer.attachments]
+empty = "Bu sənəddə qoşma yoxdur"
+loading = "Qoşmalar yüklənir..."
+noDocument = "Qoşmalarını görmək üçün PDF açın."
+noMatch = "Axtarışınıza uyğun qoşma tapılmadı"
+noSupport = "Bu görüntüləyici üçün qoşma dəstəyi mövcud deyil."
+searchPlaceholder = "Qoşmalarda axtar"
+title = "Qoşmalar"
+
+[viewer.formBar]
+apply = "Dəyişiklikləri tətbiq et"
+dismiss = "Bağla"
+download = "PDF-i endir"
+hasFieldsDesc = "Bu PDF-də doldurula bilən sahələr var"
+title = "Forma sahələri"
+unsavedBadge = "Saxlanılmayıb"
+unsavedDesc = "Yadda saxlanılmamış dəyişiklikləriniz var"
 
 [viewPdf]
 header = "PDF-ə baxın"
@@ -7259,278 +7646,3 @@ cancel = "Ləğv et"
 confirm = "Çıxart"
 message = "Bu ZIP {{count}} fayl ehtiva edir. Yenə də çıxarılsın?"
 title = "Böyük ZIP faylı"
-
-[cloudBadge]
-tooltip = "Bu əməliyyat bulud kreditlərinizi istifadə edəcək"
-
-[team]
-cancelInviteError = "Dəvətnaməni ləğv etmək mümkün olmadı"
-confirmCancelInvite = "Bu dəvətnaməni ləğv etmək istədiyinizə əminsiniz?"
-confirmLeave = "Bu komandadan çıxmaq istədiyinizə əminsiniz?"
-confirmLeaveLeader = "Komanda rəhbəri olaraq çıxsanız, komandadan silinəcəksiniz. Əminsiniz?"
-confirmRemove = "Bu üzvü silmək istədiyinizə əminsiniz?"
-editName = "Komanda adını redaktə et"
-inviteCancelled = "Dəvətnamə ləğv edildi"
-inviteError = "Dəvətnamə göndərilə bilmədi"
-inviteSent = "Dəvətnamə uğurla göndərildi"
-leader = "Rəhbər"
-leaveButton = "Komandadan çıx"
-leaveError = "Komandadan çıxmaq mümkün olmadı"
-leaveSuccess = "Komandadan uğurla çıxdınız"
-loading = "Komanda məlumatları yüklənir..."
-memberCount = "{{count}} üzv"
-memberRemoved = "Üzv uğurla silindi"
-namePlaceholder = "Komandanın adını daxil edin"
-personal = "Şəxsi"
-removeError = "Üzvü silmək mümkün olmadı"
-renameError = "Komandanın adını dəyişmək mümkün olmadı"
-renameSuccess = "Komandanın adı uğurla dəyişdirildi"
-
-[team.invitationBanner]
-message = "sizi qoşulmağa dəvət edib"
-acceptButton = "Qəbul et"
-rejectButton = "Rədd et"
-
-[team.features]
-badge = "Komanda xüsusiyyətləri"
-subtitle = "Komandanızla əməkdaşlıq edin"
-title = "Komanda əməkdaşlığı"
-viewPlans = "Planlara bax"
-
-[team.features.billing]
-description = "Hesab-fakturanı və abunələri idarə edin"
-title = "Hesab-fakturanın idarə edilməsi"
-
-[team.features.credits]
-description = "Bütün üzvlər üçün paylaşılmış kredit hovuzu"
-title = "Paylaşılan kreditlər"
-
-[team.features.dashboard]
-description = "Komanda fəaliyyəti və istifadəsinə baxın"
-title = "Komanda paneli"
-
-[team.features.invite]
-description = "Komandanıza üzvlər əlavə edin"
-title = "Üzvləri dəvət et"
-
-[team.invite]
-cancelLabel = "Ləğv et"
-invalidEmail = "Yanlış e-poçt ünvanı"
-placeholder = "E-poçt ünvanını daxil edin"
-sendButton = "Dəvətnamə göndər"
-title = "Komanda üzvünü dəvət et"
-
-[team.members]
-emailColumn = "E-poçt"
-empty = "Hələ komanda üzvü yoxdur"
-nameColumn = "Ad"
-pending = "Gözləyir"
-remove = "Sil"
-roleColumn = "Rol"
-title = "Komanda üzvləri"
-
-[team.upgrade]
-button = "Komandaya yüksəlt"
-description = "Komanda əməkdaşlığı funksiyalarını açın"
-title = "Komanda planına yüksəlt"
-
-[provider.oauth2.google]
-scope = "Daxilolma autentifikasiyası"
-
-[provider.oauth2.google.clientId]
-label = "Client ID"
-description = "Google Cloud Console-dan OAuth2 client ID"
-
-[provider.oauth2.google.clientSecret]
-label = "Client Secret"
-description = "Google Cloud Console-dan OAuth2 client secret"
-
-[provider.oauth2.google.scopes]
-label = "Scopes"
-description = "Vergüllə ayrılmış OAuth2 scopes"
-
-[provider.oauth2.google.useAsUsername]
-label = "İstifadəçi adı kimi istifadə et"
-description = "İstifadəçi adı kimi istifadə olunacaq sahə (email, name, given_name, family_name)"
-
-[provider.oauth2.github]
-scope = "Daxilolma autentifikasiyası"
-
-[provider.oauth2.github.clientId]
-label = "Client ID"
-description = "GitHub Developer Settings-dən OAuth2 client ID"
-
-[provider.oauth2.github.clientSecret]
-label = "Client Secret"
-description = "GitHub Developer Settings-dən OAuth2 client secret"
-
-[provider.oauth2.github.scopes]
-label = "Scopes"
-description = "Vergüllə ayrılmış OAuth2 scopes"
-
-[provider.oauth2.github.useAsUsername]
-label = "İstifadəçi adı kimi istifadə et"
-description = "İstifadəçi adı kimi istifadə olunacaq sahə (email, login, name)"
-
-[provider.oauth2.keycloak]
-scope = "SSO"
-
-[provider.oauth2.keycloak.issuer]
-label = "Issuer URL"
-description = "Keycloak realm-inin OpenID Connect Discovery endpoint URL-i"
-
-[provider.oauth2.keycloak.clientId]
-label = "Client ID"
-description = "Keycloak-dan OAuth2 client ID"
-
-[provider.oauth2.keycloak.clientSecret]
-label = "Client Secret"
-description = "Keycloak-dan OAuth2 client secret"
-
-[provider.oauth2.keycloak.scopes]
-label = "Scopes"
-description = "Vergüllə ayrılmış OAuth2 scopes"
-
-[provider.oauth2.keycloak.useAsUsername]
-label = "İstifadəçi adı kimi istifadə et"
-description = "İstifadəçi adı kimi istifadə olunacaq sahə (email, name, given_name, family_name, preferred_username)"
-
-[provider.oauth2.generic]
-name = "Generic OAuth2"
-scope = "SSO"
-
-[provider.oauth2.generic.enabled]
-label = "Generic OAuth2-ni aktiv et"
-description = "Fərdi OAuth2 provayderi ilə autentifikasiyanı aktiv et"
-
-[provider.oauth2.generic.provider]
-label = "Provayderin adı"
-description = "OAuth2 provayderinizin adı (məs., Azure AD, Okta)"
-
-[provider.oauth2.generic.issuer]
-label = "Issuer URL"
-description = "OpenID Connect Discovery-ni dəstəkləyən provayder (/.well-known/openid-configuration)"
-
-[provider.oauth2.generic.clientId]
-label = "Client ID"
-description = "Provayderinizdən OAuth2 client ID"
-
-[provider.oauth2.generic.clientSecret]
-label = "Client Secret"
-description = "Provayderinizdən OAuth2 client secret"
-
-[provider.oauth2.generic.scopes]
-label = "Scopes"
-description = "Vergüllə ayrılmış OAuth2 scopes"
-
-[provider.oauth2.generic.useAsUsername]
-label = "İstifadəçi adı kimi istifadə et"
-description = "İstifadəçi adı kimi istifadə olunacaq sahə"
-
-[provider.oauth2.generic.autoCreateUser]
-label = "İstifadəçiləri avtomatik yarat"
-description = "İlk OAuth2 daxilolmada istifadəçi hesablarını avtomatik yarat"
-
-[provider.oauth2.generic.blockRegistration]
-label = "Qeydiyyatı blokla"
-description = "OAuth2 vasitəsilə yeni istifadəçi qeydiyyatının qarşısını al"
-
-[provider.smtp]
-name = "SMTP Mail"
-scope = "Email bildirişləri"
-
-[provider.smtp.enabled]
-label = "Email-i aktiv et"
-description = "Email bildirişlərini və SMTP funksionallığını aktiv et"
-
-[provider.smtp.host]
-label = "SMTP Host"
-description = "SMTP serverinizin host adı və ya IP ünvanı"
-
-[provider.smtp.port]
-label = "SMTP Port"
-description = "SMTP bağlantısı üçün port nömrəsi (adətən 25, 465 və ya 587)"
-
-[provider.smtp.username]
-label = "SMTP Username"
-description = "SMTP autentifikasiyası üçün istifadəçi adı"
-
-[provider.smtp.password]
-label = "SMTP Password"
-description = "SMTP autentifikasiyası üçün şifrə"
-
-[provider.smtp.from]
-label = "Göndərən ünvanı"
-description = "Göndərən kimi istifadə olunacaq email ünvanı"
-
-[provider.saml2]
-name = "SAML2"
-scope = "SSO (SAML)"
-
-[provider.saml2.enabled]
-label = "SAML2-ni aktiv et"
-description = "SAML2 autentifikasiyasını aktiv et (yalnız Enterprise)"
-
-[provider.saml2.provider]
-label = "Provayderin adı"
-description = "SAML2 provayderinizin adı"
-
-[provider.saml2.registrationId]
-label = "Registration ID"
-description = "Service Provider (SP) tətbiqinizin adı"
-
-[provider.saml2.idpMetadataUri]
-label = "IDP Metadata URI"
-description = "Provayderinizin metadata URI-si"
-
-[provider.saml2.idpSingleLoginUrl]
-label = "IDP Single Login URL"
-description = "SSO-nu başlatmaq üçün URL"
-
-[provider.saml2.idpSingleLogoutUrl]
-label = "IDP Single Logout URL"
-description = "SLO-nu başlatmaq üçün URL"
-
-[provider.saml2.idpIssuer]
-label = "IDP Issuer"
-description = "Provayderinizin ID-si"
-
-[provider.saml2.idpCert]
-label = "IDP Certificate"
-description = "Sertifikat yolu (məs., classpath:okta.cert)"
-
-[provider.saml2.privateKey]
-label = "Private Key"
-description = "Şəxsi açar yolunuz"
-
-[provider.saml2.spCert]
-label = "SP Certificate"
-description = "İmzalama sertifikatı yolunuz"
-
-[provider.saml2.autoCreateUser]
-label = "İstifadəçiləri avtomatik yarat"
-description = "İlk SAML2 daxilolmada istifadəçi hesablarını avtomatik yarat"
-
-[provider.saml2.blockRegistration]
-label = "Qeydiyyatı blokla"
-description = "SAML2 vasitəsilə yeni istifadəçi qeydiyyatının qarşısını al"
-
-[provider.googledrive]
-name = "Google Drive"
-scope = "Fayl idxalı"
-
-[provider.googledrive.enabled]
-label = "Google Drive fayl seçicisini aktiv et"
-description = "İstifadəçilərə faylları birbaşa Google Drive-dan idxal etməyə icazə ver"
-
-[provider.googledrive.clientId]
-label = "Client ID"
-description = "Google Cloud Console-dan Google OAuth 2.0 Client ID"
-
-[provider.googledrive.apiKey]
-label = "API Key"
-description = "Google Cloud Console-dan Google Picker API üçün Google API Key"
-
-[provider.googledrive.appId]
-label = "App ID"
-description = "Google Cloud Console-dan Google Drive App ID"
