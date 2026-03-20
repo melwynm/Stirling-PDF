@@ -78,27 +78,6 @@
             "moduleLicenseUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
         },
         {
-            "moduleName": "com.fasterxml.jackson.jakarta.rs:jackson-jakarta-rs-base",
-            "moduleUrl": "https://github.com/FasterXML/jackson-jakarta-rs-providers/jackson-jakarta-rs-base",
-            "moduleVersion": "2.20.2",
-            "moduleLicense": "The Apache Software License, Version 2.0",
-            "moduleLicenseUrl": "https://www.apache.org/licenses/LICENSE-2.0.txt"
-        },
-        {
-            "moduleName": "com.fasterxml.jackson.jakarta.rs:jackson-jakarta-rs-json-provider",
-            "moduleUrl": "https://github.com/FasterXML/jackson-jakarta-rs-providers/jackson-jakarta-rs-json-provider",
-            "moduleVersion": "2.20.2",
-            "moduleLicense": "The Apache Software License, Version 2.0",
-            "moduleLicenseUrl": "https://www.apache.org/licenses/LICENSE-2.0.txt"
-        },
-        {
-            "moduleName": "com.fasterxml.jackson.module:jackson-module-jakarta-xmlbind-annotations",
-            "moduleUrl": "https://github.com/FasterXML/jackson-modules-base",
-            "moduleVersion": "2.20.2",
-            "moduleLicense": "The Apache Software License, Version 2.0",
-            "moduleLicenseUrl": "https://www.apache.org/licenses/LICENSE-2.0.txt"
-        },
-        {
             "moduleName": "com.fasterxml.jackson:jackson-bom",
             "moduleUrl": "https://github.com/FasterXML/jackson-bom",
             "moduleVersion": "2.20.2",
@@ -439,20 +418,6 @@
             "moduleVersion": "3.13.1",
             "moduleLicense": "The BSD License",
             "moduleLicenseUrl": "https://github.com/haraldk/TwelveMonkeys#license"
-        },
-        {
-            "moduleName": "com.unboundid.product.scim2:scim2-sdk-client",
-            "moduleUrl": "https://github.com/pingidentity/scim2",
-            "moduleVersion": "5.0.0",
-            "moduleLicense": "UnboundID SCIM2 SDK Free Use License",
-            "moduleLicenseUrl": "https://github.com/pingidentity/scim2"
-        },
-        {
-            "moduleName": "com.unboundid.product.scim2:scim2-sdk-common",
-            "moduleUrl": "https://github.com/pingidentity/scim2",
-            "moduleVersion": "5.0.0",
-            "moduleLicense": "UnboundID SCIM2 SDK Free Use License",
-            "moduleLicenseUrl": "https://github.com/pingidentity/scim2"
         },
         {
             "moduleName": "com.vladsch.flexmark:flexmark",
@@ -1538,6 +1503,20 @@
         },
         {
             "moduleName": "org.eclipse.jetty:jetty-alpn-client",
+            "moduleUrl": "https://jetty.org/",
+            "moduleVersion": "12.1.6",
+            "moduleLicense": "EPL-2.0",
+            "moduleLicenseUrl": "https://www.eclipse.org/legal/epl-2.0/"
+        },
+        {
+            "moduleName": "org.eclipse.jetty:jetty-alpn-java-server",
+            "moduleUrl": "https://jetty.org/",
+            "moduleVersion": "12.1.6",
+            "moduleLicense": "EPL-2.0",
+            "moduleLicenseUrl": "https://www.eclipse.org/legal/epl-2.0/"
+        },
+        {
+            "moduleName": "org.eclipse.jetty:jetty-alpn-server",
             "moduleUrl": "https://jetty.org/",
             "moduleVersion": "12.1.6",
             "moduleLicense": "EPL-2.0",
