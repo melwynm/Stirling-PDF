@@ -1,5 +1,6 @@
 import { PDFDocument as PDFLibDocument, degrees, PageSizes } from '@cantoo/pdf-lib';
 import { downloadFile } from '@app/services/downloadService';
+import type { DownloadResult } from '@app/services/downloadService';
 import { PDFDocument, PDFPage } from '@app/types/pageEditor';
 
 export interface ExportOptions {
@@ -187,19 +188,24 @@ export class PDFExportService {
   /**
    * Download a single file
    */
-  downloadFile(blob: Blob, filename: string, localPath?: string): void {
-    void downloadFile({ data: blob, filename, localPath });
+  async downloadFile(blob: Blob, filename: string, localPath?: string): Promise<DownloadResult> {
+    return await downloadFile({ data: blob, filename, localPath });
   }
 
   /**
    * Download multiple files as a ZIP
    */
-  async downloadAsZip(blobs: Blob[], filenames: string[]): Promise<void> {
-    blobs.forEach((blob, index) => {
-      setTimeout(() => {
-        this.downloadFile(blob, filenames[index]);
-      }, index * 500); // Stagger downloads
-    });
+  async downloadAsZip(blobs: Blob[], filenames: string[]): Promise<DownloadResult[]> {
+    const results: DownloadResult[] = [];
+
+    for (let index = 0; index < blobs.length; index++) {
+      if (index > 0) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+      results.push(await this.downloadFile(blobs[index], filenames[index]));
+    }
+
+    return results;
   }
 
   /**

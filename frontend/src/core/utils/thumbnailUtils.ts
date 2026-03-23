@@ -305,17 +305,15 @@ function formatFileSize(bytes: number): string {
 }
 
 async function generatePDFThumbnail(arrayBuffer: ArrayBuffer, file: File, scale: number): Promise<string> {
+  let pdf: any;
+
   try {
-    const pdf = await pdfWorkerManager.createDocument(arrayBuffer, {
+    pdf = await pdfWorkerManager.createDocument(arrayBuffer, {
       disableAutoFetch: true,
       disableStream: true
     });
 
-    const thumbnail = await generateStandardPDFThumbnail(pdf, scale);
-
-    // Immediately clean up memory after thumbnail generation using worker manager
-    pdfWorkerManager.destroyDocument(pdf);
-    return thumbnail;
+    return await generateStandardPDFThumbnail(pdf, scale);
   } catch (error) {
     if (error instanceof Error) {
       // Check if PDF is encrypted
@@ -324,6 +322,44 @@ async function generatePDFThumbnail(arrayBuffer: ArrayBuffer, file: File, scale:
       }
     }
     throw error; // Not an encryption issue, re-throw
+  } finally {
+    if (pdf) {
+      pdfWorkerManager.destroyDocument(pdf);
+    }
+  }
+}
+
+async function loadPdfDocumentForMetadata(
+  file: File,
+  isVeryLarge: boolean
+): Promise<{ pdf: any; cleanup: () => void }> {
+  if (!isVeryLarge) {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfWorkerManager.createDocument(arrayBuffer);
+    return {
+      pdf,
+      cleanup: () => pdfWorkerManager.destroyDocument(pdf),
+    };
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+
+  try {
+    const pdf = await pdfWorkerManager.createDocument(objectUrl, {
+      disableAutoFetch: false,
+      disableStream: false,
+    });
+
+    return {
+      pdf,
+      cleanup: () => {
+        pdfWorkerManager.destroyDocument(pdf);
+        URL.revokeObjectURL(objectUrl);
+      },
+    };
+  } catch (error) {
+    URL.revokeObjectURL(objectUrl);
+    throw error;
   }
 }
 
@@ -393,9 +429,12 @@ export async function generateThumbnailWithMetadata(file: File, applyRotation: b
   const scale = calculateScaleFromFileSize(file.size);
   const isVeryLarge = file.size >= 100 * 1024 * 1024; // 100MB threshold
 
+  let cleanup: (() => void) | undefined;
+
   try {
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfWorkerManager.createDocument(arrayBuffer);
+    const loadedPdf = await loadPdfDocumentForMetadata(file, isVeryLarge);
+    const pdf = loadedPdf.pdf;
+    cleanup = loadedPdf.cleanup;
 
     const pageCount = pdf.numPages;
     const page = await pdf.getPage(1);
@@ -418,7 +457,6 @@ export async function generateThumbnailWithMetadata(file: File, applyRotation: b
     const context = canvas.getContext("2d");
 
     if (!context) {
-      pdfWorkerManager.destroyDocument(pdf);
       throw new Error('Could not get canvas context');
     }
 
@@ -428,7 +466,6 @@ export async function generateThumbnailWithMetadata(file: File, applyRotation: b
     // For very large files, skip reading rotation/dimensions for all pages (just use first page data)
     if (isVeryLarge) {
       const rotation = page.rotate || 0;
-      pdfWorkerManager.destroyDocument(pdf);
       return {
         thumbnail,
         pageCount,
@@ -452,7 +489,6 @@ export async function generateThumbnailWithMetadata(file: File, applyRotation: b
       }
     }
 
-    pdfWorkerManager.destroyDocument(pdf);
     return { thumbnail, pageCount, pageRotations, pageDimensions };
 
   } catch (error) {
@@ -464,5 +500,7 @@ export async function generateThumbnailWithMetadata(file: File, applyRotation: b
 
     const thumbnail = generatePlaceholderThumbnail(file);
     return { thumbnail, pageCount: 1 };
+  } finally {
+    cleanup?.();
   }
 }

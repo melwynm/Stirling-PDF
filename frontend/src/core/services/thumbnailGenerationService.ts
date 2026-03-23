@@ -232,7 +232,8 @@ export class ThumbnailGenerationService {
     const existing = this.thumbnailCache.get(pageId);
 
     if (existing) {
-      this.currentCacheSize -= existing.sizeBytes;
+      this.thumbnailCache.delete(pageId);
+      this.currentCacheSize = Math.max(0, this.currentCacheSize - existing.sizeBytes);
     }
 
     // Enforce cache size limits
@@ -262,7 +263,7 @@ export class ThumbnailGenerationService {
 
     if (oldestEntry) {
       this.thumbnailCache.delete(oldestEntry[0]);
-      this.currentCacheSize -= oldestEntry[1].sizeBytes;
+      this.currentCacheSize = Math.max(0, this.currentCacheSize - oldestEntry[1].sizeBytes);
     }
   }
 

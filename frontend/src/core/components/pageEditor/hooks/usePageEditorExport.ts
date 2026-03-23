@@ -148,12 +148,16 @@ export const usePageEditorExport = ({
             { selectedOnly: true, filename: exportFilename }
           );
 
-      pdfExportService.downloadFile(result.blob, result.filename);
+      const downloadResult = await pdfExportService.downloadFile(result.blob, result.filename);
+      if (downloadResult.cancelled) {
+        return;
+      }
+
       setHasUnsavedChanges(false);
       setSplitPositions(new Set());
-      setExportLoading(false);
     } catch (error) {
       console.error("Export failed:", error);
+    } finally {
       setExportLoading(false);
     }
   }, [
@@ -211,21 +215,27 @@ export const usePageEditorExport = ({
         const zipBlob = await zip.generateAsync({ type: "blob" });
         const zipFilename = exportFilename.replace(/\.pdf$/i, ".zip");
 
-        pdfExportService.downloadFile(zipBlob, zipFilename);
+        const downloadResult = await pdfExportService.downloadFile(zipBlob, zipFilename);
+        if (downloadResult.cancelled) {
+          return;
+        }
       } else {
         const file = files[0];
-        pdfExportService.downloadFile(
+        const downloadResult = await pdfExportService.downloadFile(
           file,
           file.name,
           forceNewFile ? undefined : sourceStub?.localFilePath
         );
+        if (downloadResult.cancelled) {
+          return;
+        }
       }
 
       setHasUnsavedChanges(false);
       setSplitPositions(new Set());
-      setExportLoading(false);
     } catch (error) {
       console.error("Export failed:", error);
+    } finally {
       setExportLoading(false);
     }
   }, [
@@ -288,21 +298,17 @@ export const usePageEditorExport = ({
         ? selectors.getStirlingFileStub(sourceFileIds[0])
         : undefined;
 
-      // Clear all cached page state to prevent stale data from being merged
-      clearPersistedDocument();
-      updateCurrentPages(null);
-
-      // Deselect old files immediately so the view can reset before we mutate the file list
-      actions.setSelectedFiles([]);
-
-      // Remove the original files before inserting the newly generated versions
-      if (sourceFileIds.length > 0) {
-        await actions.removeFiles(sourceFileIds, true);
-      }
-
       const newStirlingFiles = await actions.addFiles(renamedFiles, {
         selectFiles: true,
       });
+      if (newStirlingFiles.length === 0) {
+        throw new Error("Apply changes did not create any replacement files.");
+      }
+
+      // Clear cached page state before swapping the UI over to the replacement files.
+      clearPersistedDocument();
+      updateCurrentPages(null);
+
       if (newStirlingFiles.length > 0) {
         actions.setSelectedFiles(newStirlingFiles.map((file) => file.fileId));
       }
@@ -314,11 +320,16 @@ export const usePageEditorExport = ({
         });
       }
 
+      // Only remove the originals after replacements have been added successfully.
+      if (sourceFileIds.length > 0) {
+        await actions.removeFiles(sourceFileIds, true);
+      }
+
       setHasUnsavedChanges(false);
       setSplitPositions(new Set());
-      setExportLoading(false);
     } catch (error) {
       console.error("Apply changes failed:", error);
+    } finally {
       setExportLoading(false);
     }
   }, [
@@ -328,6 +339,7 @@ export const usePageEditorExport = ({
     getExportFilename,
     actions,
     selectedFileIds,
+    selectors,
     setHasUnsavedChanges,
     setExportLoading,
     clearPersistedDocument,
