@@ -166,7 +166,7 @@ export const usePageEditorExport = ({
     setExportLoading,
   ]);
 
-  const onExportAll = useCallback(async () => {
+  const onExportAll = useCallback(async (forceNewFile = false) => {
     if (!displayDocument) return;
 
     setExportLoading(true);
@@ -191,6 +191,9 @@ export const usePageEditorExport = ({
 
       const sourceFiles = getSourceFiles();
       const exportFilename = getExportFilename();
+      const sourceStub = selectedFileIds.length === 1
+        ? selectors.getStirlingFileStub(selectedFileIds[0])
+        : undefined;
       const files = await exportProcessedDocumentsToFiles(
         normalizedDocuments,
         sourceFiles,
@@ -211,7 +214,11 @@ export const usePageEditorExport = ({
         pdfExportService.downloadFile(zipBlob, zipFilename);
       } else {
         const file = files[0];
-        pdfExportService.downloadFile(file, file.name);
+        pdfExportService.downloadFile(
+          file,
+          file.name,
+          forceNewFile ? undefined : sourceStub?.localFilePath
+        );
       }
 
       setHasUnsavedChanges(false);
@@ -226,6 +233,8 @@ export const usePageEditorExport = ({
     splitPositions,
     getSourceFiles,
     getExportFilename,
+    selectedFileIds,
+    selectors,
     setHasUnsavedChanges,
     setExportLoading,
   ]);
@@ -275,6 +284,9 @@ export const usePageEditorExport = ({
 
       // Store source file IDs before adding new files
       const sourceFileIds = [...selectedFileIds];
+      const sourceStub = sourceFileIds.length === 1
+        ? selectors.getStirlingFileStub(sourceFileIds[0])
+        : undefined;
 
       // Clear all cached page state to prevent stale data from being merged
       clearPersistedDocument();
@@ -295,19 +307,11 @@ export const usePageEditorExport = ({
         actions.setSelectedFiles(newStirlingFiles.map((file) => file.fileId));
       }
 
-      if (sourceFileIds.length === 1 && newStirlingFiles.length === 1) {
-        const sourceStub = selectors.getStirlingFileStub(sourceFileIds[0]);
-        if (sourceStub?.localFilePath) {
-          actions.updateStirlingFileStub(newStirlingFiles[0].fileId, {
-            localFilePath: sourceStub.localFilePath,
-            isDirty: true
-          });
-        }
-      }
-
-      // Remove source files from context
-      if (sourceFileIds.length > 0) {
-        await actions.removeFiles(sourceFileIds, true);
+      if (sourceStub?.localFilePath && newStirlingFiles.length === 1) {
+        actions.updateStirlingFileStub(newStirlingFiles[0].fileId, {
+          localFilePath: sourceStub.localFilePath,
+          isDirty: true
+        });
       }
 
       setHasUnsavedChanges(false);

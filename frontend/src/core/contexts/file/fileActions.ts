@@ -106,6 +106,36 @@ export function createProcessedFile(
   };
 }
 
+async function rotateThumbnailDataUrl(thumbnail: string, rotation: number): Promise<string> {
+  const normalizedRotation = ((rotation % 360) + 360) % 360;
+  if (!thumbnail || normalizedRotation === 0) {
+    return thumbnail;
+  }
+
+  return await new Promise<string>((resolve) => {
+    const image = new Image();
+    image.onload = () => {
+      const swapAxes = normalizedRotation === 90 || normalizedRotation === 270;
+      const canvas = document.createElement('canvas');
+      canvas.width = swapAxes ? image.height : image.width;
+      canvas.height = swapAxes ? image.width : image.height;
+
+      const context = canvas.getContext('2d');
+      if (!context) {
+        resolve(thumbnail);
+        return;
+      }
+
+      context.translate(canvas.width / 2, canvas.height / 2);
+      context.rotate((normalizedRotation * Math.PI) / 180);
+      context.drawImage(image, -image.width / 2, -image.height / 2);
+      resolve(canvas.toDataURL());
+    };
+    image.onerror = () => resolve(thumbnail);
+    image.src = thumbnail;
+  });
+}
+
 /**
  * Generate fresh ProcessedFileMetadata for a file
  * Used when tools process files to ensure metadata matches actual file content
@@ -119,9 +149,10 @@ export async function generateProcessedFileMetadata(file: File): Promise<Process
   try {
     // Generate unrotated thumbnails for PageEditor (rotation applied via CSS)
     const unrotatedResult = await generateThumbnailWithMetadata(file, false);
-
-    // Generate rotated thumbnail for file manager display
-    const rotatedResult = await generateThumbnailWithMetadata(file, true);
+    const rotatedThumbnail = await rotateThumbnailDataUrl(
+      unrotatedResult.thumbnail,
+      unrotatedResult.pageRotations?.[0] ?? 0
+    );
 
     const processedFile = createProcessedFile(
       unrotatedResult.pageCount,
@@ -131,9 +162,9 @@ export async function generateProcessedFileMetadata(file: File): Promise<Process
     );
 
     // Use rotated thumbnail for file manager
-    processedFile.thumbnailUrl = rotatedResult.thumbnail;
+    processedFile.thumbnailUrl = rotatedThumbnail;
 
-    if (unrotatedResult.isEncrypted || rotatedResult.isEncrypted) {
+    if (unrotatedResult.isEncrypted) {
       processedFile.isEncrypted = true;
     }
 

@@ -70,7 +70,7 @@ export interface PageEditorFunctions {
   handleSetSelectedPages: (pageNumbers: number[]) => void;
   showExportPreview: (selectedOnly: boolean) => void;
   onExportSelected: () => void;
-  onExportAll: () => void;
+  onExportAll: (forceNewFile?: boolean) => void;
   applyChanges: () => void;
   exportLoading: boolean;
   selectionMode: boolean;

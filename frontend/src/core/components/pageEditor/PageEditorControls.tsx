@@ -29,7 +29,7 @@ interface PageEditorControlsProps {
   onPageBreakAll: () => void;
 
   // Export functions (moved to right rail)
-  onExportAll: () => void;
+  onExportAll: (forceNewFile?: boolean) => void;
   exportLoading: boolean;
 
   // Selection state

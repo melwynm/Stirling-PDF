@@ -97,7 +97,7 @@ export const useToolResources = () => {
       });
     } catch (error) {
       console.error('useToolResources.extractZipFiles - Error:', error);
-      return [];
+      throw error;
     }
   }, [preferences.autoUnzip, preferences.autoUnzipFileLimit]);
 

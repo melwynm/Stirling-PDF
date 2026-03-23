@@ -280,126 +280,128 @@ export const useToolOperation = <TParams>(
         } catch (_e) { void _e; }
       }
 
-      if (processedFiles.length > 0) {
-        actions.setFiles(processedFiles);
+      if (processedFiles.length === 0) {
+        actions.setError(t('operationProducedNoFiles', 'This operation did not produce any output files.'));
+        actions.setStatus('');
+        return;
+      }
 
-        // Generate thumbnails and download URL concurrently
-        actions.setGeneratingThumbnails(true);
-        const [thumbnails, downloadInfo] = await Promise.all([
-          generateThumbnails(processedFiles),
-          createDownloadInfo(processedFiles, config.operationType)
-        ]);
-        actions.setGeneratingThumbnails(false);
+      actions.setFiles(processedFiles);
 
-        actions.setThumbnails(thumbnails);
+      // Generate thumbnails and download URL concurrently
+      actions.setGeneratingThumbnails(true);
+      const [thumbnails, downloadInfo] = await Promise.all([
+        generateThumbnails(processedFiles),
+        createDownloadInfo(processedFiles, config.operationType)
+      ]);
+      actions.setGeneratingThumbnails(false);
 
-        // Determine whether outputs are new versions of their inputs or independent artifacts.
-        // A version operation produces exactly one output per successful input, all in the same
-        // format (e.g. compress, rotate, redact: 1→1 or N→N same extension).
-        // Everything else — format conversions (ext change), merges (N→1), splits (1→N) —
-        // produces outputs that have no meaningful parent-child relationship with the inputs.
-        const isVersionOp = processedFiles.length > 0
-          && successSourceIds.length === processedFiles.length
-          && successSourceIds.every((id, i) => {
-            const inputFile = validFiles.find(f => f.fileId === id);
-            const inExt = inputFile?.name.split('.').pop()?.toLowerCase();
-            const outExt = processedFiles[i].name.split('.').pop()?.toLowerCase();
-            return inExt != null && inExt === outExt;
+      actions.setThumbnails(thumbnails);
+
+      // Determine whether outputs are new versions of their inputs or independent artifacts.
+      // A version operation produces exactly one output per successful input, all in the same
+      // format (e.g. compress, rotate, redact: 1→1 or N→N same extension).
+      // Everything else — format conversions (ext change), merges (N→1), splits (1→N) —
+      // produces outputs that have no meaningful parent-child relationship with the inputs.
+      const isVersionOp = successSourceIds.length === processedFiles.length
+        && successSourceIds.every((id, i) => {
+          const inputFile = validFiles.find(f => f.fileId === id);
+          const inExt = inputFile?.name.split('.').pop()?.toLowerCase();
+          const outExt = processedFiles[i].name.split('.').pop()?.toLowerCase();
+          return inExt != null && inExt === outExt;
+        });
+
+      actions.setStatus('Generating metadata for processed files...');
+      const processedFileMetadataArray = await Promise.all(
+        processedFiles.map(file => generateProcessedFileMetadata(file))
+      );
+
+      const { inputFileIds, inputStirlingFileStubs } = buildInputTracking(validFiles, selectors);
+
+      if (isVersionOp) {
+        // Output is a modified version of the input — link it to the input's version chain.
+        // The input is removed from the workbench and replaced in-place by the output.
+        const downloadLocalPath =
+          selectors.getStirlingFileStub(validFiles[0].fileId)?.localFilePath ?? null;
+
+        const newToolOperation: ToolOperation = {
+          toolId: config.operationType,
+          timestamp: Date.now()
+        };
+
+        const successInputStubs = successSourceIds
+          .map((id) => selectors.getStirlingFileStub(id))
+          .filter(Boolean) as StirlingFileStub[];
+
+        if (successInputStubs.length !== processedFiles.length) {
+          console.warn('[useToolOperation] Mismatch successInputStubs vs outputs', {
+            successInputStubs: successInputStubs.length,
+            outputs: processedFiles.length,
           });
-
-        actions.setStatus('Generating metadata for processed files...');
-        const processedFileMetadataArray = await Promise.all(
-          processedFiles.map(file => generateProcessedFileMetadata(file))
-        );
-
-        const { inputFileIds, inputStirlingFileStubs } = buildInputTracking(validFiles, selectors);
-
-        if (isVersionOp) {
-          // Output is a modified version of the input — link it to the input's version chain.
-          // The input is removed from the workbench and replaced in-place by the output.
-          const downloadLocalPath =
-            selectors.getStirlingFileStub(validFiles[0].fileId)?.localFilePath ?? null;
-
-          const newToolOperation: ToolOperation = {
-            toolId: config.operationType,
-            timestamp: Date.now()
-          };
-
-          const successInputStubs = successSourceIds
-            .map((id) => selectors.getStirlingFileStub(id))
-            .filter(Boolean) as StirlingFileStub[];
-
-          if (successInputStubs.length !== processedFiles.length) {
-            console.warn('[useToolOperation] Mismatch successInputStubs vs outputs', {
-              successInputStubs: successInputStubs.length,
-              outputs: processedFiles.length,
-            });
-          }
-
-          const { outputStirlingFileStubs, outputStirlingFiles } = buildOutputPairs(
-            processedFiles, thumbnails, processedFileMetadataArray,
-            (file, thumbnail, metadata, index) => createChildStub(
-              successInputStubs[index] || inputStirlingFileStubs[index] || inputStirlingFileStubs[0],
-              newToolOperation, file, thumbnail, metadata
-            )
-          );
-
-          // Only consume inputs that successfully produced outputs
-          const toConsumeInputIds = successSourceIds.filter((id) => inputFileIds.includes(id));
-          console.debug('[useToolOperation] Consuming files (version)', { inputCount: inputFileIds.length, toConsume: toConsumeInputIds.length });
-          const outputFileIds = await consumeFiles(toConsumeInputIds, outputStirlingFiles, outputStirlingFileStubs);
-
-          // Notify on desktop when processing completes
-          await notifyPdfProcessingComplete(outputFileIds.length);
-
-          // Carry the desktop save path forward so the output can be saved back to the same file
-          if (toConsumeInputIds.length === 1 && outputFileIds.length === 1) {
-            const inputStub = selectors.getStirlingFileStub(toConsumeInputIds[0]);
-            if (inputStub?.localFilePath) {
-              fileActions.updateStirlingFileStub(outputFileIds[0], {
-                localFilePath: inputStub.localFilePath
-              });
-            }
-          }
-
-          actions.setDownloadInfo(downloadInfo.url, downloadInfo.filename, downloadLocalPath, outputFileIds);
-
-          lastOperationRef.current = {
-            inputFiles: extractFiles(validFiles),
-            inputStirlingFileStubs: inputStirlingFileStubs.map(record => ({ ...record })),
-            outputFileIds
-          };
-
-        } else {
-          // Outputs are independent artifacts (format conversion, merge, split).
-          // Create fresh root stubs with no parent chain, then swap out only the inputs
-          // that successfully produced outputs — other workbench files are untouched.
-          const { outputStirlingFileStubs, outputStirlingFiles } = buildOutputPairs(
-            processedFiles, thumbnails, processedFileMetadataArray,
-            (file, thumbnail, metadata) => createNewStirlingFileStub(file, undefined, thumbnail, metadata)
-          );
-
-          const toConsumeInputIds = successSourceIds.filter((id) => inputFileIds.includes(id));
-          console.debug('[useToolOperation] Consuming files (independent)', { inputCount: inputFileIds.length, toConsume: toConsumeInputIds.length });
-          const outputFileIds = await consumeFiles(toConsumeInputIds, outputStirlingFiles, outputStirlingFileStubs);
-
-          // Notify on desktop when processing completes
-          await notifyPdfProcessingComplete(outputFileIds.length);
-
-          actions.setDownloadInfo(downloadInfo.url, downloadInfo.filename, null, outputFileIds);
-
-          // Send the user to the viewer for a single PDF output, otherwise the file editor
-          const isSinglePdf = processedFiles.length === 1
-            && processedFiles[0].type === 'application/pdf';
-          navActions.setWorkbench(isSinglePdf ? 'viewer' : 'fileEditor');
-
-          lastOperationRef.current = {
-            inputFiles: extractFiles(validFiles),
-            inputStirlingFileStubs: inputStirlingFileStubs.map(record => ({ ...record })),
-            outputFileIds
-          };
         }
 
+        const { outputStirlingFileStubs, outputStirlingFiles } = buildOutputPairs(
+          processedFiles, thumbnails, processedFileMetadataArray,
+          (file, thumbnail, metadata, index) => createChildStub(
+            successInputStubs[index] || inputStirlingFileStubs[index] || inputStirlingFileStubs[0],
+            newToolOperation, file, thumbnail, metadata
+          )
+        );
+
+        // Only consume inputs that successfully produced outputs
+        const toConsumeInputIds = successSourceIds.filter((id) => inputFileIds.includes(id));
+        console.debug('[useToolOperation] Consuming files (version)', { inputCount: inputFileIds.length, toConsume: toConsumeInputIds.length });
+        const outputFileIds = await consumeFiles(toConsumeInputIds, outputStirlingFiles, outputStirlingFileStubs);
+
+        // Notify on desktop when processing completes
+        await notifyPdfProcessingComplete(outputFileIds.length);
+
+        // Carry the desktop save path forward so the output can be saved back to the same file
+        if (toConsumeInputIds.length === 1 && outputFileIds.length === 1) {
+          const inputStub = selectors.getStirlingFileStub(toConsumeInputIds[0]);
+          if (inputStub?.localFilePath) {
+            fileActions.updateStirlingFileStub(outputFileIds[0], {
+              localFilePath: inputStub.localFilePath
+            });
+          }
+        }
+
+        actions.setDownloadInfo(downloadInfo.url, downloadInfo.filename, downloadLocalPath, outputFileIds);
+
+        lastOperationRef.current = {
+          inputFiles: extractFiles(validFiles),
+          inputStirlingFileStubs: inputStirlingFileStubs.map(record => ({ ...record })),
+          outputFileIds
+        };
+
+      } else {
+        // Outputs are independent artifacts (format conversion, merge, split).
+        // Create fresh root stubs with no parent chain, then swap out only the inputs
+        // that successfully produced outputs — other workbench files are untouched.
+        const { outputStirlingFileStubs, outputStirlingFiles } = buildOutputPairs(
+          processedFiles, thumbnails, processedFileMetadataArray,
+          (file, thumbnail, metadata) => createNewStirlingFileStub(file, undefined, thumbnail, metadata)
+        );
+
+        const toConsumeInputIds = successSourceIds.filter((id) => inputFileIds.includes(id));
+        console.debug('[useToolOperation] Consuming files (independent)', { inputCount: inputFileIds.length, toConsume: toConsumeInputIds.length });
+        const outputFileIds = await consumeFiles(toConsumeInputIds, outputStirlingFiles, outputStirlingFileStubs);
+
+        // Notify on desktop when processing completes
+        await notifyPdfProcessingComplete(outputFileIds.length);
+
+        actions.setDownloadInfo(downloadInfo.url, downloadInfo.filename, null, outputFileIds);
+
+        // Send the user to the viewer for a single PDF output, otherwise the file editor
+        const isSinglePdf = processedFiles.length === 1
+          && processedFiles[0].type === 'application/pdf';
+        navActions.setWorkbench(isSinglePdf ? 'viewer' : 'fileEditor');
+
+        lastOperationRef.current = {
+          inputFiles: extractFiles(validFiles),
+          inputStirlingFileStubs: inputStirlingFileStubs.map(record => ({ ...record })),
+          outputFileIds
+        };
       }
 
     } catch (error: any) {

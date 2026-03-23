@@ -229,6 +229,11 @@ export class ThumbnailGenerationService {
 
   addThumbnailToCache(pageId: string, thumbnail: string): void {
     const sizeBytes = thumbnail.length * 2; // Rough estimate for base64 string
+    const existing = this.thumbnailCache.get(pageId);
+
+    if (existing) {
+      this.currentCacheSize -= existing.sizeBytes;
+    }
 
     // Enforce cache size limits
     while (this.currentCacheSize + sizeBytes > this.maxCacheSizeBytes && this.thumbnailCache.size > 0) {

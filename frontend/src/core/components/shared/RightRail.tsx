@@ -161,7 +161,7 @@ export default function RightRail() {
       }
 
       if (currentView === 'pageEditor') {
-        pageEditorFunctions?.onExportAll?.();
+        pageEditorFunctions?.onExportAll?.(forceNewFile);
         return;
       }
 

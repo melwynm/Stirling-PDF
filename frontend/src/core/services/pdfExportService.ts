@@ -187,8 +187,8 @@ export class PDFExportService {
   /**
    * Download a single file
    */
-  downloadFile(blob: Blob, filename: string): void {
-    void downloadFile({ data: blob, filename });
+  downloadFile(blob: Blob, filename: string, localPath?: string): void {
+    void downloadFile({ data: blob, filename, localPath });
   }
 
   /**
