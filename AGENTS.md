@@ -7,7 +7,7 @@ This file provides guidance to AI Agents when working with code in this reposito
 ### Build and Test
 - **Build project**: `./gradlew clean build`
 - **Run locally**: `./gradlew bootRun`
-- **Full test suite**: `./test.sh` (builds all Docker variants and runs comprehensive tests)
+- **Full test suite**: `./testing/test.sh` (run from the repo root in a Bash environment; builds all Docker variants and runs comprehensive tests)
 - **Code formatting**: `./gradlew spotlessApply` (runs automatically before compilation)
 
 ### Docker Development
@@ -298,7 +298,7 @@ The frontend is organized with a clear separation of concerns:
 
 ### Testing Strategy
 - **Integration Tests**: Cucumber tests in `testing/cucumber/`
-- **Docker Testing**: `test.sh` validates all Docker variants
+- **Docker Testing**: `testing/test.sh` validates all Docker variants
 - **Manual Testing**: No unit tests currently - relies on UI and API testing
 
 ## Development Workflow
@@ -306,7 +306,7 @@ The frontend is organized with a clear separation of concerns:
 1. **Local Development**:
    - Backend: `./gradlew bootRun` (runs on localhost:8080)
    - Frontend: `cd frontend && npm run dev` (runs on localhost:5173, proxies to backend)
-2. **Docker Testing**: Use `./test.sh` before submitting PRs
+2. **Docker Testing**: Use `./testing/test.sh` before submitting PRs. On Windows, run it from Git Bash or WSL rather than plain PowerShell.
 3. **Code Style**: Spotless enforces Google Java Format automatically
 4. **Translations**:
    - Backend: Use helper scripts in `/scripts` for multi-language updates

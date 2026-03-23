@@ -156,7 +156,7 @@ Stirling-PDF/
 ├── Dockerfile.ultra-lite  # Dockerfile for ultra-lite version
 ├── Dockerfile.fat         # Dockerfile for fat version
 ├── docker-compose.yml     # Docker Compose configuration
-└── test.sh                # Test script to deploy all docker versions and run cuke tests
+└── testing/test.sh        # Test script to deploy all Docker versions and run Cucumber tests
 ```
 
 ## 6. Docker-based Development
@@ -263,13 +263,15 @@ Note: The `--no-cache` and `--pull` flags ensure that the build process uses the
 
 ### Comprehensive Testing Script
 
-Stirling-PDF provides a `test.sh` script in the root directory. This script builds all versions of Stirling-PDF, checks that each version works, and runs Cucumber tests. It's recommended to run this script before submitting a final pull request.
+Stirling-PDF provides a `testing/test.sh` script. This script builds all versions of Stirling-PDF, checks that each version works, and runs Cucumber tests. It's recommended to run this script before submitting a final pull request.
 
 To run the test script:
 
 ```bash
-./test.sh
+./testing/test.sh
 ```
+
+On Windows, run the script from Git Bash or WSL. Plain PowerShell cannot execute this Bash-based test harness directly.
 
 This script performs the following actions:
 
@@ -277,7 +279,7 @@ This script performs the following actions:
 2. Runs each version to ensure it starts correctly.
 3. Executes Cucumber tests against the main version and ensures feature compatibility. In the event these tests fail, your PR will not be merged.
 
-Note: The `test.sh` script will run automatically when you raise a PR. However, it's recommended to run it locally first to save resources and catch any issues early.
+Note: The `testing/test.sh` script will run automatically when you raise a PR. However, it's recommended to run it locally first to save resources and catch any issues early.
 
 ### Full Testing with Docker
 
@@ -329,10 +331,10 @@ Important notes:
 2. Create a new branch for your feature or bug fix.
 3. Make your changes and commit them with clear, descriptive messages and ensure any documentation is updated related to your changes.
 4. Test your changes thoroughly in the Docker environment.
-5. Run the `test.sh` script to ensure all versions build correctly and pass the Cucumber tests:
+5. Run the `testing/test.sh` script to ensure all versions build correctly and pass the Cucumber tests:
 
    ```bash
-   ./test.sh
+   ./testing/test.sh
    ```
 
 6. Push your changes to your fork.
@@ -341,7 +343,7 @@ Important notes:
 
 When you raise a PR:
 
-- The `test.sh` script will run automatically against your PR.
+- The `testing/test.sh` script will run automatically against your PR.
 - The PR checks will verify versioning and dependency updates.
 - Documentation will be automatically updated for dependency changes.
 - Security issues will be checked using Snyk and PixeeBot.

@@ -27,7 +27,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     tar xJf /tmp/calibre.txz -C /opt/calibre; \
     rm /tmp/calibre.txz; \
     \
-    # Remove GUI-only shared libraries.
+    # Remove GUI-only and other unused shared libraries.
     # Libs required by WebEngine PDF output are preserved.
     rm -f  /opt/calibre/lib/libQt6Designer* \
            /opt/calibre/lib/libQt6Multimedia* \
@@ -36,7 +36,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
            /opt/calibre/lib/libQt6Concurrent.so.* \
            /opt/calibre/lib/libQt6OpenGLWidgets.so.* \
            /opt/calibre/lib/libQt6QuickWidgets.so.* \
-           # AV / multimedia
            /opt/calibre/lib/libavcodec.so.* \
            /opt/calibre/lib/libavfilter.so.* \
            /opt/calibre/lib/libavformat.so.* \
@@ -45,7 +44,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
            /opt/calibre/lib/libpostproc.so.* \
            /opt/calibre/lib/libswresample.so.* \
            /opt/calibre/lib/libswscale.so.* \
-           # Audio / speech / TTS
            /opt/calibre/lib/libspeex.so.* \
            /opt/calibre/lib/libFLAC.so.* \
            /opt/calibre/lib/libopus.so.* \
@@ -53,7 +51,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
            /opt/calibre/lib/libasyncns.so.* \
            /opt/calibre/lib/libspeechd.so.* \
            /opt/calibre/lib/libespeak-ng.so.* \
-           # Other unused libs
            /opt/calibre/lib/libonnxruntime.so.* \
            /opt/calibre/lib/libgio-2.0.so.* \
            /opt/calibre/lib/libzstd.so.* \
@@ -234,6 +231,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
       python3 python3-venv python3-dev \
       python3-packaging \
+      ca-certificates \
+      binutils \
       build-essential \
       # Build dependencies for ocrmypdf/weasyprint/opencv
       zlib1g-dev libjpeg-dev libffi-dev libpango1.0-dev \
@@ -244,13 +243,15 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 # Build all heavy python packages here
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install \
-     weasyprint pdf2image opencv-python-headless ocrmypdf \
+    pip install --no-cache-dir --prefer-binary \
+      weasyprint pdf2image opencv-python-headless ocrmypdf \
+      cryptography \
       "unoserver==${UNOSERVER_VERSION}"
 
 
 # Build Ghostscript 10.06.0 from source in an isolated stage (avoids library conflicts).
 FROM ubuntu:noble AS gs-build
+ARG TARGETPLATFORM
 ARG GS_VERSION=10.06.0
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/tmp/gs-build,id=gs-build-${TARGETPLATFORM:-local} \
@@ -273,6 +274,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 # Build PDF Tools (QPDF and ImageMagick 7).
 FROM ubuntu:noble AS pdf-tools-build
+ARG TARGETPLATFORM
 ARG QPDF_VERSION=12.3.2
 ARG IM_VERSION=7.1.2-13
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -329,6 +331,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       ca-certificates tzdata tini bash fontconfig curl \
       ffmpeg poppler-utils fontforge \
       gosu unpaper pngquant \
+      fonts-dejavu \
       fonts-liberation2 \
       fonts-crosextra-caladea fonts-crosextra-carlito \
       fonts-noto-core fonts-noto-mono fonts-noto-extra \
@@ -339,8 +342,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       # OCR
       tesseract-ocr tesseract-ocr-eng tesseract-ocr-deu tesseract-ocr-fra \
       tesseract-ocr-por tesseract-ocr-chi-sim \
+      # Tesseract OSD for orientation detection
+      tesseract-ocr-osd \
       # Graphics / AWT headless
-      libcairo2 libpango-1.0-0 libpangoft2-1.0-0 \
+      libcairo2 libpango-1.0-0 libpangoft2-1.0-0 libgdk-pixbuf-2.0-0 \
       libfreetype6 libfontconfig1 libx11-6 libxt6 libxext6 libxrender1 \
       libxtst6 libxi6 libxinerama1 libxkbcommon0 libsm6 libice6 \
       # Qt/EGL for Calibre CLI
