@@ -1,4 +1,4 @@
-.PHONY: help install prep check fix lint lint-fix lint-fix-unsafe format format-check typecheck test run run-dev clean tool-models docker-build docker-run
+.PHONY: help install prep check fix lint lint-fix lint-fix-unsafe format format-check typecheck test run run-dev run-mcp clean tool-models docker-build docker-run
 
 REPO_ROOT_DIR = ..
 ROOT_DIR = .
@@ -29,6 +29,7 @@ help:
 	@echo "  make test         - Run tests"
 	@echo "  make run          - Run the Flask backend with gunicorn (production)"
 	@echo "  make run-dev      - Run the Flask backend with dev server (development only)"
+	@echo "  make run-mcp      - Run the Stirling MCP server over stdio"
 	@echo "  make tool-models  - Generate src/models/tool_models_*.py from frontend TypeScript tool defs"
 	@echo "  make clean        - Clean up generated files"
 	@echo "  make docker-build - Build Docker image"
@@ -69,6 +70,9 @@ run: prep
 
 run-dev: prep
 	cd src && PYTHONUNBUFFERED=1 uv run python app.py
+
+run-mcp: prep
+	cd src && PYTHONUNBUFFERED=1 uv run python mcp_server.py
 
 frontend-deps:
 	if [ ! -x "$(FRONTEND_TSX)" ]; then cd $(FRONTEND_DIR) && npm install; fi

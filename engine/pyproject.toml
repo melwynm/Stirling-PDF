@@ -58,6 +58,8 @@ ignore = [
 
 [tool.pyright]
 pythonVersion = "3.13"
+venvPath = "."
+venv = ".venv"
 
 reportImportCycles = "warning"
 reportUnnecessaryCast = "warning"
