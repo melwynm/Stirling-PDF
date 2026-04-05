@@ -39,7 +39,7 @@ LOG_FILE = LOG_PATH / "docgen.log"
 
 # Create formatters
 console_formatter = logging.Formatter(
-    "%(asctime)s [%(thread)d] %(levelname)-5s %(name)s - %(message)s", datefmt="%H:%M:%S.%f"
+    "%(asctime)s.%(msecs)03d [%(thread)d] %(levelname)-5s %(name)s - %(message)s", datefmt="%H:%M:%S"
 )
 file_formatter = logging.Formatter("%(asctime)s %(levelname)s %(name)s [%(thread)d] %(message)s")
 
