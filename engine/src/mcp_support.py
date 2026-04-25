@@ -2,28 +2,22 @@ from __future__ import annotations
 
 import json
 import mimetypes
+import os
 import re
+import shutil
 import urllib.error
 import urllib.request
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field, ValidationError
 
 import models
-from config import JAVA_REQUEST_TIMEOUT_SECONDS, OUTPUT_DIR
-from editing.constants import assess_plan_risk
-from editing.operations import (
-    answer_pdf_question,
-    build_plan_summary,
-    get_pdf_preflight,
-    validate_operation_chain,
-)
-from file_processing_agent import ToolCatalogService
-from java_client import java_headers, java_url
-from pdf_text_editor import convert_pdf_to_text_editor_document
+
+if TYPE_CHECKING:
+    from file_processing_agent import ToolCatalogService
 
 type JsonPrimitive = str | int | float | bool | None
 type JsonObject = dict[str, "JsonValue"]
@@ -32,6 +26,43 @@ type JsonValue = JsonPrimitive | JsonObject | JsonArray
 
 _MCP_README_PATH = Path(__file__).resolve().parents[1] / "MCP.md"
 _REPO_ROOT = Path(__file__).resolve().parents[2]
+_DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parent / "output"
+_DEFAULT_BACKEND_HEALTH_PATHS = (
+    "/api/v1/info/health",
+    "/api/v1/info/status",
+    "/actuator/health",
+    "/health",
+    "/healthz",
+)
+_CONFIG_REQUIRED_ENV = (
+    "STIRLING_LOG_PATH",
+    "STIRLING_PDF_TAURI_MODE",
+    "STIRLING_OPENAI_BASE_URL",
+    "STIRLING_ANTHROPIC_API_KEY",
+    "STIRLING_JAVA_BACKEND_URL",
+    "STIRLING_JAVA_BACKEND_API_KEY",
+    "STIRLING_JAVA_REQUEST_TIMEOUT_SECONDS",
+    "STIRLING_SMART_MODEL",
+    "STIRLING_FAST_MODEL",
+    "STIRLING_SMART_MODEL_REASONING_EFFORT",
+    "STIRLING_FAST_MODEL_REASONING_EFFORT",
+    "STIRLING_SMART_MODEL_TEXT_VERBOSITY",
+    "STIRLING_FAST_MODEL_TEXT_VERBOSITY",
+    "STIRLING_AI_MAX_TOKENS",
+    "STIRLING_SMART_MODEL_MAX_TOKENS",
+    "STIRLING_FAST_MODEL_MAX_TOKENS",
+    "STIRLING_CLAUDE_MAX_TOKENS",
+    "STIRLING_DEFAULT_MODEL_MAX_TOKENS",
+    "STIRLING_POSTHOG_API_KEY",
+    "STIRLING_POSTHOG_HOST",
+    "STIRLING_FLASK_DEBUG",
+    "STIRLING_AI_STREAMING",
+    "STIRLING_AI_PREVIEW_MAX_INFLIGHT",
+    "STIRLING_AI_REQUEST_TIMEOUT",
+    "STIRLING_AI_RAW_DEBUG",
+    "STIRLING_PDF_EDITOR_TABLE_DEBUG",
+)
+_AI_PROVIDER_ENV = ("STIRLING_OPENAI_API_KEY", "STIRLING_ANTHROPIC_API_KEY")
 
 
 class McpToolError(RuntimeError):
@@ -40,6 +71,68 @@ class McpToolError(RuntimeError):
 
 def _normalize_json_value(value: Any) -> JsonValue:
     return json.loads(json.dumps(value, ensure_ascii=True))
+
+
+def _env_value(name: str) -> str:
+    return os.environ.get(name, "")
+
+
+def _java_backend_url(path: str) -> str:
+    base = _env_value("STIRLING_JAVA_BACKEND_URL").rstrip("/")
+    if not base:
+        raise McpToolError("STIRLING_JAVA_BACKEND_URL is not configured.")
+    if not path.startswith("/"):
+        path = "/" + path
+    return f"{base}{path}"
+
+
+def _java_backend_headers() -> dict[str, str]:
+    headers: dict[str, str] = {}
+    api_key = _env_value("STIRLING_JAVA_BACKEND_API_KEY")
+    if api_key:
+        headers["X-API-KEY"] = api_key
+    return headers
+
+
+def _java_request_timeout_seconds() -> float:
+    raw_value = _env_value("STIRLING_JAVA_REQUEST_TIMEOUT_SECONDS") or "30"
+    try:
+        return float(raw_value)
+    except ValueError as exc:
+        raise McpToolError("STIRLING_JAVA_REQUEST_TIMEOUT_SECONDS must be a number.") from exc
+
+
+def _get_pdf_preflight(file_path: str) -> models.PdfPreflight:
+    from editing.operations import get_pdf_preflight
+
+    return get_pdf_preflight(file_path)
+
+
+def _validate_operation_chain(operation_ids: list[models.tool_models.OperationId]) -> Any:
+    from editing.operations import validate_operation_chain
+
+    return validate_operation_chain(operation_ids)
+
+
+def _assess_plan_risk(
+    operation_ids: list[models.tool_models.OperationId],
+    preflight: models.PdfPreflight | None,
+) -> dict[str, Any]:
+    from editing.constants import assess_plan_risk
+
+    return assess_plan_risk(operation_ids, preflight)
+
+
+def _build_plan_summary(operation_ids: list[models.tool_models.OperationId]) -> Any:
+    from editing.operations import build_plan_summary
+
+    return build_plan_summary(operation_ids)
+
+
+def _answer_pdf_question(file_path: str, question: str) -> str:
+    from editing.operations import answer_pdf_question
+
+    return answer_pdf_question(file_path, question)
 
 
 @dataclass(frozen=True)
@@ -73,8 +166,39 @@ class ToolDefinition:
     input_model: type[BaseModel]
 
 
+@dataclass(frozen=True)
+class StaticToolCatalog:
+    operation_ids: list[models.tool_models.OperationId]
+
+
+class StaticToolCatalogService:
+    def get_catalog(self) -> StaticToolCatalog:
+        return StaticToolCatalog(operation_ids=sorted(models.tool_models.OPERATIONS.keys()))
+
+    def get_operation(
+        self,
+        operation_id: models.tool_models.OperationId,
+    ) -> models.tool_models.ParamToolModelType | None:
+        return models.tool_models.OPERATIONS.get(operation_id)
+
+
 class NoArgs(BaseModel):
     pass
+
+
+class HealthCheckArgs(BaseModel):
+    backend_health_paths: list[str] = Field(
+        default_factory=lambda: list(_DEFAULT_BACKEND_HEALTH_PATHS),
+        description="Backend health paths to try, relative to STIRLING_JAVA_BACKEND_URL.",
+    )
+    run_backend_operation_probe: bool = Field(
+        default=True,
+        description="Whether to POST a small rotate-pdf request using the repo test PDF when it is available.",
+    )
+    run_ai_provider_probe: bool = Field(
+        default=False,
+        description="Reserved for live AI-provider checks. Defaults off because it may incur network calls or cost.",
+    )
 
 
 class GetOperationDetailsArgs(BaseModel):
@@ -327,8 +451,8 @@ class FrontendOperationMetadataResolver:
 
 
 class MultipartEndpointExecutor:
-    def __init__(self, output_dir: str = OUTPUT_DIR) -> None:
-        self.output_dir = Path(output_dir)
+    def __init__(self, output_dir: str | Path | None = None) -> None:
+        self.output_dir = Path(output_dir) if output_dir is not None else _DEFAULT_OUTPUT_DIR
 
     def call_endpoint(
         self,
@@ -349,13 +473,13 @@ class MultipartEndpointExecutor:
             additional_files.extend((field_name, self._resolve_file_path(item)) for item in values)
 
         body, boundary = self._encode_multipart(form_fields, primary_files + additional_files)
-        headers = java_headers()
+        headers = _java_backend_headers()
         headers["Content-Type"] = f"multipart/form-data; boundary={boundary}"
         headers["Content-Length"] = str(len(body))
 
-        request = urllib.request.Request(java_url(endpoint), data=body, headers=headers, method="POST")
+        request = urllib.request.Request(_java_backend_url(endpoint), data=body, headers=headers, method="POST")
         try:
-            with urllib.request.urlopen(request, timeout=JAVA_REQUEST_TIMEOUT_SECONDS) as response:
+            with urllib.request.urlopen(request, timeout=_java_request_timeout_seconds()) as response:
                 raw = response.read()
                 content_type = response.headers.get("Content-Type", "application/octet-stream")
                 if "application/json" in content_type:
@@ -457,6 +581,289 @@ class MultipartEndpointExecutor:
         return f"stirling-mcp-{uuid.uuid4().hex}{extension}"
 
 
+class StirlingMcpHealthChecker:
+    def run(self, args: HealthCheckArgs) -> dict[str, JsonValue]:
+        checks: list[dict[str, JsonValue]] = [
+            self._check_mcp_process(),
+            self._check_environment(),
+            self._check_pdf_tooling(),
+            self._check_backend_health(args.backend_health_paths),
+            self._check_backend_operation_probe(args.run_backend_operation_probe),
+            self._check_ai_provider(args.run_ai_provider_probe),
+        ]
+        failing = [check for check in checks if check["status"] == "fail"]
+        warning = [check for check in checks if check["status"] == "warn"]
+        overall = "unhealthy" if failing else "degraded" if warning else "healthy"
+        return {
+            "status": overall,
+            "server": {
+                "name": StirlingMcpToolRegistry.SERVER_NAME,
+                "version": StirlingMcpToolRegistry.SERVER_VERSION,
+                "protocolVersion": StirlingMcpToolRegistry.PROTOCOL_VERSION,
+            },
+            "checks": _normalize_json_value(checks),
+        }
+
+    def _check_mcp_process(self) -> dict[str, JsonValue]:
+        return {
+            "name": "mcp.process",
+            "status": "pass",
+            "message": "MCP server process is running and handling tool calls.",
+        }
+
+    def _check_environment(self) -> dict[str, JsonValue]:
+        missing = [name for name in _CONFIG_REQUIRED_ENV if name not in os.environ]
+        empty_required = [
+            name
+            for name in (
+                "STIRLING_JAVA_BACKEND_URL",
+                "STIRLING_JAVA_REQUEST_TIMEOUT_SECONDS",
+                "STIRLING_SMART_MODEL",
+                "STIRLING_FAST_MODEL",
+                "STIRLING_SMART_MODEL_REASONING_EFFORT",
+                "STIRLING_FAST_MODEL_REASONING_EFFORT",
+                "STIRLING_SMART_MODEL_TEXT_VERBOSITY",
+                "STIRLING_FAST_MODEL_TEXT_VERBOSITY",
+                "STIRLING_SMART_MODEL_MAX_TOKENS",
+                "STIRLING_FAST_MODEL_MAX_TOKENS",
+                "STIRLING_CLAUDE_MAX_TOKENS",
+                "STIRLING_DEFAULT_MODEL_MAX_TOKENS",
+                "STIRLING_POSTHOG_API_KEY",
+                "STIRLING_POSTHOG_HOST",
+                "STIRLING_FLASK_DEBUG",
+                "STIRLING_AI_STREAMING",
+                "STIRLING_AI_PREVIEW_MAX_INFLIGHT",
+                "STIRLING_AI_REQUEST_TIMEOUT",
+            )
+            if name in os.environ and not _env_value(name)
+        ]
+        openai_configured = bool(_env_value("STIRLING_OPENAI_API_KEY"))
+        anthropic_configured = bool(_env_value("STIRLING_ANTHROPIC_API_KEY"))
+        provider_missing = not openai_configured and not anthropic_configured
+        timeout_error = self._validate_float_env("STIRLING_JAVA_REQUEST_TIMEOUT_SECONDS")
+
+        problems = []
+        if missing:
+            problems.append(f"missing={', '.join(missing)}")
+        if empty_required:
+            problems.append(f"empty={', '.join(empty_required)}")
+        if provider_missing:
+            problems.append("no AI provider key configured")
+        if timeout_error:
+            problems.append(timeout_error)
+
+        return {
+            "name": "engine.environment",
+            "status": "fail" if problems else "pass",
+            "message": "; ".join(problems) if problems else "Required engine environment is present.",
+            "details": _normalize_json_value({
+                "missingKeys": missing,
+                "emptyRequiredKeys": empty_required,
+                "openaiConfigured": openai_configured,
+                "anthropicConfigured": anthropic_configured,
+                "posthogConfigured": bool(_env_value("STIRLING_POSTHOG_API_KEY")),
+                "javaBackendConfigured": bool(_env_value("STIRLING_JAVA_BACKEND_URL")),
+            }),
+        }
+
+    def _validate_float_env(self, name: str) -> str | None:
+        raw_value = _env_value(name)
+        if not raw_value:
+            return None
+        try:
+            float(raw_value)
+        except ValueError:
+            return f"{name} must be numeric"
+        return None
+
+    def _check_pdf_tooling(self) -> dict[str, JsonValue]:
+        executable = shutil.which("pdftohtml")
+        return {
+            "name": "pdf.pdftohtml",
+            "status": "pass" if executable else "fail",
+            "message": f"pdftohtml found at {executable}" if executable else "pdftohtml is not available on PATH.",
+            "details": {"path": executable},
+        }
+
+    def _check_backend_health(self, paths: list[str]) -> dict[str, JsonValue]:
+        if not _env_value("STIRLING_JAVA_BACKEND_URL"):
+            return {
+                "name": "backend.health",
+                "status": "fail",
+                "message": "STIRLING_JAVA_BACKEND_URL is not configured.",
+                "details": {"attempts": []},
+            }
+
+        attempts: JsonArray = []
+        for path in paths or list(_DEFAULT_BACKEND_HEALTH_PATHS):
+            attempt = self._get_backend_health_path(path)
+            attempts.append(attempt)
+            if attempt.get("healthy") is True:
+                return {
+                    "name": "backend.health",
+                    "status": "pass",
+                    "message": f"Backend health check passed at {path}.",
+                    "details": {"attempts": attempts},
+                }
+
+        return {
+            "name": "backend.health",
+            "status": "fail",
+            "message": "No backend health endpoint returned a healthy response.",
+            "details": {"attempts": attempts},
+        }
+
+    def _get_backend_health_path(self, path: str) -> dict[str, JsonValue]:
+        try:
+            request = urllib.request.Request(_java_backend_url(path), headers=_java_backend_headers(), method="GET")
+            with urllib.request.urlopen(request, timeout=_java_request_timeout_seconds()) as response:
+                body = response.read(4096)
+                parsed = self._parse_json_body(body)
+                healthy = response.status < 400 and isinstance(parsed, dict) and str(parsed.get("status", "")).upper() == "UP"
+                return {
+                    "path": path,
+                    "statusCode": response.status,
+                    "contentType": response.headers.get("Content-Type"),
+                    "serverHeader": response.headers.get("Server"),
+                    "healthy": healthy,
+                    "body": parsed if parsed is not None else body.decode("utf-8", errors="replace")[:500],
+                }
+        except urllib.error.HTTPError as exc:
+            return {
+                "path": path,
+                "statusCode": exc.code,
+                "healthy": False,
+                "body": exc.read().decode("utf-8", errors="replace")[:500],
+            }
+        except urllib.error.URLError as exc:
+            return {"path": path, "healthy": False, "error": str(exc.reason)}
+        except McpToolError as exc:
+            return {"path": path, "healthy": False, "error": str(exc)}
+
+    def _parse_json_body(self, body: bytes) -> JsonValue | None:
+        try:
+            return _normalize_json_value(json.loads(body.decode("utf-8")))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return None
+
+    def _check_backend_operation_probe(self, enabled: bool) -> dict[str, JsonValue]:
+        if not enabled:
+            return {
+                "name": "backend.operationProbe",
+                "status": "skip",
+                "message": "Backend operation probe was disabled.",
+            }
+        fixture_pdf = _REPO_ROOT / "testing" / "test_pdf_1.pdf"
+        if not fixture_pdf.exists():
+            return {
+                "name": "backend.operationProbe",
+                "status": "skip",
+                "message": "No repo fixture PDF is available for the rotate-pdf probe.",
+                "details": {"fixturePath": str(fixture_pdf)},
+            }
+        try:
+            body, boundary = MultipartEndpointExecutor()._encode_multipart(
+                {"angle": 90},
+                [("fileInput", fixture_pdf)],
+            )
+            headers = _java_backend_headers()
+            headers["Content-Type"] = f"multipart/form-data; boundary={boundary}"
+            headers["Content-Length"] = str(len(body))
+            request = urllib.request.Request(
+                _java_backend_url("/api/v1/general/rotate-pdf"),
+                data=body,
+                headers=headers,
+                method="POST",
+            )
+            with urllib.request.urlopen(request, timeout=_java_request_timeout_seconds()) as response:
+                response_body = response.read(1024)
+                content_type = response.headers.get("Content-Type", "")
+                ok = response.status < 400 and ("pdf" in content_type.lower() or response_body.startswith(b"%PDF"))
+                return {
+                    "name": "backend.operationProbe",
+                    "status": "pass" if ok else "fail",
+                    "message": "rotate-pdf probe returned a PDF." if ok else "rotate-pdf probe did not return a PDF.",
+                    "details": {
+                        "endpoint": "/api/v1/general/rotate-pdf",
+                        "statusCode": response.status,
+                        "contentType": content_type,
+                        "bytesRead": len(response_body),
+                    },
+                }
+        except urllib.error.HTTPError as exc:
+            return {
+                "name": "backend.operationProbe",
+                "status": "fail",
+                "message": f"rotate-pdf probe failed with HTTP {exc.code}.",
+                "details": {
+                    "endpoint": "/api/v1/general/rotate-pdf",
+                    "statusCode": exc.code,
+                    "body": exc.read().decode("utf-8", errors="replace")[:500],
+                },
+            }
+        except (urllib.error.URLError, McpToolError) as exc:
+            return {
+                "name": "backend.operationProbe",
+                "status": "fail",
+                "message": f"rotate-pdf probe failed: {exc}",
+                "details": {"endpoint": "/api/v1/general/rotate-pdf"},
+            }
+
+    def _check_ai_provider(self, run_probe: bool) -> dict[str, JsonValue]:
+        provider_configured = bool(_env_value("STIRLING_OPENAI_API_KEY") or _env_value("STIRLING_ANTHROPIC_API_KEY"))
+        if not provider_configured:
+            return {
+                "name": "ai.provider",
+                "status": "fail",
+                "message": "No OpenAI or Anthropic API key is configured.",
+                "details": {
+                    "openaiConfigured": False,
+                    "anthropicConfigured": False,
+                    "liveProbe": False,
+                },
+            }
+        if not run_probe:
+            return {
+                "name": "ai.provider",
+                "status": "pass",
+                "message": "AI provider credentials are present. Live provider probe was not requested.",
+                "details": {
+                    "openaiConfigured": bool(_env_value("STIRLING_OPENAI_API_KEY")),
+                    "anthropicConfigured": bool(_env_value("STIRLING_ANTHROPIC_API_KEY")),
+                    "liveProbe": False,
+                },
+            }
+
+        try:
+            from config import FAST_MODEL
+            from llm_utils import run_ai
+
+            response = run_ai(
+                FAST_MODEL,
+                [
+                    models.ChatMessage(role="system", content="Return JSON matching the schema."),
+                    models.ChatMessage(role="user", content="Set success to true."),
+                ],
+                models.SuccessResponse,
+                max_tokens=50,
+                tag="mcp_health_ai_probe",
+                log_label="mcp-health-ai-probe",
+            )
+            return {
+                "name": "ai.provider",
+                "status": "pass" if response.success else "fail",
+                "message": "Live AI provider probe succeeded." if response.success else "Live AI provider probe returned false.",
+                "details": {"model": FAST_MODEL, "liveProbe": True},
+            }
+        except Exception as exc:
+            return {
+                "name": "ai.provider",
+                "status": "fail",
+                "message": f"Live AI provider probe failed: {exc}",
+                "details": {"liveProbe": True},
+            }
+
+
 class StirlingMcpToolRegistry:
     SERVER_NAME = "stirling-pdf-engine-mcp"
     SERVER_VERSION = "0.1.0"
@@ -467,11 +874,18 @@ class StirlingMcpToolRegistry:
         tool_catalog: ToolCatalogService | None = None,
         metadata_resolver: FrontendOperationMetadataResolver | None = None,
         endpoint_executor: MultipartEndpointExecutor | None = None,
+        health_checker: StirlingMcpHealthChecker | None = None,
     ) -> None:
-        self.tool_catalog = tool_catalog or ToolCatalogService()
+        self._tool_catalog = tool_catalog
         self.metadata_resolver = metadata_resolver or FrontendOperationMetadataResolver()
         self.endpoint_executor = endpoint_executor or MultipartEndpointExecutor()
+        self.health_checker = health_checker or StirlingMcpHealthChecker()
         self._tools = {
+            "stirling_health_check": ToolDefinition(
+                name="stirling_health_check",
+                description="Check MCP, engine environment, backend reachability, PDF tooling, and AI provider readiness.",
+                input_model=HealthCheckArgs,
+            ),
             "stirling_list_operations": ToolDefinition(
                 name="stirling_list_operations",
                 description="List the Stirling PDF operations that the AI engine can plan and describe.",
@@ -504,6 +918,17 @@ class StirlingMcpToolRegistry:
             ),
         }
 
+    @property
+    def tool_catalog(self) -> Any:
+        return self._tool_catalog or StaticToolCatalogService()
+
+    def _planning_tool_catalog(self) -> Any:
+        if self._tool_catalog is None:
+            from file_processing_agent import ToolCatalogService
+
+            self._tool_catalog = ToolCatalogService()
+        return self._tool_catalog
+
     def list_tools(self) -> list[dict[str, JsonValue]]:
         return [
             {
@@ -519,7 +944,10 @@ class StirlingMcpToolRegistry:
             raise McpToolError(f"Unknown MCP tool: {name}")
         payload = arguments or {}
         try:
-            if name == "stirling_list_operations":
+            if name == "stirling_health_check":
+                args = HealthCheckArgs.model_validate(payload)
+                result = self.health_checker.run(args)
+            elif name == "stirling_list_operations":
                 NoArgs.model_validate(payload)
                 result = self._list_operations()
             elif name == "stirling_get_operation_details":
@@ -623,8 +1051,9 @@ class StirlingMcpToolRegistry:
         preflight = self._first_pdf_preflight(args.file_paths)
         history = list(args.history)
         history.append(models.ChatMessage(role="user", content=args.request))
+        tool_catalog = self._planning_tool_catalog()
 
-        selection = self.tool_catalog.select_edit_tool(
+        selection = tool_catalog.select_edit_tool(
             history=history,
             uploaded_files=uploaded_files,
             preflight=preflight,
@@ -632,7 +1061,7 @@ class StirlingMcpToolRegistry:
 
         selected_ops: list[tuple[models.tool_models.OperationId, models.tool_models.ParamToolModel | None]] = []
         for operation_id in selection.operation_ids:
-            params = self.tool_catalog.extract_operation_parameters(
+            params = tool_catalog.extract_operation_parameters(
                 operation_id=operation_id,
                 previous_operations=selected_ops,
                 user_message=args.request,
@@ -642,8 +1071,8 @@ class StirlingMcpToolRegistry:
             selected_ops.append((operation_id, params))
 
         operation_ids = [operation_id for operation_id, _ in selected_ops]
-        validation = validate_operation_chain(operation_ids)
-        risk = assess_plan_risk(operation_ids, preflight)
+        validation = _validate_operation_chain(operation_ids)
+        risk = _assess_plan_risk(operation_ids, preflight)
         planned_operations: JsonArray = [
             {
                 "operationId": str(operation_id),
@@ -660,7 +1089,7 @@ class StirlingMcpToolRegistry:
             "selectionAction": selection.action,
             "responseMessage": selection.response_message,
             "operations": planned_operations,
-            "summary": _normalize_json_value(build_plan_summary(operation_ids)),
+            "summary": _normalize_json_value(_build_plan_summary(operation_ids)),
             "preflight": _normalize_json_value(preflight.model_dump(by_alias=True, exclude_none=True, mode="json"))
             if preflight
             else None,
@@ -681,10 +1110,12 @@ class StirlingMcpToolRegistry:
         return {
             "pdfPath": pdf_path,
             "question": args.question,
-            "answer": answer_pdf_question(pdf_path, args.question),
+            "answer": _answer_pdf_question(pdf_path, args.question),
         }
 
     def _read_pdf_editor_document(self, args: ReadPdfEditorDocumentArgs) -> dict[str, JsonValue]:
+        from pdf_text_editor import convert_pdf_to_text_editor_document
+
         pdf_path = str(self._resolve_path(args.pdf_path))
         document = convert_pdf_to_text_editor_document(pdf_path)
         return {
@@ -712,7 +1143,7 @@ class StirlingMcpToolRegistry:
             path = self._resolve_path(file_path)
             mime_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
             if mime_type == "application/pdf" or path.suffix.lower() == ".pdf":
-                return get_pdf_preflight(str(path))
+                return _get_pdf_preflight(str(path))
         return None
 
     def _resolve_path(self, file_path: str) -> Path:

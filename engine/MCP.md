@@ -18,6 +18,8 @@ It uses the same environment as the normal AI engine, especially:
 
 ## Exposed MCP Tools
 
+- `stirling_health_check`
+  Checks MCP liveness, required engine environment variables, Java backend health, `pdftohtml`, the rotate-pdf backend probe, and AI provider readiness.
 - `stirling_list_operations`
   Lists the operations the engine can plan and describe.
 - `stirling_get_operation_details`
@@ -38,5 +40,6 @@ It uses the same environment as the normal AI engine, especially:
 
 ## Notes
 
+- MCP clients can use JSON-RPC `ping` for a minimal liveness check, and `stirling_health_check` for dependency readiness.
 - `stirling_call_endpoint` is intentionally generic so MCP clients can execute backend tools without waiting for a one-tool-per-endpoint wrapper.
 - `stirling_get_operation_details` includes the frontend operation hook path and relevant source snippets to help agents construct the correct multipart fields.

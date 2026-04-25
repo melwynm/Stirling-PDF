@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -18,11 +19,14 @@ _FIXTURE_PDF = _REPO_ROOT / "testing" / "test_pdf_1.pdf"
 
 
 class _FakeHttpResponse:
-    def __init__(self, body: bytes, headers: dict[str, str]) -> None:
+    def __init__(self, body: bytes, headers: dict[str, str], status: int = 200) -> None:
         self._body = body
         self.headers = headers
+        self.status = status
 
-    def read(self) -> bytes:
+    def read(self, size: int = -1) -> bytes:
+        if size is not None and size >= 0:
+            return self._body[:size]
         return self._body
 
     def __enter__(self) -> _FakeHttpResponse:
@@ -72,6 +76,58 @@ def test_list_operations_includes_frontend_metadata():
     assert rotate_entry["frontendMetadata"]["endpointExpression"] == "'/api/v1/general/rotate-pdf'"
 
 
+def test_health_check_reports_missing_runtime_without_crashing(monkeypatch: MonkeyPatch):
+    for key in list(os.environ):
+        if key.startswith("STIRLING_"):
+            monkeypatch.delenv(key, raising=False)
+    monkeypatch.setattr("shutil.which", lambda name: None)
+
+    registry = StirlingMcpToolRegistry()
+    payload = registry.call_tool(
+        "stirling_health_check",
+        {"run_backend_operation_probe": False},
+    )
+    parsed = json.loads(payload["content"][0]["text"])
+    checks = {check["name"]: check for check in parsed["checks"]}
+
+    assert parsed["status"] == "unhealthy"
+    assert checks["mcp.process"]["status"] == "pass"
+    assert checks["engine.environment"]["status"] == "fail"
+    assert checks["pdf.pdftohtml"]["status"] == "fail"
+    assert checks["backend.health"]["status"] == "fail"
+    assert checks["ai.provider"]["status"] == "fail"
+
+
+def test_health_check_passes_with_mocked_dependencies(monkeypatch: MonkeyPatch):
+    monkeypatch.setattr("shutil.which", lambda name: "C:\\tools\\pdftohtml.exe")
+
+    def fake_urlopen(request, timeout):
+        if request.get_method() == "POST":
+            return _FakeHttpResponse(
+                b"%PDF-1.4\n",
+                {"Content-Type": "application/pdf"},
+            )
+        return _FakeHttpResponse(
+            b'{"status":"UP","version":"test"}',
+            {
+                "Content-Type": "application/json",
+                "Server": "test-backend",
+            },
+        )
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+
+    registry = StirlingMcpToolRegistry()
+    payload = registry.call_tool("stirling_health_check", {})
+    parsed = json.loads(payload["content"][0]["text"])
+    checks = {check["name"]: check for check in parsed["checks"]}
+
+    assert parsed["status"] == "healthy"
+    assert checks["backend.health"]["status"] == "pass"
+    assert checks["backend.operationProbe"]["status"] == "pass"
+    assert checks["ai.provider"]["status"] == "pass"
+
+
 def test_get_operation_details_returns_schema_and_defaults():
     registry = StirlingMcpToolRegistry()
 
@@ -103,15 +159,16 @@ def test_plan_edit_request_uses_catalog(monkeypatch: MonkeyPatch):
 
     registry = StirlingMcpToolRegistry(tool_catalog=FakeCatalog())  # type: ignore[arg-type]
 
-    monkeypatch.setattr("mcp_support.get_pdf_preflight", lambda file_path: models.PdfPreflight(page_count=1))
+    monkeypatch.setattr("mcp_support._get_pdf_preflight", lambda file_path: models.PdfPreflight(page_count=1))
     monkeypatch.setattr(
-        "mcp_support.validate_operation_chain",
+        "mcp_support._validate_operation_chain",
         lambda operation_ids: type("Validation", (), {"is_valid": True, "error_message": None, "error_data": None})(),
     )
     monkeypatch.setattr(
-        "mcp_support.assess_plan_risk",
+        "mcp_support._assess_plan_risk",
         lambda operation_ids, preflight: {"level": "low", "reasons": [], "should_confirm": False},
     )
+    monkeypatch.setattr("mcp_support._build_plan_summary", lambda operation_ids: {"steps": ["rotate"]})
 
     payload = registry.call_tool(
         "stirling_plan_edit_request",
