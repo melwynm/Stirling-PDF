@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "stirling-pdf": {
+      "command": "uv",
+      "args": ["run", "python", "-m", "mcp_server"],
+      "cwd": "C:\\Github\\Stirling-PDF\\engine",
+      "env": {
+        "STIRLING_JAVA_BACKEND_URL": "http://localhost:8080",
+        "STIRLING_MCP_ALLOWED_ROOTS": "C:\\Github\\Stirling-PDF;C:\\Users\\YOUR_USER\\Documents",
+        "STIRLING_OPENAI_API_KEY": "replace-me"
+      }
+    }
+  }
+}

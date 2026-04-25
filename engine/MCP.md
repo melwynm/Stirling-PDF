@@ -14,12 +14,25 @@ It uses the same environment as the normal AI engine, especially:
 
 - `STIRLING_JAVA_BACKEND_URL`
 - `STIRLING_JAVA_BACKEND_API_KEY` if your backend requires it
+- `STIRLING_MCP_ALLOWED_ROOTS` optional path-list for file access outside the repo/output directories
 - the existing AI provider settings used by the engine
+
+The server reads and writes files only under the repository root, `engine/src/output`, and any paths listed in
+`STIRLING_MCP_ALLOWED_ROOTS`. Use the platform path separator: `:` on Linux/macOS and `;` on Windows.
+
+## Client Config Examples
+
+Example configs are committed in `engine/examples/`:
+
+- `claude_desktop_config.stirling-pdf.json`
+- `cursor-mcp.stirling-pdf.json`
+
+Adjust the absolute repository path, backend URL, and provider keys before using them.
 
 ## Exposed MCP Tools
 
 - `stirling_health_check`
-  Checks MCP liveness, required engine environment variables, Java backend health, `pdftohtml`, the rotate-pdf backend probe, and AI provider readiness.
+  Checks MCP liveness, required engine environment variables, output/temp filesystem access, Java backend health, `pdftohtml`, the rotate-pdf backend probe, and AI provider readiness.
 - `stirling_list_operations`
   Lists the operations the engine can plan and describe.
 - `stirling_get_operation_details`
@@ -31,7 +44,21 @@ It uses the same environment as the normal AI engine, especially:
 - `stirling_read_pdf_editor_document`
   Converts a local PDF into the structured JSON format used by the PDF text editor.
 - `stirling_call_endpoint`
-  Calls a backend `/api/v1/` endpoint with multipart form data and saves the binary output.
+  Calls a backend `/api/v1/` endpoint with multipart form data and saves the binary output. Multipart request bodies are spooled to disk instead of assembled fully in memory.
+- `stirling_get_job_status`
+  Checks a backend async job and optionally fetches the completed result.
+- `stirling_rotate_pdf`
+  Convenience wrapper around `/api/v1/general/rotate-pdf` for local PDF rotation.
+
+## Async Jobs
+
+`stirling_call_endpoint` and `stirling_rotate_pdf` support `async_job=true`. Add `wait_for_job=true` to poll until
+completion and fetch the final result, or call `stirling_get_job_status` later with the returned job id.
+
+## External PDF Tooling
+
+The engine PDF editor workflow uses `pdftohtml`. Install Poppler and ensure `pdftohtml` is on `PATH`; the
+`stirling_health_check` tool reports this explicitly.
 
 ## Resources
 

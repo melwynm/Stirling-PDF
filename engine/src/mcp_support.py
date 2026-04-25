@@ -5,7 +5,10 @@ import mimetypes
 import os
 import re
 import shutil
+import tempfile
+import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import uuid
 from dataclasses import dataclass
@@ -246,8 +249,34 @@ class CallEndpointArgs(BaseModel):
     )
     output_path: str | None = Field(
         default=None,
-        description="Optional destination path for binary responses. Defaults to engine/output/mcp/.",
+        description="Optional destination path for binary responses. Defaults to engine/src/output/mcp/.",
     )
+    async_job: bool = Field(
+        default=False,
+        description="Submit AutoJob endpoints with ?async=true and return the job id/status response.",
+    )
+    wait_for_job: bool = Field(
+        default=False,
+        description="When async_job is true, poll until the job completes and fetch the final result.",
+    )
+    poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
+    poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
+
+
+class JobStatusArgs(BaseModel):
+    job_id: str = Field(description="Stirling backend job id.")
+    fetch_result: bool = Field(default=False, description="Fetch the final result if the job is complete.")
+    output_path: str | None = Field(default=None, description="Optional destination path for binary job results.")
+
+
+class RotatePdfArgs(BaseModel):
+    pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
+    angle: int = Field(default=90, description="Rotation angle. Must be a multiple of 90.")
+    output_path: str | None = Field(default=None, description="Optional destination path for the rotated PDF.")
+    async_job: bool = Field(default=False, description="Submit as a backend async job.")
+    wait_for_job: bool = Field(default=False, description="Poll and fetch the result when async_job is true.")
+    poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
+    poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
 
 
 class FrontendOperationMetadataResolver:
@@ -452,7 +481,8 @@ class FrontendOperationMetadataResolver:
 
 class MultipartEndpointExecutor:
     def __init__(self, output_dir: str | Path | None = None) -> None:
-        self.output_dir = Path(output_dir) if output_dir is not None else _DEFAULT_OUTPUT_DIR
+        self.output_dir = (Path(output_dir) if output_dir is not None else _DEFAULT_OUTPUT_DIR).resolve()
+        self.allowed_roots = self._allowed_roots()
 
     def call_endpoint(
         self,
@@ -462,6 +492,10 @@ class MultipartEndpointExecutor:
         extra_file_fields: dict[str, str | list[str]],
         form_fields: dict[str, JsonValue],
         output_path: str | None,
+        async_job: bool = False,
+        wait_for_job: bool = False,
+        poll_interval_seconds: float = 1.0,
+        poll_timeout_seconds: float = 120.0,
     ) -> dict[str, JsonValue]:
         if not endpoint.startswith("/api/v1/"):
             raise McpToolError("endpoint must start with /api/v1/.")
@@ -472,79 +506,171 @@ class MultipartEndpointExecutor:
             values = value if isinstance(value, list) else [value]
             additional_files.extend((field_name, self._resolve_file_path(item)) for item in values)
 
-        body, boundary = self._encode_multipart(form_fields, primary_files + additional_files)
-        headers = _java_backend_headers()
-        headers["Content-Type"] = f"multipart/form-data; boundary={boundary}"
-        headers["Content-Length"] = str(len(body))
+        body_path, boundary, body_size = self._write_multipart_body(form_fields, primary_files + additional_files)
+        request_endpoint = f"{endpoint}?async=true" if async_job else endpoint
+        headers = self._multipart_headers(boundary, body_size)
+        try:
+            with body_path.open("rb") as body_handle:
+                request = urllib.request.Request(
+                    _java_backend_url(request_endpoint),
+                    data=body_handle,
+                    headers=headers,
+                    method="POST",
+                )
+                with urllib.request.urlopen(request, timeout=_java_request_timeout_seconds()) as response:
+                    result = self._handle_response(response, endpoint, output_path)
+            if async_job and wait_for_job:
+                job_id = self._extract_job_id(result)
+                if not job_id:
+                    raise McpToolError("Async backend response did not include a job id.")
+                return self.wait_for_job(job_id, output_path, poll_interval_seconds, poll_timeout_seconds)
+            return result
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
+            raise McpToolError(f"Backend request failed with status {exc.code}: {detail or exc.reason}") from exc
+        except urllib.error.URLError as exc:
+            raise McpToolError(f"Failed to reach Java backend: {exc.reason}") from exc
+        finally:
+            body_path.unlink(missing_ok=True)
 
-        request = urllib.request.Request(_java_backend_url(endpoint), data=body, headers=headers, method="POST")
+    def get_job_status(self, job_id: str) -> dict[str, JsonValue]:
+        response = self._get_json(f"/api/v1/general/job/{urllib.parse.quote(job_id)}")
+        return {"jobId": job_id, "status": response}
+
+    def get_job_result(self, job_id: str, output_path: str | None) -> dict[str, JsonValue]:
+        endpoint = f"/api/v1/general/job/{urllib.parse.quote(job_id)}/result"
+        request = urllib.request.Request(_java_backend_url(endpoint), headers=_java_backend_headers(), method="GET")
+        try:
+            with urllib.request.urlopen(request, timeout=_java_request_timeout_seconds()) as response:
+                return self._handle_response(response, endpoint, output_path)
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
+            raise McpToolError(f"Backend job result failed with status {exc.code}: {detail or exc.reason}") from exc
+        except urllib.error.URLError as exc:
+            raise McpToolError(f"Failed to reach Java backend: {exc.reason}") from exc
+
+    def wait_for_job(
+        self,
+        job_id: str,
+        output_path: str | None,
+        poll_interval_seconds: float,
+        poll_timeout_seconds: float,
+    ) -> dict[str, JsonValue]:
+        deadline = time.monotonic() + poll_timeout_seconds
+        last_status: dict[str, JsonValue] | None = None
+        while time.monotonic() <= deadline:
+            last_status = self.get_job_status(job_id)
+            if self._job_is_complete(last_status):
+                result = self.get_job_result(job_id, output_path)
+                return {"jobId": job_id, "status": last_status["status"], "result": result}
+            time.sleep(poll_interval_seconds)
+        return {"jobId": job_id, "status": last_status or {}, "timedOut": True}
+
+    def _get_json(self, endpoint: str) -> JsonValue:
+        request = urllib.request.Request(_java_backend_url(endpoint), headers=_java_backend_headers(), method="GET")
         try:
             with urllib.request.urlopen(request, timeout=_java_request_timeout_seconds()) as response:
                 raw = response.read()
-                content_type = response.headers.get("Content-Type", "application/octet-stream")
-                if "application/json" in content_type:
-                    text = raw.decode("utf-8") if raw else ""
-                    parsed = json.loads(text) if text else {}
-                    return {
-                        "endpoint": endpoint,
-                        "contentType": content_type,
-                        "resultJson": parsed,
-                    }
-
-                destination = self._resolve_output_path(output_path, response.headers, content_type)
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                destination.write_bytes(raw)
-                return {
-                    "endpoint": endpoint,
-                    "contentType": content_type,
-                    "savedPath": str(destination),
-                    "sizeBytes": len(raw),
-                }
+                return _normalize_json_value(json.loads(raw.decode("utf-8"))) if raw else {}
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
             raise McpToolError(f"Backend request failed with status {exc.code}: {detail or exc.reason}") from exc
         except urllib.error.URLError as exc:
             raise McpToolError(f"Failed to reach Java backend: {exc.reason}") from exc
 
+    def _handle_response(self, response: Any, endpoint: str, output_path: str | None) -> dict[str, JsonValue]:
+        content_type = response.headers.get("Content-Type", "application/octet-stream")
+        if "application/json" in content_type:
+            raw = response.read()
+            text = raw.decode("utf-8") if raw else ""
+            parsed = json.loads(text) if text else {}
+            return {
+                "endpoint": endpoint,
+                "contentType": content_type,
+                "resultJson": _normalize_json_value(parsed),
+            }
+
+        destination = self._resolve_output_path(output_path, response.headers, content_type)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        size_bytes = 0
+        with destination.open("wb") as output_handle:
+            while chunk := response.read(1024 * 1024):
+                size_bytes += len(chunk)
+                output_handle.write(chunk)
+        return {
+            "endpoint": endpoint,
+            "contentType": content_type,
+            "savedPath": str(destination),
+            "sizeBytes": size_bytes,
+        }
+
+    def _extract_job_id(self, result: dict[str, JsonValue]) -> str | None:
+        result_json = result.get("resultJson")
+        if not isinstance(result_json, dict):
+            return None
+        for key in ("jobId", "jobID", "id"):
+            value = result_json.get(key)
+            if isinstance(value, str):
+                return value
+        return None
+
+    def _job_is_complete(self, status: dict[str, JsonValue]) -> bool:
+        payload = status.get("status")
+        if isinstance(payload, dict):
+            job_result = payload.get("jobResult")
+            if isinstance(job_result, dict):
+                return bool(job_result.get("complete") or job_result.get("isComplete"))
+            return bool(payload.get("complete") or payload.get("isComplete"))
+        return False
+
     def _resolve_file_path(self, file_path: str) -> Path:
         path = Path(file_path).expanduser()
         if not path.is_absolute():
             path = Path.cwd() / path
         path = path.resolve()
+        self._ensure_allowed_path(path, "input file")
         if not path.exists():
             raise McpToolError(f"File not found: {path}")
         if not path.is_file():
             raise McpToolError(f"Path is not a file: {path}")
         return path
 
-    def _encode_multipart(
+    def _write_multipart_body(
         self,
         form_fields: dict[str, JsonValue],
         files: list[tuple[str, Path]],
-    ) -> tuple[bytes, str]:
+    ) -> tuple[Path, str, int]:
         boundary = f"stirling-mcp-{uuid.uuid4().hex}"
-        chunks: list[bytes] = []
-        for field_name, value in form_fields.items():
-            for normalized in self._normalize_field_values(value):
-                chunks.append(f"--{boundary}\r\n".encode())
-                chunks.append(
-                    f'Content-Disposition: form-data; name="{field_name}"\r\n\r\n'.encode()
+        temp_root = self.output_dir / "mcp" / "tmp"
+        temp_root.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(prefix="multipart-", suffix=".bin", dir=temp_root, delete=False) as handle:
+            body_path = Path(handle.name)
+            for field_name, value in form_fields.items():
+                for normalized in self._normalize_field_values(value):
+                    handle.write(f"--{boundary}\r\n".encode())
+                    handle.write(f'Content-Disposition: form-data; name="{field_name}"\r\n\r\n'.encode())
+                    handle.write(normalized.encode("utf-8"))
+                    handle.write(b"\r\n")
+            for field_name, path in files:
+                mime_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+                handle.write(f"--{boundary}\r\n".encode())
+                handle.write(
+                    (
+                        f'Content-Disposition: form-data; name="{field_name}"; filename="{path.name}"\r\n'
+                        f"Content-Type: {mime_type}\r\n\r\n"
+                    ).encode()
                 )
-                chunks.append(normalized.encode("utf-8"))
-                chunks.append(b"\r\n")
-        for field_name, path in files:
-            mime_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
-            chunks.append(f"--{boundary}\r\n".encode())
-            chunks.append(
-                (
-                    f'Content-Disposition: form-data; name="{field_name}"; filename="{path.name}"\r\n'
-                    f"Content-Type: {mime_type}\r\n\r\n"
-                ).encode()
-            )
-            chunks.append(path.read_bytes())
-            chunks.append(b"\r\n")
-        chunks.append(f"--{boundary}--\r\n".encode())
-        return (b"".join(chunks), boundary)
+                with path.open("rb") as file_handle:
+                    shutil.copyfileobj(file_handle, handle, length=1024 * 1024)
+                handle.write(b"\r\n")
+            handle.write(f"--{boundary}--\r\n".encode())
+        return (body_path, boundary, body_path.stat().st_size)
+
+    def _multipart_headers(self, boundary: str, body_size: int) -> dict[str, str]:
+        headers = _java_backend_headers()
+        headers["Content-Type"] = f"multipart/form-data; boundary={boundary}"
+        headers["Content-Length"] = str(body_size)
+        return headers
 
     def _normalize_field_values(self, value: JsonValue) -> list[str]:
         if value is None:
@@ -564,10 +690,24 @@ class MultipartEndpointExecutor:
         if output_path:
             path = Path(output_path).expanduser()
             if not path.is_absolute():
-                path = Path.cwd() / path
-            return path.resolve()
+                path = self.output_dir / "mcp" / path
+            path = path.resolve()
+            self._ensure_allowed_path(path, "output file")
+            return path
         filename = self._filename_from_headers(headers) or self._default_filename(content_type)
         return self.output_dir / "mcp" / filename
+
+    def _allowed_roots(self) -> list[Path]:
+        configured = [item.strip() for item in _env_value("STIRLING_MCP_ALLOWED_ROOTS").split(os.pathsep) if item.strip()]
+        roots = [Path(item).expanduser().resolve() for item in configured]
+        roots.extend([_REPO_ROOT.resolve(), self.output_dir.resolve()])
+        return list(dict.fromkeys(roots))
+
+    def _ensure_allowed_path(self, path: Path, label: str) -> None:
+        if any(path == root or root in path.parents for root in self.allowed_roots):
+            return
+        allowed = ", ".join(str(root) for root in self.allowed_roots)
+        raise McpToolError(f"{label} is outside allowed MCP roots: {path}. Allowed roots: {allowed}")
 
     def _filename_from_headers(self, headers: Any) -> str | None:
         disposition = headers.get("Content-Disposition")
@@ -587,6 +727,7 @@ class StirlingMcpHealthChecker:
             self._check_mcp_process(),
             self._check_environment(),
             self._check_pdf_tooling(),
+            self._check_filesystem(),
             self._check_backend_health(args.backend_health_paths),
             self._check_backend_operation_probe(args.run_backend_operation_probe),
             self._check_ai_provider(args.run_ai_provider_probe),
@@ -685,6 +826,37 @@ class StirlingMcpHealthChecker:
             "details": {"path": executable},
         }
 
+    def _check_filesystem(self) -> dict[str, JsonValue]:
+        executor = MultipartEndpointExecutor()
+        temp_root = executor.output_dir / "mcp" / "tmp"
+        try:
+            temp_root.mkdir(parents=True, exist_ok=True)
+            with tempfile.NamedTemporaryFile(prefix="health-", suffix=".tmp", dir=temp_root, delete=False) as handle:
+                health_path = Path(handle.name)
+                handle.write(b"ok")
+            health_path.unlink(missing_ok=True)
+        except OSError as exc:
+            return {
+                "name": "mcp.filesystem",
+                "status": "fail",
+                "message": f"MCP output/temp directory is not writable: {exc}",
+                "details": {
+                    "outputDir": str(executor.output_dir),
+                    "tempDir": str(temp_root),
+                    "allowedRoots": [str(path) for path in executor.allowed_roots],
+                },
+            }
+        return {
+            "name": "mcp.filesystem",
+            "status": "pass",
+            "message": "MCP output/temp directory is writable.",
+            "details": {
+                "outputDir": str(executor.output_dir),
+                "tempDir": str(temp_root),
+                "allowedRoots": [str(path) for path in executor.allowed_roots],
+            },
+        }
+
     def _check_backend_health(self, paths: list[str]) -> dict[str, JsonValue]:
         if not _env_value("STIRLING_JAVA_BACKEND_URL"):
             return {
@@ -762,34 +934,40 @@ class StirlingMcpHealthChecker:
                 "details": {"fixturePath": str(fixture_pdf)},
             }
         try:
-            body, boundary = MultipartEndpointExecutor()._encode_multipart(
+            executor = MultipartEndpointExecutor()
+            body_path, boundary, body_size = executor._write_multipart_body(
                 {"angle": 90},
                 [("fileInput", fixture_pdf)],
             )
-            headers = _java_backend_headers()
-            headers["Content-Type"] = f"multipart/form-data; boundary={boundary}"
-            headers["Content-Length"] = str(len(body))
-            request = urllib.request.Request(
-                _java_backend_url("/api/v1/general/rotate-pdf"),
-                data=body,
-                headers=headers,
-                method="POST",
-            )
-            with urllib.request.urlopen(request, timeout=_java_request_timeout_seconds()) as response:
-                response_body = response.read(1024)
-                content_type = response.headers.get("Content-Type", "")
-                ok = response.status < 400 and ("pdf" in content_type.lower() or response_body.startswith(b"%PDF"))
-                return {
-                    "name": "backend.operationProbe",
-                    "status": "pass" if ok else "fail",
-                    "message": "rotate-pdf probe returned a PDF." if ok else "rotate-pdf probe did not return a PDF.",
-                    "details": {
-                        "endpoint": "/api/v1/general/rotate-pdf",
-                        "statusCode": response.status,
-                        "contentType": content_type,
-                        "bytesRead": len(response_body),
-                    },
-                }
+            try:
+                with body_path.open("rb") as body_handle:
+                    request = urllib.request.Request(
+                        _java_backend_url("/api/v1/general/rotate-pdf"),
+                        data=body_handle,
+                        headers=executor._multipart_headers(boundary, body_size),
+                        method="POST",
+                    )
+                    with urllib.request.urlopen(request, timeout=_java_request_timeout_seconds()) as response:
+                        response_body = response.read(1024)
+                        content_type = response.headers.get("Content-Type", "")
+                        ok = response.status < 400 and (
+                            "pdf" in content_type.lower() or response_body.startswith(b"%PDF")
+                        )
+                        return {
+                            "name": "backend.operationProbe",
+                            "status": "pass" if ok else "fail",
+                            "message": "rotate-pdf probe returned a PDF."
+                            if ok
+                            else "rotate-pdf probe did not return a PDF.",
+                            "details": {
+                                "endpoint": "/api/v1/general/rotate-pdf",
+                                "statusCode": response.status,
+                                "contentType": content_type,
+                                "bytesRead": len(response_body),
+                            },
+                        }
+            finally:
+                body_path.unlink(missing_ok=True)
         except urllib.error.HTTPError as exc:
             return {
                 "name": "backend.operationProbe",
@@ -883,7 +1061,7 @@ class StirlingMcpToolRegistry:
         self._tools = {
             "stirling_health_check": ToolDefinition(
                 name="stirling_health_check",
-                description="Check MCP, engine environment, backend reachability, PDF tooling, and AI provider readiness.",
+                description="Check MCP, engine environment, filesystem access, backend reachability, PDF tooling, and AI provider readiness.",
                 input_model=HealthCheckArgs,
             ),
             "stirling_list_operations": ToolDefinition(
@@ -915,6 +1093,16 @@ class StirlingMcpToolRegistry:
                 name="stirling_call_endpoint",
                 description="Call a Stirling backend /api/v1/ endpoint with multipart form data and save the binary output.",
                 input_model=CallEndpointArgs,
+            ),
+            "stirling_get_job_status": ToolDefinition(
+                name="stirling_get_job_status",
+                description="Check a Stirling async job and optionally fetch its completed result.",
+                input_model=JobStatusArgs,
+            ),
+            "stirling_rotate_pdf": ToolDefinition(
+                name="stirling_rotate_pdf",
+                description="Rotate a local PDF through the Stirling backend and save the output.",
+                input_model=RotatePdfArgs,
             ),
         }
 
@@ -965,6 +1153,12 @@ class StirlingMcpToolRegistry:
             elif name == "stirling_call_endpoint":
                 args = CallEndpointArgs.model_validate(payload)
                 result = self._call_endpoint(args)
+            elif name == "stirling_get_job_status":
+                args = JobStatusArgs.model_validate(payload)
+                result = self._get_job_status(args)
+            elif name == "stirling_rotate_pdf":
+                args = RotatePdfArgs.model_validate(payload)
+                result = self._rotate_pdf(args)
             else:
                 raise McpToolError(f"Unhandled MCP tool: {name}")
         except ValidationError as exc:
@@ -1131,6 +1325,31 @@ class StirlingMcpToolRegistry:
             extra_file_fields=args.extra_file_fields,
             form_fields=args.form_fields,
             output_path=args.output_path,
+            async_job=args.async_job,
+            wait_for_job=args.wait_for_job,
+            poll_interval_seconds=args.poll_interval_seconds,
+            poll_timeout_seconds=args.poll_timeout_seconds,
+        )
+
+    def _get_job_status(self, args: JobStatusArgs) -> dict[str, JsonValue]:
+        if args.fetch_result:
+            return self.endpoint_executor.get_job_result(args.job_id, args.output_path)
+        return self.endpoint_executor.get_job_status(args.job_id)
+
+    def _rotate_pdf(self, args: RotatePdfArgs) -> dict[str, JsonValue]:
+        if args.angle % 90 != 0:
+            raise McpToolError("angle must be a multiple of 90.")
+        return self.endpoint_executor.call_endpoint(
+            endpoint="/api/v1/general/rotate-pdf",
+            file_paths=[args.pdf_path],
+            file_field_name="fileInput",
+            extra_file_fields={},
+            form_fields={"angle": args.angle},
+            output_path=args.output_path,
+            async_job=args.async_job,
+            wait_for_job=args.wait_for_job,
+            poll_interval_seconds=args.poll_interval_seconds,
+            poll_timeout_seconds=args.poll_timeout_seconds,
         )
 
     def _uploaded_file_info(self, file_path: str) -> models.UploadedFileInfo:

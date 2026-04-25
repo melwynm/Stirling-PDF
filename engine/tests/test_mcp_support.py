@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from io import BytesIO
 from pathlib import Path
 from typing import Any
 
@@ -21,13 +22,17 @@ _FIXTURE_PDF = _REPO_ROOT / "testing" / "test_pdf_1.pdf"
 class _FakeHttpResponse:
     def __init__(self, body: bytes, headers: dict[str, str], status: int = 200) -> None:
         self._body = body
+        self._offset = 0
         self.headers = headers
         self.status = status
 
     def read(self, size: int = -1) -> bytes:
-        if size is not None and size >= 0:
-            return self._body[:size]
-        return self._body
+        if size is None or size < 0:
+            size = len(self._body) - self._offset
+        start = self._offset
+        end = min(start + size, len(self._body))
+        self._offset = end
+        return self._body[start:end]
 
     def __enter__(self) -> _FakeHttpResponse:
         return self
@@ -51,8 +56,39 @@ class _FakeOutputPath:
         self.written_bytes = data
         return len(data)
 
+    def open(self, mode: str):
+        assert mode == "wb"
+        path = self
+
+        class _Writer:
+            def __enter__(self) -> Any:
+                path.written_bytes = b""
+                return self
+
+            def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> bool:
+                return False
+
+            def write(self, data: bytes) -> int:
+                path.written_bytes = (path.written_bytes or b"") + data
+                return len(data)
+
+        return _Writer()
+
     def __str__(self) -> str:
         return self.display_path
+
+
+class _FakeBodyPath:
+    def __init__(self, body: bytes = b"multipart-body") -> None:
+        self.body = body
+        self.unlinked = False
+
+    def open(self, mode: str):
+        assert mode == "rb"
+        return BytesIO(self.body)
+
+    def unlink(self, *, missing_ok: bool = False) -> None:
+        self.unlinked = True
 
 
 def test_frontend_metadata_resolver_finds_rotate():
@@ -94,6 +130,7 @@ def test_health_check_reports_missing_runtime_without_crashing(monkeypatch: Monk
     assert checks["mcp.process"]["status"] == "pass"
     assert checks["engine.environment"]["status"] == "fail"
     assert checks["pdf.pdftohtml"]["status"] == "fail"
+    assert checks["mcp.filesystem"]["status"] == "pass"
     assert checks["backend.health"]["status"] == "fail"
     assert checks["ai.provider"]["status"] == "fail"
 
@@ -183,6 +220,7 @@ def test_plan_edit_request_uses_catalog(monkeypatch: MonkeyPatch):
 def test_call_endpoint_saves_binary_response(monkeypatch: MonkeyPatch):
     output_path = _REPO_ROOT / "engine" / "output" / "mcp-test-result.pdf"
     fake_destination = _FakeOutputPath(str(output_path.resolve()))
+    fake_body_path = _FakeBodyPath()
 
     monkeypatch.setattr(
         "urllib.request.urlopen",
@@ -201,6 +239,11 @@ def test_call_endpoint_saves_binary_response(monkeypatch: MonkeyPatch):
         "_resolve_output_path",
         lambda output_path, headers, content_type: fake_destination,
     )
+    monkeypatch.setattr(
+        executor,
+        "_write_multipart_body",
+        lambda form_fields, files: (fake_body_path, "test-boundary", len(fake_body_path.body)),
+    )
 
     result = executor.call_endpoint(
         endpoint="/api/v1/general/rotate-pdf",
@@ -213,3 +256,91 @@ def test_call_endpoint_saves_binary_response(monkeypatch: MonkeyPatch):
 
     assert result["savedPath"] == str(output_path.resolve())
     assert fake_destination.written_bytes == b"%PDF-output%"
+    assert fake_body_path.unlinked is True
+
+
+def test_call_endpoint_waits_for_async_job(monkeypatch: MonkeyPatch):
+    fake_body_path = _FakeBodyPath()
+    executor = MultipartEndpointExecutor(output_dir=str(_REPO_ROOT / "engine" / "output"))
+
+    monkeypatch.setattr(
+        executor,
+        "_write_multipart_body",
+        lambda form_fields, files: (fake_body_path, "test-boundary", len(fake_body_path.body)),
+    )
+    monkeypatch.setattr(
+        "urllib.request.urlopen",
+        lambda request, timeout: _FakeHttpResponse(
+            b'{"jobId":"job-123"}',
+            {"Content-Type": "application/json"},
+        ),
+    )
+    monkeypatch.setattr(
+        executor,
+        "wait_for_job",
+        lambda job_id, output_path, poll_interval_seconds, poll_timeout_seconds: {
+            "jobId": job_id,
+            "result": {"savedPath": output_path},
+        },
+    )
+
+    result = executor.call_endpoint(
+        endpoint="/api/v1/general/rotate-pdf",
+        file_paths=[str(_FIXTURE_PDF)],
+        file_field_name="fileInput",
+        extra_file_fields={},
+        form_fields={"angle": 90},
+        output_path="rotated.pdf",
+        async_job=True,
+        wait_for_job=True,
+    )
+
+    assert result == {"jobId": "job-123", "result": {"savedPath": "rotated.pdf"}}
+    assert fake_body_path.unlinked is True
+
+
+def test_rotate_pdf_tool_calls_backend_executor():
+    class FakeExecutor:
+        def call_endpoint(self, **kwargs):
+            return kwargs
+
+    registry = StirlingMcpToolRegistry(endpoint_executor=FakeExecutor())  # type: ignore[arg-type]
+
+    payload = registry.call_tool(
+        "stirling_rotate_pdf",
+        {
+            "pdf_path": str(_FIXTURE_PDF),
+            "angle": 90,
+            "output_path": "rotated.pdf",
+            "async_job": True,
+            "wait_for_job": True,
+        },
+    )
+    parsed = json.loads(payload["content"][0]["text"])
+
+    assert parsed["endpoint"] == "/api/v1/general/rotate-pdf"
+    assert parsed["file_paths"] == [str(_FIXTURE_PDF)]
+    assert parsed["file_field_name"] == "fileInput"
+    assert parsed["form_fields"] == {"angle": 90}
+    assert parsed["async_job"] is True
+    assert parsed["wait_for_job"] is True
+
+
+def test_job_status_tool_fetches_result_when_requested():
+    class FakeExecutor:
+        def get_job_status(self, job_id):
+            return {"jobId": job_id, "status": {"complete": False}}
+
+        def get_job_result(self, job_id, output_path):
+            return {"jobId": job_id, "savedPath": output_path}
+
+    registry = StirlingMcpToolRegistry(endpoint_executor=FakeExecutor())  # type: ignore[arg-type]
+
+    status_payload = registry.call_tool("stirling_get_job_status", {"job_id": "job-123"})
+    result_payload = registry.call_tool(
+        "stirling_get_job_status",
+        {"job_id": "job-123", "fetch_result": True, "output_path": "done.pdf"},
+    )
+
+    assert json.loads(status_payload["content"][0]["text"])["status"] == {"complete": False}
+    assert json.loads(result_payload["content"][0]["text"])["savedPath"] == "done.pdf"

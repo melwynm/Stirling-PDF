@@ -115,6 +115,8 @@ class StirlingMcpServer:
             if not line:
                 return None
             if line in {b"\r\n", b"\n"}:
+                if not headers:
+                    continue
                 break
             decoded = line.decode("utf-8").strip()
             if ":" not in decoded:
