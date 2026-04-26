@@ -344,3 +344,50 @@ def test_job_status_tool_fetches_result_when_requested():
 
     assert json.loads(status_payload["content"][0]["text"])["status"] == {"complete": False}
     assert json.loads(result_payload["content"][0]["text"])["savedPath"] == "done.pdf"
+
+
+def test_operation_adapter_tools_build_expected_backend_requests():
+    class FakeExecutor:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, Any]] = []
+
+        def call_endpoint(self, **kwargs):
+            self.calls.append(kwargs)
+            return kwargs
+
+    executor = FakeExecutor()
+    registry = StirlingMcpToolRegistry(endpoint_executor=executor)  # type: ignore[arg-type]
+
+    merge_payload = registry.call_tool(
+        "stirling_merge_pdfs",
+        {"pdf_paths": [str(_FIXTURE_PDF), str(_FIXTURE_PDF)], "generate_table_of_contents": True},
+    )
+    compress_payload = registry.call_tool(
+        "stirling_compress_pdf",
+        {"pdf_path": str(_FIXTURE_PDF), "compression_method": "fileSize", "expected_output_size": "10MB"},
+    )
+    remove_payload = registry.call_tool(
+        "stirling_remove_pages",
+        {"pdf_path": str(_FIXTURE_PDF), "page_numbers": "1, 3, 5-7"},
+    )
+
+    merge = json.loads(merge_payload["content"][0]["text"])
+    compress = json.loads(compress_payload["content"][0]["text"])
+    remove = json.loads(remove_payload["content"][0]["text"])
+
+    assert merge["endpoint"] == "/api/v1/general/merge-pdfs"
+    assert merge["form_fields"]["sortType"] == "orderProvided"
+    assert merge["form_fields"]["generateToc"] is True
+    assert json.loads(merge["form_fields"]["clientFileIds"]) == [_FIXTURE_PDF.name, _FIXTURE_PDF.name]
+    assert compress["endpoint"] == "/api/v1/misc/compress-pdf"
+    assert compress["form_fields"]["expectedOutputSize"] == "10MB"
+    assert remove["endpoint"] == "/api/v1/general/remove-pages"
+    assert remove["form_fields"] == {"pageNumbers": "1,3,5-7"}
+
+
+def test_filename_from_headers_strips_path_segments():
+    executor = MultipartEndpointExecutor(output_dir=str(_REPO_ROOT / "engine" / "output"))
+
+    filename = executor._filename_from_headers({"Content-Disposition": 'attachment; filename="../nested/evil.pdf"'})
+
+    assert filename == "evil.pdf"

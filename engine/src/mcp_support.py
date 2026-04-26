@@ -279,6 +279,47 @@ class RotatePdfArgs(BaseModel):
     poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
 
 
+class MergePdfsArgs(BaseModel):
+    pdf_paths: list[str] = Field(min_length=2, description="PDF files to merge in the provided order.")
+    remove_digital_signature: bool = Field(default=False, description="Remove certificate signatures before merge.")
+    generate_table_of_contents: bool = Field(default=False, description="Generate a table of contents in the merged PDF.")
+    output_path: str | None = Field(default=None, description="Optional destination path for the merged PDF.")
+    async_job: bool = Field(default=False, description="Submit as a backend async job.")
+    wait_for_job: bool = Field(default=False, description="Poll and fetch the result when async_job is true.")
+    poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
+    poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
+
+
+class CompressPdfArgs(BaseModel):
+    pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
+    compression_method: str = Field(default="quality", description="Compression method: quality or fileSize.")
+    compression_level: int = Field(default=3, ge=1, le=5, description="Optimize level for quality compression.")
+    expected_output_size: str | None = Field(
+        default=None,
+        description="Target output size for fileSize compression, for example 10MB.",
+    )
+    grayscale: bool = False
+    line_art: bool = False
+    linearize: bool = False
+    line_art_threshold: int = Field(default=180, ge=0, le=255)
+    line_art_edge_level: float = Field(default=0.5, ge=0.0, le=1.0)
+    output_path: str | None = Field(default=None, description="Optional destination path for the compressed PDF.")
+    async_job: bool = Field(default=False, description="Submit as a backend async job.")
+    wait_for_job: bool = Field(default=False, description="Poll and fetch the result when async_job is true.")
+    poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
+    poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
+
+
+class RemovePagesArgs(BaseModel):
+    pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
+    page_numbers: str = Field(description="Pages or ranges to remove, for example 1,3,5-7.")
+    output_path: str | None = Field(default=None, description="Optional destination path for the result PDF.")
+    async_job: bool = Field(default=False, description="Submit as a backend async job.")
+    wait_for_job: bool = Field(default=False, description="Poll and fetch the result when async_job is true.")
+    poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
+    poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
+
+
 class FrontendOperationMetadataResolver:
     def __init__(self, repo_root: Path | None = None) -> None:
         self.repo_root = repo_root or _REPO_ROOT
@@ -714,7 +755,10 @@ class MultipartEndpointExecutor:
         if not disposition:
             return None
         match = re.search(r'filename="?([^";]+)"?', disposition)
-        return match.group(1) if match else None
+        if not match:
+            return None
+        filename = Path(match.group(1).replace("\\", "/")).name
+        return filename or None
 
     def _default_filename(self, content_type: str) -> str:
         extension = mimetypes.guess_extension(content_type.split(";")[0].strip()) or ".bin"
@@ -1104,6 +1148,21 @@ class StirlingMcpToolRegistry:
                 description="Rotate a local PDF through the Stirling backend and save the output.",
                 input_model=RotatePdfArgs,
             ),
+            "stirling_merge_pdfs": ToolDefinition(
+                name="stirling_merge_pdfs",
+                description="Merge local PDFs through the Stirling backend and save the output.",
+                input_model=MergePdfsArgs,
+            ),
+            "stirling_compress_pdf": ToolDefinition(
+                name="stirling_compress_pdf",
+                description="Compress a local PDF through the Stirling backend and save the output.",
+                input_model=CompressPdfArgs,
+            ),
+            "stirling_remove_pages": ToolDefinition(
+                name="stirling_remove_pages",
+                description="Remove pages from a local PDF through the Stirling backend and save the output.",
+                input_model=RemovePagesArgs,
+            ),
         }
 
     @property
@@ -1159,6 +1218,15 @@ class StirlingMcpToolRegistry:
             elif name == "stirling_rotate_pdf":
                 args = RotatePdfArgs.model_validate(payload)
                 result = self._rotate_pdf(args)
+            elif name == "stirling_merge_pdfs":
+                args = MergePdfsArgs.model_validate(payload)
+                result = self._merge_pdfs(args)
+            elif name == "stirling_compress_pdf":
+                args = CompressPdfArgs.model_validate(payload)
+                result = self._compress_pdf(args)
+            elif name == "stirling_remove_pages":
+                args = RemovePagesArgs.model_validate(payload)
+                result = self._remove_pages(args)
             else:
                 raise McpToolError(f"Unhandled MCP tool: {name}")
         except ValidationError as exc:
@@ -1345,6 +1413,73 @@ class StirlingMcpToolRegistry:
             file_field_name="fileInput",
             extra_file_fields={},
             form_fields={"angle": args.angle},
+            output_path=args.output_path,
+            async_job=args.async_job,
+            wait_for_job=args.wait_for_job,
+            poll_interval_seconds=args.poll_interval_seconds,
+            poll_timeout_seconds=args.poll_timeout_seconds,
+        )
+
+    def _merge_pdfs(self, args: MergePdfsArgs) -> dict[str, JsonValue]:
+        return self.endpoint_executor.call_endpoint(
+            endpoint="/api/v1/general/merge-pdfs",
+            file_paths=args.pdf_paths,
+            file_field_name="fileInput",
+            extra_file_fields={},
+            form_fields={
+                "clientFileIds": json.dumps([Path(path).name for path in args.pdf_paths], ensure_ascii=True),
+                "sortType": "orderProvided",
+                "removeCertSign": args.remove_digital_signature,
+                "generateToc": args.generate_table_of_contents,
+            },
+            output_path=args.output_path,
+            async_job=args.async_job,
+            wait_for_job=args.wait_for_job,
+            poll_interval_seconds=args.poll_interval_seconds,
+            poll_timeout_seconds=args.poll_timeout_seconds,
+        )
+
+    def _compress_pdf(self, args: CompressPdfArgs) -> dict[str, JsonValue]:
+        compression_method = args.compression_method.strip()
+        if compression_method not in {"quality", "fileSize"}:
+            raise McpToolError("compression_method must be 'quality' or 'fileSize'.")
+        form_fields: dict[str, JsonValue] = {
+            "grayscale": args.grayscale,
+            "lineArt": args.line_art,
+            "linearize": args.linearize,
+        }
+        if compression_method == "quality":
+            form_fields["optimizeLevel"] = args.compression_level
+        elif args.expected_output_size:
+            form_fields["expectedOutputSize"] = args.expected_output_size
+        else:
+            raise McpToolError("expected_output_size is required when compression_method is 'fileSize'.")
+        if args.line_art:
+            form_fields["lineArtThreshold"] = args.line_art_threshold
+            form_fields["lineArtEdgeLevel"] = args.line_art_edge_level
+        return self.endpoint_executor.call_endpoint(
+            endpoint="/api/v1/misc/compress-pdf",
+            file_paths=[args.pdf_path],
+            file_field_name="fileInput",
+            extra_file_fields={},
+            form_fields=form_fields,
+            output_path=args.output_path,
+            async_job=args.async_job,
+            wait_for_job=args.wait_for_job,
+            poll_interval_seconds=args.poll_interval_seconds,
+            poll_timeout_seconds=args.poll_timeout_seconds,
+        )
+
+    def _remove_pages(self, args: RemovePagesArgs) -> dict[str, JsonValue]:
+        page_numbers = re.sub(r"\s+", "", args.page_numbers)
+        if not page_numbers:
+            raise McpToolError("page_numbers must not be empty.")
+        return self.endpoint_executor.call_endpoint(
+            endpoint="/api/v1/general/remove-pages",
+            file_paths=[args.pdf_path],
+            file_field_name="fileInput",
+            extra_file_fields={},
+            form_fields={"pageNumbers": page_numbers},
             output_path=args.output_path,
             async_job=args.async_job,
             wait_for_job=args.wait_for_job,

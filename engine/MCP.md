@@ -49,11 +49,17 @@ Adjust the absolute repository path, backend URL, and provider keys before using
   Checks a backend async job and optionally fetches the completed result.
 - `stirling_rotate_pdf`
   Convenience wrapper around `/api/v1/general/rotate-pdf` for local PDF rotation.
+- `stirling_merge_pdfs`
+  Convenience wrapper around `/api/v1/general/merge-pdfs` for ordered multi-PDF merge.
+- `stirling_compress_pdf`
+  Convenience wrapper around `/api/v1/misc/compress-pdf` with quality and target-size modes.
+- `stirling_remove_pages`
+  Convenience wrapper around `/api/v1/general/remove-pages`.
 
 ## Async Jobs
 
-`stirling_call_endpoint` and `stirling_rotate_pdf` support `async_job=true`. Add `wait_for_job=true` to poll until
-completion and fetch the final result, or call `stirling_get_job_status` later with the returned job id.
+`stirling_call_endpoint` and the typed endpoint wrappers support `async_job=true`. Add `wait_for_job=true` to poll
+until completion and fetch the final result, or call `stirling_get_job_status` later with the returned job id.
 
 ## External PDF Tooling
 
