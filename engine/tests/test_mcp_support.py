@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-from io import BytesIO
 from pathlib import Path
 from typing import Any
 
@@ -81,14 +80,23 @@ class _FakeOutputPath:
 class _FakeBodyPath:
     def __init__(self, body: bytes = b"multipart-body") -> None:
         self.body = body
-        self.unlinked = False
+        self._offset = 0
+        self.closed = False
 
     def open(self, mode: str):
         assert mode == "rb"
-        return BytesIO(self.body)
+        return self
 
-    def unlink(self, *, missing_ok: bool = False) -> None:
-        self.unlinked = True
+    def read(self, size: int = -1) -> bytes:
+        if size is None or size < 0:
+            size = len(self.body) - self._offset
+        start = self._offset
+        end = min(start + size, len(self.body))
+        self._offset = end
+        return self.body[start:end]
+
+    def close(self) -> None:
+        self.closed = True
 
 
 def test_frontend_metadata_resolver_finds_rotate():
@@ -241,8 +249,8 @@ def test_call_endpoint_saves_binary_response(monkeypatch: MonkeyPatch):
     )
     monkeypatch.setattr(
         executor,
-        "_write_multipart_body",
-        lambda form_fields, files: (fake_body_path, "test-boundary", len(fake_body_path.body)),
+        "_open_multipart_body",
+        lambda form_fields, files: (fake_body_path, "test-boundary", None),
     )
 
     result = executor.call_endpoint(
@@ -256,7 +264,7 @@ def test_call_endpoint_saves_binary_response(monkeypatch: MonkeyPatch):
 
     assert result["savedPath"] == str(output_path.resolve())
     assert fake_destination.written_bytes == b"%PDF-output%"
-    assert fake_body_path.unlinked is True
+    assert fake_body_path.closed is True
 
 
 def test_call_endpoint_waits_for_async_job(monkeypatch: MonkeyPatch):
@@ -265,8 +273,8 @@ def test_call_endpoint_waits_for_async_job(monkeypatch: MonkeyPatch):
 
     monkeypatch.setattr(
         executor,
-        "_write_multipart_body",
-        lambda form_fields, files: (fake_body_path, "test-boundary", len(fake_body_path.body)),
+        "_open_multipart_body",
+        lambda form_fields, files: (fake_body_path, "test-boundary", None),
     )
     monkeypatch.setattr(
         "urllib.request.urlopen",
@@ -296,7 +304,7 @@ def test_call_endpoint_waits_for_async_job(monkeypatch: MonkeyPatch):
     )
 
     assert result == {"jobId": "job-123", "result": {"savedPath": "rotated.pdf"}}
-    assert fake_body_path.unlinked is True
+    assert fake_body_path.closed is True
 
 
 def test_rotate_pdf_tool_calls_backend_executor():
@@ -391,3 +399,41 @@ def test_filename_from_headers_strips_path_segments():
     filename = executor._filename_from_headers({"Content-Disposition": 'attachment; filename="../nested/evil.pdf"'})
 
     assert filename == "evil.pdf"
+
+
+def test_multipart_upload_streams_by_default(monkeypatch: MonkeyPatch):
+    monkeypatch.delenv("STIRLING_MCP_MULTIPART_MODE", raising=False)
+    executor = MultipartEndpointExecutor(output_dir=str(_REPO_ROOT / "engine" / "output"))
+    monkeypatch.setattr(
+        executor,
+        "_write_multipart_body",
+        lambda form_fields, files: (_ for _ in ()).throw(AssertionError("spool path should not be used")),
+    )
+
+    body, boundary, body_size = executor._open_multipart_body({"angle": 90}, [("fileInput", _FIXTURE_PDF)])
+    try:
+        first_chunk = body.read(64)
+    finally:
+        executor._close_multipart_body(body)
+
+    assert body_size is None
+    assert boundary.startswith("stirling-mcp-")
+    assert first_chunk.startswith(b"--stirling-mcp-")
+
+
+def test_multipart_upload_can_spool_for_compatibility(monkeypatch: MonkeyPatch):
+    monkeypatch.setenv("STIRLING_MCP_MULTIPART_MODE", "spool")
+    fake_body_path = _FakeBodyPath()
+    executor = MultipartEndpointExecutor(output_dir=str(_REPO_ROOT / "engine" / "output"))
+    monkeypatch.setattr(
+        executor,
+        "_write_multipart_body",
+        lambda form_fields, files: (fake_body_path, "test-boundary", len(fake_body_path.body)),
+    )
+
+    body, boundary, body_size = executor._open_multipart_body({"angle": 90}, [("fileInput", _FIXTURE_PDF)])
+    executor._close_multipart_body(body)
+
+    assert boundary == "test-boundary"
+    assert body_size == len(fake_body_path.body)
+    assert fake_body_path.closed is True

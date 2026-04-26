@@ -15,10 +15,15 @@ It uses the same environment as the normal AI engine, especially:
 - `STIRLING_JAVA_BACKEND_URL`
 - `STIRLING_JAVA_BACKEND_API_KEY` if your backend requires it
 - `STIRLING_MCP_ALLOWED_ROOTS` optional path-list for file access outside the repo/output directories
+- `STIRLING_MCP_MULTIPART_MODE` optional upload mode: `stream` default, or `spool` for compatibility with servers that reject chunked uploads
 - the existing AI provider settings used by the engine
 
 The server reads and writes files only under the repository root, `engine/src/output`, and any paths listed in
 `STIRLING_MCP_ALLOWED_ROOTS`. Use the platform path separator: `:` on Linux/macOS and `;` on Windows.
+
+Multipart uploads stream file bytes by default, so request bodies do not require temp disk space proportional to the
+input PDFs. Set `STIRLING_MCP_MULTIPART_MODE=spool` only if a backend/proxy requires `Content-Length` for multipart
+uploads.
 
 ## Client Config Examples
 
@@ -44,7 +49,7 @@ Adjust the absolute repository path, backend URL, and provider keys before using
 - `stirling_read_pdf_editor_document`
   Converts a local PDF into the structured JSON format used by the PDF text editor.
 - `stirling_call_endpoint`
-  Calls a backend `/api/v1/` endpoint with multipart form data and saves the binary output. Multipart request bodies are spooled to disk instead of assembled fully in memory.
+  Calls a backend `/api/v1/` endpoint with multipart form data and saves the binary output. Multipart request bodies stream from source files by default instead of being assembled fully in memory or on disk.
 - `stirling_get_job_status`
   Checks a backend async job and optionally fetches the completed result.
 - `stirling_rotate_pdf`

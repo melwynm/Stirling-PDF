@@ -520,6 +520,89 @@ class FrontendOperationMetadataResolver:
         raise McpToolError(f"Unmatched {open_char}{close_char} block while parsing frontend metadata.")
 
 
+class MultipartStreamingBody:
+    def __init__(
+        self,
+        boundary: str,
+        form_fields: dict[str, JsonValue],
+        files: list[tuple[str, Path]],
+        field_normalizer: Any,
+        chunk_size: int = 1024 * 1024,
+    ) -> None:
+        self.chunk_size = chunk_size
+        self._parts: list[bytes | Path] = self._build_parts(boundary, form_fields, files, field_normalizer)
+        self._part_index = 0
+        self._bytes_part_offset = 0
+        self._file_handle: Any | None = None
+
+    def read(self, size: int = -1) -> bytes:
+        target_size = self.chunk_size if size is None or size < 0 else size
+        if target_size == 0:
+            return b""
+        output = bytearray()
+        while len(output) < target_size and self._part_index < len(self._parts):
+            part = self._parts[self._part_index]
+            if isinstance(part, bytes):
+                output.extend(self._read_bytes_part(part, target_size - len(output)))
+            else:
+                output.extend(self._read_file_part(part, target_size - len(output)))
+        return bytes(output)
+
+    def close(self) -> None:
+        if self._file_handle is not None:
+            self._file_handle.close()
+            self._file_handle = None
+
+    def _read_bytes_part(self, part: bytes, size: int) -> bytes:
+        chunk = part[self._bytes_part_offset : self._bytes_part_offset + size]
+        self._bytes_part_offset += len(chunk)
+        if self._bytes_part_offset >= len(part):
+            self._part_index += 1
+            self._bytes_part_offset = 0
+        return chunk
+
+    def _read_file_part(self, part: Path, size: int) -> bytes:
+        if self._file_handle is None:
+            self._file_handle = part.open("rb")
+        chunk = self._file_handle.read(size)
+        if not chunk:
+            self.close()
+            self._part_index += 1
+            return b""
+        return chunk
+
+    def _build_parts(
+        self,
+        boundary: str,
+        form_fields: dict[str, JsonValue],
+        files: list[tuple[str, Path]],
+        field_normalizer: Any,
+    ) -> list[bytes | Path]:
+        parts: list[bytes | Path] = []
+        for field_name, value in form_fields.items():
+            for normalized in field_normalizer(value):
+                parts.append(
+                    (
+                        f"--{boundary}\r\n"
+                        f'Content-Disposition: form-data; name="{field_name}"\r\n\r\n'
+                        f"{normalized}\r\n"
+                    ).encode()
+                )
+        for field_name, path in files:
+            mime_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+            parts.append(
+                (
+                    f"--{boundary}\r\n"
+                    f'Content-Disposition: form-data; name="{field_name}"; filename="{path.name}"\r\n'
+                    f"Content-Type: {mime_type}\r\n\r\n"
+                ).encode()
+            )
+            parts.append(path)
+            parts.append(b"\r\n")
+        parts.append(f"--{boundary}--\r\n".encode())
+        return parts
+
+
 class MultipartEndpointExecutor:
     def __init__(self, output_dir: str | Path | None = None) -> None:
         self.output_dir = (Path(output_dir) if output_dir is not None else _DEFAULT_OUTPUT_DIR).resolve()
@@ -547,19 +630,18 @@ class MultipartEndpointExecutor:
             values = value if isinstance(value, list) else [value]
             additional_files.extend((field_name, self._resolve_file_path(item)) for item in values)
 
-        body_path, boundary, body_size = self._write_multipart_body(form_fields, primary_files + additional_files)
+        body, boundary, body_size = self._open_multipart_body(form_fields, primary_files + additional_files)
         request_endpoint = f"{endpoint}?async=true" if async_job else endpoint
         headers = self._multipart_headers(boundary, body_size)
         try:
-            with body_path.open("rb") as body_handle:
-                request = urllib.request.Request(
-                    _java_backend_url(request_endpoint),
-                    data=body_handle,
-                    headers=headers,
-                    method="POST",
-                )
-                with urllib.request.urlopen(request, timeout=_java_request_timeout_seconds()) as response:
-                    result = self._handle_response(response, endpoint, output_path)
+            request = urllib.request.Request(
+                _java_backend_url(request_endpoint),
+                data=body,
+                headers=headers,
+                method="POST",
+            )
+            with urllib.request.urlopen(request, timeout=_java_request_timeout_seconds()) as response:
+                result = self._handle_response(response, endpoint, output_path)
             if async_job and wait_for_job:
                 job_id = self._extract_job_id(result)
                 if not job_id:
@@ -572,7 +654,7 @@ class MultipartEndpointExecutor:
         except urllib.error.URLError as exc:
             raise McpToolError(f"Failed to reach Java backend: {exc.reason}") from exc
         finally:
-            body_path.unlink(missing_ok=True)
+            self._close_multipart_body(body)
 
     def get_job_status(self, job_id: str) -> dict[str, JsonValue]:
         response = self._get_json(f"/api/v1/general/job/{urllib.parse.quote(job_id)}")
@@ -707,10 +789,32 @@ class MultipartEndpointExecutor:
             handle.write(f"--{boundary}--\r\n".encode())
         return (body_path, boundary, body_path.stat().st_size)
 
-    def _multipart_headers(self, boundary: str, body_size: int) -> dict[str, str]:
+    def _open_multipart_body(self, form_fields: dict[str, JsonValue], files: list[tuple[str, Path]]) -> tuple[Any, str, int | None]:
+        mode = self._multipart_mode()
+        if mode == "spool":
+            body_path, boundary, body_size = self._write_multipart_body(form_fields, files)
+            return (body_path.open("rb"), boundary, body_size)
+        if mode != "stream":
+            raise McpToolError("STIRLING_MCP_MULTIPART_MODE must be 'stream' or 'spool'.")
+        boundary = f"stirling-mcp-{uuid.uuid4().hex}"
+        return (MultipartStreamingBody(boundary, form_fields, files, self._normalize_field_values), boundary, None)
+
+    def _close_multipart_body(self, body: Any) -> None:
+        name = getattr(body, "name", None)
+        close = getattr(body, "close", None)
+        if callable(close):
+            close()
+        if isinstance(name, str) and Path(name).name.startswith("multipart-"):
+            Path(name).unlink(missing_ok=True)
+
+    def _multipart_mode(self) -> str:
+        return (_env_value("STIRLING_MCP_MULTIPART_MODE") or "stream").strip().lower()
+
+    def _multipart_headers(self, boundary: str, body_size: int | None) -> dict[str, str]:
         headers = _java_backend_headers()
         headers["Content-Type"] = f"multipart/form-data; boundary={boundary}"
-        headers["Content-Length"] = str(body_size)
+        if body_size is not None:
+            headers["Content-Length"] = str(body_size)
         return headers
 
     def _normalize_field_values(self, value: JsonValue) -> list[str]:
@@ -888,6 +992,7 @@ class StirlingMcpHealthChecker:
                     "outputDir": str(executor.output_dir),
                     "tempDir": str(temp_root),
                     "allowedRoots": [str(path) for path in executor.allowed_roots],
+                    "multipartMode": executor._multipart_mode(),
                 },
             }
         return {
@@ -898,6 +1003,7 @@ class StirlingMcpHealthChecker:
                 "outputDir": str(executor.output_dir),
                 "tempDir": str(temp_root),
                 "allowedRoots": [str(path) for path in executor.allowed_roots],
+                "multipartMode": executor._multipart_mode(),
             },
         }
 
@@ -979,39 +1085,38 @@ class StirlingMcpHealthChecker:
             }
         try:
             executor = MultipartEndpointExecutor()
-            body_path, boundary, body_size = executor._write_multipart_body(
+            body, boundary, body_size = executor._open_multipart_body(
                 {"angle": 90},
                 [("fileInput", fixture_pdf)],
             )
             try:
-                with body_path.open("rb") as body_handle:
-                    request = urllib.request.Request(
-                        _java_backend_url("/api/v1/general/rotate-pdf"),
-                        data=body_handle,
-                        headers=executor._multipart_headers(boundary, body_size),
-                        method="POST",
+                request = urllib.request.Request(
+                    _java_backend_url("/api/v1/general/rotate-pdf"),
+                    data=body,
+                    headers=executor._multipart_headers(boundary, body_size),
+                    method="POST",
+                )
+                with urllib.request.urlopen(request, timeout=_java_request_timeout_seconds()) as response:
+                    response_body = response.read(1024)
+                    content_type = response.headers.get("Content-Type", "")
+                    ok = response.status < 400 and (
+                        "pdf" in content_type.lower() or response_body.startswith(b"%PDF")
                     )
-                    with urllib.request.urlopen(request, timeout=_java_request_timeout_seconds()) as response:
-                        response_body = response.read(1024)
-                        content_type = response.headers.get("Content-Type", "")
-                        ok = response.status < 400 and (
-                            "pdf" in content_type.lower() or response_body.startswith(b"%PDF")
-                        )
-                        return {
-                            "name": "backend.operationProbe",
-                            "status": "pass" if ok else "fail",
-                            "message": "rotate-pdf probe returned a PDF."
-                            if ok
-                            else "rotate-pdf probe did not return a PDF.",
-                            "details": {
-                                "endpoint": "/api/v1/general/rotate-pdf",
-                                "statusCode": response.status,
-                                "contentType": content_type,
-                                "bytesRead": len(response_body),
-                            },
-                        }
+                    return {
+                        "name": "backend.operationProbe",
+                        "status": "pass" if ok else "fail",
+                        "message": "rotate-pdf probe returned a PDF."
+                        if ok
+                        else "rotate-pdf probe did not return a PDF.",
+                        "details": {
+                            "endpoint": "/api/v1/general/rotate-pdf",
+                            "statusCode": response.status,
+                            "contentType": content_type,
+                            "bytesRead": len(response_body),
+                        },
+                    }
             finally:
-                body_path.unlink(missing_ok=True)
+                executor._close_multipart_body(body)
         except urllib.error.HTTPError as exc:
             return {
                 "name": "backend.operationProbe",
