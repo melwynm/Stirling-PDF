@@ -29,7 +29,8 @@ type JsonValue = JsonPrimitive | JsonObject | JsonArray
 
 _MCP_README_PATH = Path(__file__).resolve().parents[1] / "MCP.md"
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parent / "output"
+_ENGINE_ROOT = Path(__file__).resolve().parents[1]
+_DEFAULT_OUTPUT_DIR = _ENGINE_ROOT / "output"
 _DEFAULT_BACKEND_HEALTH_PATHS = (
     "/api/v1/info/health",
     "/api/v1/info/status",
@@ -189,6 +190,16 @@ class NoArgs(BaseModel):
     pass
 
 
+class CleanupMcpOutputArgs(BaseModel):
+    max_age_hours: float = Field(
+        default=24.0,
+        ge=0.0,
+        description="Delete MCP output/temp files older than this age. Use 0 to delete all files.",
+    )
+    include_outputs: bool = Field(default=False, description="Also delete files in engine/output/mcp, not only tmp.")
+    dry_run: bool = Field(default=True, description="Report files that would be deleted without deleting them.")
+
+
 class HealthCheckArgs(BaseModel):
     backend_health_paths: list[str] = Field(
         default_factory=lambda: list(_DEFAULT_BACKEND_HEALTH_PATHS),
@@ -249,7 +260,7 @@ class CallEndpointArgs(BaseModel):
     )
     output_path: str | None = Field(
         default=None,
-        description="Optional destination path for binary responses. Defaults to engine/src/output/mcp/.",
+        description="Optional destination path for binary responses. Defaults to engine/output/mcp/.",
     )
     async_job: bool = Field(
         default=False,
@@ -316,6 +327,126 @@ class RemovePagesArgs(BaseModel):
     output_path: str | None = Field(default=None, description="Optional destination path for the result PDF.")
     async_job: bool = Field(default=False, description="Submit as a backend async job.")
     wait_for_job: bool = Field(default=False, description="Poll and fetch the result when async_job is true.")
+    poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
+    poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
+
+
+class SplitPdfArgs(BaseModel):
+    pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
+    page_numbers: str = Field(description="Pages/ranges to split at, for example 1,3,5-7.")
+    output_path: str | None = Field(default=None, description="Optional destination path for the result ZIP/PDF.")
+    async_job: bool = False
+    wait_for_job: bool = False
+    poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
+    poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
+
+
+class ExtractImagesArgs(BaseModel):
+    pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
+    image_format: str = Field(default="png", description="Image format, for example png, jpg, or tiff.")
+    output_path: str | None = Field(default=None, description="Optional destination path for the result ZIP.")
+    async_job: bool = False
+    wait_for_job: bool = False
+    poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
+    poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
+
+
+class OcrPdfArgs(BaseModel):
+    pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
+    languages: list[str] = Field(default_factory=lambda: ["eng"], description="OCR languages.")
+    ocr_type: str = Field(default="skip-text", description="OCR type sent to backend.")
+    ocr_render_type: str = Field(default="hocr", description="OCR render type sent to backend.")
+    sidecar: bool = False
+    deskew: bool = False
+    clean: bool = False
+    clean_final: bool = False
+    remove_images_after: bool = False
+    output_path: str | None = Field(default=None, description="Optional destination path for the OCR result.")
+    async_job: bool = False
+    wait_for_job: bool = False
+    poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
+    poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
+
+
+class ConvertFileArgs(BaseModel):
+    file_paths: list[str] = Field(min_length=1, description="Local files to convert.")
+    from_extension: str = Field(description="Source extension/type, for example pdf, docx, image, html.")
+    to_extension: str = Field(description="Target extension/type, for example pdf, png, docx, txt.")
+    output_path: str | None = Field(default=None, description="Optional destination path for the converted result.")
+    async_job: bool = False
+    wait_for_job: bool = False
+    poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
+    poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
+
+
+class WatermarkPdfArgs(BaseModel):
+    pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
+    watermark_text: str = Field(description="Text watermark to add.")
+    font_size: int = 30
+    rotation: int = 45
+    opacity_percent: int = Field(default=50, ge=0, le=100)
+    width_spacer: int = 50
+    height_spacer: int = 50
+    output_path: str | None = Field(default=None, description="Optional destination path for the watermarked PDF.")
+    async_job: bool = False
+    wait_for_job: bool = False
+    poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
+    poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
+
+
+class AddPasswordArgs(BaseModel):
+    pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
+    password: str = Field(description="User password.")
+    owner_password: str = Field(default="", description="Owner password. Defaults to password when empty.")
+    key_length: int = Field(default=256, description="Encryption key length.")
+    output_path: str | None = Field(default=None, description="Optional destination path for encrypted PDF.")
+    async_job: bool = False
+    wait_for_job: bool = False
+    poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
+    poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
+
+
+class RemovePasswordArgs(BaseModel):
+    pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
+    password: str = Field(description="Current PDF password.")
+    output_path: str | None = Field(default=None, description="Optional destination path for decrypted PDF.")
+    async_job: bool = False
+    wait_for_job: bool = False
+    poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
+    poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
+
+
+class RepairPdfArgs(BaseModel):
+    pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
+    output_path: str | None = Field(default=None, description="Optional destination path for repaired PDF.")
+    async_job: bool = False
+    wait_for_job: bool = False
+    poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
+    poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
+
+
+class SanitizePdfArgs(BaseModel):
+    pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
+    remove_javascript: bool = True
+    remove_embedded_files: bool = True
+    remove_xmp_metadata: bool = True
+    remove_metadata: bool = True
+    remove_links: bool = False
+    remove_fonts: bool = False
+    output_path: str | None = Field(default=None, description="Optional destination path for sanitized PDF.")
+    async_job: bool = False
+    wait_for_job: bool = False
+    poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
+    poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
+
+
+class FlattenPdfArgs(BaseModel):
+    pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
+    flatten_only_forms: bool = False
+    render_dpi: int | None = Field(default=None, description="Optional render DPI.")
+    output_path: str | None = Field(default=None, description="Optional destination path for flattened PDF.")
+    async_job: bool = False
+    wait_for_job: bool = False
     poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
     poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
 
@@ -693,7 +824,7 @@ class MultipartEndpointExecutor:
         request = urllib.request.Request(_java_backend_url(endpoint), headers=_java_backend_headers(), method="GET")
         try:
             with urllib.request.urlopen(request, timeout=_java_request_timeout_seconds()) as response:
-                raw = response.read()
+                raw = self._read_limited_json_response(response)
                 return _normalize_json_value(json.loads(raw.decode("utf-8"))) if raw else {}
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
@@ -704,7 +835,7 @@ class MultipartEndpointExecutor:
     def _handle_response(self, response: Any, endpoint: str, output_path: str | None) -> dict[str, JsonValue]:
         content_type = response.headers.get("Content-Type", "application/octet-stream")
         if "application/json" in content_type:
-            raw = response.read()
+            raw = self._read_limited_json_response(response)
             text = raw.decode("utf-8") if raw else ""
             parsed = json.loads(text) if text else {}
             return {
@@ -726,6 +857,28 @@ class MultipartEndpointExecutor:
             "savedPath": str(destination),
             "sizeBytes": size_bytes,
         }
+
+    def _read_limited_json_response(self, response: Any) -> bytes:
+        max_bytes = self._max_json_response_bytes()
+        content_length = response.headers.get("Content-Length")
+        if content_length:
+            try:
+                if int(content_length) > max_bytes:
+                    raise McpToolError(f"JSON response is larger than STIRLING_MCP_MAX_JSON_RESPONSE_BYTES ({max_bytes}).")
+            except ValueError:
+                pass
+        raw = response.read(max_bytes + 1)
+        if len(raw) > max_bytes:
+            raise McpToolError(f"JSON response is larger than STIRLING_MCP_MAX_JSON_RESPONSE_BYTES ({max_bytes}).")
+        return raw
+
+    def _max_json_response_bytes(self) -> int:
+        raw = _env_value("STIRLING_MCP_MAX_JSON_RESPONSE_BYTES") or str(10 * 1024 * 1024)
+        try:
+            value = int(raw)
+        except ValueError as exc:
+            raise McpToolError("STIRLING_MCP_MAX_JSON_RESPONSE_BYTES must be an integer.") from exc
+        return max(value, 1024)
 
     def _extract_job_id(self, result: dict[str, JsonValue]) -> str | None:
         result_json = result.get("resultJson")
@@ -1004,7 +1157,17 @@ class StirlingMcpHealthChecker:
                 "tempDir": str(temp_root),
                 "allowedRoots": [str(path) for path in executor.allowed_roots],
                 "multipartMode": executor._multipart_mode(),
+                "disk": _normalize_json_value(self._disk_details(executor.output_dir)),
             },
+        }
+
+    def _disk_details(self, path: Path) -> dict[str, JsonValue]:
+        usage = shutil.disk_usage(path)
+        return {
+            "totalBytes": usage.total,
+            "usedBytes": usage.used,
+            "freeBytes": usage.free,
+            "freePercent": round((usage.free / usage.total) * 100, 2) if usage.total else None,
         }
 
     def _check_backend_health(self, paths: list[str]) -> dict[str, JsonValue]:
@@ -1218,6 +1381,16 @@ class StirlingMcpToolRegistry:
                 description="List the Stirling PDF operations that the AI engine can plan and describe.",
                 input_model=NoArgs,
             ),
+            "stirling_list_executable_operations": ToolDefinition(
+                name="stirling_list_executable_operations",
+                description="List operations with first-class executable MCP wrappers and their backend endpoints.",
+                input_model=NoArgs,
+            ),
+            "stirling_cleanup_mcp_output": ToolDefinition(
+                name="stirling_cleanup_mcp_output",
+                description="Delete old MCP temp/output files using a retention policy.",
+                input_model=CleanupMcpOutputArgs,
+            ),
             "stirling_get_operation_details": ToolDefinition(
                 name="stirling_get_operation_details",
                 description="Get JSON schema, frontend hook hints, and source references for a Stirling operation.",
@@ -1268,6 +1441,56 @@ class StirlingMcpToolRegistry:
                 description="Remove pages from a local PDF through the Stirling backend and save the output.",
                 input_model=RemovePagesArgs,
             ),
+            "stirling_split_pdf": ToolDefinition(
+                name="stirling_split_pdf",
+                description="Split a local PDF by pages/ranges through the Stirling backend.",
+                input_model=SplitPdfArgs,
+            ),
+            "stirling_extract_images": ToolDefinition(
+                name="stirling_extract_images",
+                description="Extract images from a local PDF through the Stirling backend.",
+                input_model=ExtractImagesArgs,
+            ),
+            "stirling_ocr_pdf": ToolDefinition(
+                name="stirling_ocr_pdf",
+                description="Run OCR on a local PDF through the Stirling backend.",
+                input_model=OcrPdfArgs,
+            ),
+            "stirling_convert_file": ToolDefinition(
+                name="stirling_convert_file",
+                description="Convert files through a supported Stirling conversion endpoint.",
+                input_model=ConvertFileArgs,
+            ),
+            "stirling_add_watermark": ToolDefinition(
+                name="stirling_add_watermark",
+                description="Add a text watermark to a local PDF.",
+                input_model=WatermarkPdfArgs,
+            ),
+            "stirling_add_password": ToolDefinition(
+                name="stirling_add_password",
+                description="Encrypt a local PDF with a password.",
+                input_model=AddPasswordArgs,
+            ),
+            "stirling_remove_password": ToolDefinition(
+                name="stirling_remove_password",
+                description="Remove a password from a local PDF.",
+                input_model=RemovePasswordArgs,
+            ),
+            "stirling_repair_pdf": ToolDefinition(
+                name="stirling_repair_pdf",
+                description="Repair a local PDF through the Stirling backend.",
+                input_model=RepairPdfArgs,
+            ),
+            "stirling_sanitize_pdf": ToolDefinition(
+                name="stirling_sanitize_pdf",
+                description="Sanitize a local PDF by removing active or sensitive content.",
+                input_model=SanitizePdfArgs,
+            ),
+            "stirling_flatten_pdf": ToolDefinition(
+                name="stirling_flatten_pdf",
+                description="Flatten a local PDF through the Stirling backend.",
+                input_model=FlattenPdfArgs,
+            ),
         }
 
     @property
@@ -1302,6 +1525,12 @@ class StirlingMcpToolRegistry:
             elif name == "stirling_list_operations":
                 NoArgs.model_validate(payload)
                 result = self._list_operations()
+            elif name == "stirling_list_executable_operations":
+                NoArgs.model_validate(payload)
+                result = self._list_executable_operations()
+            elif name == "stirling_cleanup_mcp_output":
+                args = CleanupMcpOutputArgs.model_validate(payload)
+                result = self._cleanup_mcp_output(args)
             elif name == "stirling_get_operation_details":
                 args = GetOperationDetailsArgs.model_validate(payload)
                 result = self._get_operation_details(args.operation_id)
@@ -1332,6 +1561,36 @@ class StirlingMcpToolRegistry:
             elif name == "stirling_remove_pages":
                 args = RemovePagesArgs.model_validate(payload)
                 result = self._remove_pages(args)
+            elif name == "stirling_split_pdf":
+                args = SplitPdfArgs.model_validate(payload)
+                result = self._split_pdf(args)
+            elif name == "stirling_extract_images":
+                args = ExtractImagesArgs.model_validate(payload)
+                result = self._extract_images(args)
+            elif name == "stirling_ocr_pdf":
+                args = OcrPdfArgs.model_validate(payload)
+                result = self._ocr_pdf(args)
+            elif name == "stirling_convert_file":
+                args = ConvertFileArgs.model_validate(payload)
+                result = self._convert_file(args)
+            elif name == "stirling_add_watermark":
+                args = WatermarkPdfArgs.model_validate(payload)
+                result = self._add_watermark(args)
+            elif name == "stirling_add_password":
+                args = AddPasswordArgs.model_validate(payload)
+                result = self._add_password(args)
+            elif name == "stirling_remove_password":
+                args = RemovePasswordArgs.model_validate(payload)
+                result = self._remove_password(args)
+            elif name == "stirling_repair_pdf":
+                args = RepairPdfArgs.model_validate(payload)
+                result = self._repair_pdf(args)
+            elif name == "stirling_sanitize_pdf":
+                args = SanitizePdfArgs.model_validate(payload)
+                result = self._sanitize_pdf(args)
+            elif name == "stirling_flatten_pdf":
+                args = FlattenPdfArgs.model_validate(payload)
+                result = self._flatten_pdf(args)
             else:
                 raise McpToolError(f"Unhandled MCP tool: {name}")
         except ValidationError as exc:
@@ -1360,6 +1619,12 @@ class StirlingMcpToolRegistry:
                 "mimeType": "text/markdown",
                 "description": "Local usage notes for running the Stirling PDF MCP server.",
             },
+            {
+                "uri": "stirling://mcp/workflows",
+                "name": "Stirling MCP Workflow Examples",
+                "mimeType": "text/markdown",
+                "description": "Prompt examples for common local PDF workflows.",
+            },
         ]
 
     def read_resource(self, uri: str) -> dict[str, JsonValue]:
@@ -1368,6 +1633,9 @@ class StirlingMcpToolRegistry:
             mime_type = "application/json"
         elif uri == "stirling://mcp/readme":
             payload = _MCP_README_PATH.read_text(encoding="utf-8") if _MCP_README_PATH.exists() else ""
+            mime_type = "text/markdown"
+        elif uri == "stirling://mcp/workflows":
+            payload = self._workflow_examples()
             mime_type = "text/markdown"
         else:
             raise McpToolError(f"Unknown MCP resource: {uri}")
@@ -1380,6 +1648,24 @@ class StirlingMcpToolRegistry:
                 }
             ]
         }
+
+    def _workflow_examples(self) -> str:
+        return """# Stirling MCP Workflow Examples
+
+## Inspect Available Wrappers
+Call `stirling_list_executable_operations` before using generic endpoints. Prefer a typed wrapper when available.
+
+## Rotate And Compress
+1. Call `stirling_rotate_pdf` with `angle=90`.
+2. Call `stirling_compress_pdf` on the rotated output with `compression_method=quality`.
+
+## Merge Then Sanitize
+1. Call `stirling_merge_pdfs` with PDFs in the desired order.
+2. Call `stirling_sanitize_pdf` on the merged output.
+
+## Cleanup
+Call `stirling_cleanup_mcp_output` with `dry_run=true` first, then repeat with `dry_run=false`.
+"""
 
     def _list_operations(self) -> dict[str, JsonValue]:
         operations: JsonArray = []
@@ -1396,6 +1682,64 @@ class StirlingMcpToolRegistry:
                 }
             )
         return {"operations": operations}
+
+    def _list_executable_operations(self) -> dict[str, JsonValue]:
+        wrappers = self._executable_operation_map()
+        return {
+            "count": len(wrappers),
+            "operations": [
+                {
+                    "operationId": operation_id,
+                    "toolName": data["toolName"],
+                    "endpoint": data["endpoint"],
+                    "notes": data.get("notes", ""),
+                }
+                for operation_id, data in sorted(wrappers.items())
+            ],
+        }
+
+    def _executable_operation_map(self) -> dict[str, dict[str, str]]:
+        return {
+            "rotate": {"toolName": "stirling_rotate_pdf", "endpoint": "/api/v1/general/rotate-pdf"},
+            "merge": {"toolName": "stirling_merge_pdfs", "endpoint": "/api/v1/general/merge-pdfs"},
+            "compress": {"toolName": "stirling_compress_pdf", "endpoint": "/api/v1/misc/compress-pdf"},
+            "removePages": {"toolName": "stirling_remove_pages", "endpoint": "/api/v1/general/remove-pages"},
+            "split": {"toolName": "stirling_split_pdf", "endpoint": "/api/v1/general/split-pages"},
+            "extractImages": {"toolName": "stirling_extract_images", "endpoint": "/api/v1/misc/extract-images"},
+            "ocr": {"toolName": "stirling_ocr_pdf", "endpoint": "/api/v1/misc/ocr-pdf"},
+            "convert": {"toolName": "stirling_convert_file", "endpoint": "varies by from_extension/to_extension"},
+            "watermark": {"toolName": "stirling_add_watermark", "endpoint": "/api/v1/security/add-watermark"},
+            "addPassword": {"toolName": "stirling_add_password", "endpoint": "/api/v1/security/add-password"},
+            "removePassword": {"toolName": "stirling_remove_password", "endpoint": "/api/v1/security/remove-password"},
+            "repair": {"toolName": "stirling_repair_pdf", "endpoint": "/api/v1/misc/repair"},
+            "sanitize": {"toolName": "stirling_sanitize_pdf", "endpoint": "/api/v1/security/sanitize-pdf"},
+            "flatten": {"toolName": "stirling_flatten_pdf", "endpoint": "/api/v1/misc/flatten"},
+        }
+
+    def _cleanup_mcp_output(self, args: CleanupMcpOutputArgs) -> dict[str, JsonValue]:
+        roots = [self.endpoint_executor.output_dir / "mcp" / "tmp"]
+        if args.include_outputs:
+            roots.append(self.endpoint_executor.output_dir / "mcp")
+        cutoff = time.time() - (args.max_age_hours * 3600)
+        candidates: list[Path] = []
+        for root in roots:
+            if not root.exists():
+                continue
+            for path in root.rglob("*"):
+                if path.is_file() and path.stat().st_mtime <= cutoff:
+                    candidates.append(path)
+        deleted: JsonArray = []
+        for path in sorted(set(candidates)):
+            deleted.append({"path": str(path), "sizeBytes": path.stat().st_size})
+            if not args.dry_run:
+                path.unlink(missing_ok=True)
+        return {
+            "dryRun": args.dry_run,
+            "maxAgeHours": args.max_age_hours,
+            "includeOutputs": args.include_outputs,
+            "filesMatched": len(deleted),
+            "files": deleted,
+        }
 
     def _get_operation_details(self, operation_id: str) -> dict[str, JsonValue]:
         try:
@@ -1526,13 +1870,14 @@ class StirlingMcpToolRegistry:
         )
 
     def _merge_pdfs(self, args: MergePdfsArgs) -> dict[str, JsonValue]:
+        client_ids = [f"{index}:{Path(path).name}" for index, path in enumerate(args.pdf_paths)]
         return self.endpoint_executor.call_endpoint(
             endpoint="/api/v1/general/merge-pdfs",
             file_paths=args.pdf_paths,
             file_field_name="fileInput",
             extra_file_fields={},
             form_fields={
-                "clientFileIds": json.dumps([Path(path).name for path in args.pdf_paths], ensure_ascii=True),
+                "clientFileIds": json.dumps(client_ids, ensure_ascii=True),
                 "sortType": "orderProvided",
                 "removeCertSign": args.remove_digital_signature,
                 "generateToc": args.generate_table_of_contents,
@@ -1545,9 +1890,9 @@ class StirlingMcpToolRegistry:
         )
 
     def _compress_pdf(self, args: CompressPdfArgs) -> dict[str, JsonValue]:
-        compression_method = args.compression_method.strip()
+        compression_method = self._normalize_compression_method(args.compression_method)
         if compression_method not in {"quality", "fileSize"}:
-            raise McpToolError("compression_method must be 'quality' or 'fileSize'.")
+            raise McpToolError("compression_method must be 'quality', 'fileSize', 'file_size', 'size', or 'target_size'.")
         form_fields: dict[str, JsonValue] = {
             "grayscale": args.grayscale,
             "lineArt": args.line_art,
@@ -1575,6 +1920,14 @@ class StirlingMcpToolRegistry:
             poll_timeout_seconds=args.poll_timeout_seconds,
         )
 
+    def _normalize_compression_method(self, value: str) -> str:
+        normalized = value.strip().replace("-", "_").lower()
+        if normalized in {"filesize", "file_size", "size", "target_size", "target"}:
+            return "fileSize"
+        if normalized in {"quality", "optimize", "optimise"}:
+            return "quality"
+        return value.strip()
+
     def _remove_pages(self, args: RemovePagesArgs) -> dict[str, JsonValue]:
         page_numbers = re.sub(r"\s+", "", args.page_numbers)
         if not page_numbers:
@@ -1591,6 +1944,228 @@ class StirlingMcpToolRegistry:
             poll_interval_seconds=args.poll_interval_seconds,
             poll_timeout_seconds=args.poll_timeout_seconds,
         )
+
+    def _split_pdf(self, args: SplitPdfArgs) -> dict[str, JsonValue]:
+        page_numbers = re.sub(r"\s+", "", args.page_numbers)
+        if not page_numbers:
+            raise McpToolError("page_numbers must not be empty.")
+        return self._call_single_pdf_endpoint(
+            "/api/v1/general/split-pages",
+            args.pdf_path,
+            {"pageNumbers": page_numbers},
+            args,
+        )
+
+    def _extract_images(self, args: ExtractImagesArgs) -> dict[str, JsonValue]:
+        return self._call_single_pdf_endpoint(
+            "/api/v1/misc/extract-images",
+            args.pdf_path,
+            {"format": args.image_format},
+            args,
+        )
+
+    def _ocr_pdf(self, args: OcrPdfArgs) -> dict[str, JsonValue]:
+        languages: JsonArray = [str(language) for language in args.languages]
+        form_fields: dict[str, JsonValue] = {
+            "languages": languages,
+            "ocrType": args.ocr_type,
+            "ocrRenderType": args.ocr_render_type,
+            "sidecar": args.sidecar,
+            "deskew": args.deskew,
+            "clean": args.clean,
+            "cleanFinal": args.clean_final,
+            "removeImagesAfter": args.remove_images_after,
+        }
+        return self._call_single_pdf_endpoint(
+            "/api/v1/misc/ocr-pdf",
+            args.pdf_path,
+            form_fields,
+            args,
+        )
+
+    def _convert_file(self, args: ConvertFileArgs) -> dict[str, JsonValue]:
+        endpoint = self._convert_endpoint(args.from_extension, args.to_extension)
+        form_fields = self._convert_form_fields(args.from_extension, args.to_extension)
+        return self.endpoint_executor.call_endpoint(
+            endpoint=endpoint,
+            file_paths=args.file_paths,
+            file_field_name="fileInput",
+            extra_file_fields={},
+            form_fields=form_fields,
+            output_path=args.output_path,
+            async_job=args.async_job,
+            wait_for_job=args.wait_for_job,
+            poll_interval_seconds=args.poll_interval_seconds,
+            poll_timeout_seconds=args.poll_timeout_seconds,
+        )
+
+    def _add_watermark(self, args: WatermarkPdfArgs) -> dict[str, JsonValue]:
+        return self._call_single_pdf_endpoint(
+            "/api/v1/security/add-watermark",
+            args.pdf_path,
+            {
+                "watermarkType": "text",
+                "watermarkText": args.watermark_text,
+                "fontSize": args.font_size,
+                "rotation": args.rotation,
+                "opacity": args.opacity_percent / 100,
+                "widthSpacer": args.width_spacer,
+                "heightSpacer": args.height_spacer,
+                "alphabet": "",
+                "customColor": "",
+                "convertPDFToImage": False,
+            },
+            args,
+        )
+
+    def _add_password(self, args: AddPasswordArgs) -> dict[str, JsonValue]:
+        return self._call_single_pdf_endpoint(
+            "/api/v1/security/add-password",
+            args.pdf_path,
+            {
+                "password": args.password,
+                "ownerPassword": args.owner_password or args.password,
+                "keyLength": args.key_length,
+            },
+            args,
+        )
+
+    def _remove_password(self, args: RemovePasswordArgs) -> dict[str, JsonValue]:
+        return self._call_single_pdf_endpoint(
+            "/api/v1/security/remove-password",
+            args.pdf_path,
+            {"password": args.password},
+            args,
+        )
+
+    def _repair_pdf(self, args: RepairPdfArgs) -> dict[str, JsonValue]:
+        return self._call_single_pdf_endpoint("/api/v1/misc/repair", args.pdf_path, {}, args)
+
+    def _sanitize_pdf(self, args: SanitizePdfArgs) -> dict[str, JsonValue]:
+        return self._call_single_pdf_endpoint(
+            "/api/v1/security/sanitize-pdf",
+            args.pdf_path,
+            {
+                "removeJavaScript": args.remove_javascript,
+                "removeEmbeddedFiles": args.remove_embedded_files,
+                "removeXMPMetadata": args.remove_xmp_metadata,
+                "removeMetadata": args.remove_metadata,
+                "removeLinks": args.remove_links,
+                "removeFonts": args.remove_fonts,
+            },
+            args,
+        )
+
+    def _flatten_pdf(self, args: FlattenPdfArgs) -> dict[str, JsonValue]:
+        form_fields: dict[str, JsonValue] = {"flattenOnlyForms": args.flatten_only_forms}
+        if args.render_dpi is not None:
+            form_fields["renderDpi"] = args.render_dpi
+        return self._call_single_pdf_endpoint("/api/v1/misc/flatten", args.pdf_path, form_fields, args)
+
+    def _call_single_pdf_endpoint(
+        self,
+        endpoint: str,
+        pdf_path: str,
+        form_fields: dict[str, JsonValue],
+        args: Any,
+    ) -> dict[str, JsonValue]:
+        return self.endpoint_executor.call_endpoint(
+            endpoint=endpoint,
+            file_paths=[pdf_path],
+            file_field_name="fileInput",
+            extra_file_fields={},
+            form_fields=form_fields,
+            output_path=args.output_path,
+            async_job=args.async_job,
+            wait_for_job=args.wait_for_job,
+            poll_interval_seconds=args.poll_interval_seconds,
+            poll_timeout_seconds=args.poll_timeout_seconds,
+        )
+
+    def _convert_endpoint(self, from_extension: str, to_extension: str) -> str:
+        source = from_extension.lower().lstrip(".")
+        target = "pdfa" if to_extension.lower().lstrip(".") == "pdfx" else to_extension.lower().lstrip(".")
+        endpoint_map = {
+            ("pdf", "png"): "/api/v1/convert/pdf/img",
+            ("pdf", "jpg"): "/api/v1/convert/pdf/img",
+            ("pdf", "jpeg"): "/api/v1/convert/pdf/img",
+            ("pdf", "docx"): "/api/v1/convert/pdf/word",
+            ("pdf", "odt"): "/api/v1/convert/pdf/word",
+            ("pdf", "pptx"): "/api/v1/convert/pdf/presentation",
+            ("pdf", "odp"): "/api/v1/convert/pdf/presentation",
+            ("pdf", "txt"): "/api/v1/convert/pdf/text",
+            ("pdf", "rtf"): "/api/v1/convert/pdf/text",
+            ("pdf", "csv"): "/api/v1/convert/pdf/csv",
+            ("pdf", "xlsx"): "/api/v1/convert/pdf/xlsx",
+            ("pdf", "html"): "/api/v1/convert/pdf/html",
+            ("pdf", "xml"): "/api/v1/convert/pdf/xml",
+            ("pdf", "pdfa"): "/api/v1/convert/pdf/pdfa",
+            ("html", "pdf"): "/api/v1/convert/html/pdf",
+            ("zip", "pdf"): "/api/v1/convert/html/pdf",
+            ("markdown", "pdf"): "/api/v1/convert/markdown/pdf",
+            ("md", "pdf"): "/api/v1/convert/markdown/pdf",
+            ("svg", "pdf"): "/api/v1/convert/svg/pdf",
+            ("cbz", "pdf"): "/api/v1/convert/cbz/pdf",
+            ("cbr", "pdf"): "/api/v1/convert/cbr/pdf",
+            ("pdf", "cbz"): "/api/v1/convert/pdf/cbz",
+            ("pdf", "cbr"): "/api/v1/convert/pdf/cbr",
+            ("pdf", "epub"): "/api/v1/convert/pdf/epub",
+            ("pdf", "azw3"): "/api/v1/convert/pdf/epub",
+            ("eml", "pdf"): "/api/v1/convert/eml/pdf",
+            ("msg", "pdf"): "/api/v1/convert/eml/pdf",
+            ("epub", "pdf"): "/api/v1/convert/ebook/pdf",
+            ("mobi", "pdf"): "/api/v1/convert/ebook/pdf",
+            ("azw3", "pdf"): "/api/v1/convert/ebook/pdf",
+            ("fb2", "pdf"): "/api/v1/convert/ebook/pdf",
+        }
+        image_sources = {"image", "png", "jpg", "jpeg", "gif", "tiff", "bmp", "webp"}
+        office_sources = {"docx", "doc", "odt", "xlsx", "xls", "ods", "pptx", "ppt", "odp"}
+        if source in image_sources and target == "pdf":
+            return "/api/v1/convert/img/pdf"
+        if source in office_sources and target == "pdf":
+            return "/api/v1/convert/file/pdf"
+        endpoint = endpoint_map.get((source, target))
+        if endpoint:
+            return endpoint
+        raise McpToolError(f"Unsupported conversion: {from_extension} to {to_extension}.")
+
+    def _convert_form_fields(self, from_extension: str, to_extension: str) -> dict[str, JsonValue]:
+        source = from_extension.lower().lstrip(".")
+        target = to_extension.lower().lstrip(".")
+        if source == "pdf" and target in {"png", "jpg", "jpeg"}:
+            return {"imageFormat": target, "colorType": "color", "dpi": 150, "singleOrMultiple": "multiple"}
+        if source == "pdf" and target in {"docx", "odt", "pptx", "odp", "txt", "rtf"}:
+            return {"outputFormat": target}
+        if source == "pdf" and target in {"pdfa", "pdfx"}:
+            return {"outputFormat": "pdfx" if target == "pdfx" else "pdfa", "strict": False}
+        if source == "pdf" and target in {"csv", "xlsx"}:
+            return {"pageNumbers": "all"}
+        if source in {"image", "png", "jpg", "jpeg", "gif", "tiff", "bmp", "webp"} and target == "pdf":
+            return {"fitOption": "fitDocumentToPage", "colorType": "color", "autoRotate": True}
+        if source == "svg" and target == "pdf":
+            return {"combineIntoSinglePdf": True}
+        if source in {"html", "zip"} and target == "pdf":
+            return {"zoom": 1.0}
+        if source in {"eml", "msg"} and target == "pdf":
+            return {"includeAttachments": True, "maxAttachmentSizeMB": 10, "downloadHtml": False, "includeAllRecipients": True}
+        if source in {"epub", "mobi", "azw3", "fb2"} and target == "pdf":
+            return {
+                "embedAllFonts": False,
+                "includeTableOfContents": True,
+                "includePageNumbers": True,
+                "optimizeForEbook": True,
+            }
+        if source == "pdf" and target in {"epub", "azw3"}:
+            return {
+                "detectChapters": True,
+                "targetDevice": "TABLET_PHONE_IMAGES",
+                "outputFormat": "AZW3" if target == "azw3" else "EPUB",
+            }
+        if source == "pdf" and target in {"cbz", "cbr"}:
+            return {"dpi": 150}
+        if source in {"cbz", "cbr"} and target == "pdf":
+            return {"optimizeForEbook": True}
+        return {}
 
     def _uploaded_file_info(self, file_path: str) -> models.UploadedFileInfo:
         path = self._resolve_path(file_path)

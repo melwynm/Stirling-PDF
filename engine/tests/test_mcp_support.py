@@ -386,11 +386,54 @@ def test_operation_adapter_tools_build_expected_backend_requests():
     assert merge["endpoint"] == "/api/v1/general/merge-pdfs"
     assert merge["form_fields"]["sortType"] == "orderProvided"
     assert merge["form_fields"]["generateToc"] is True
-    assert json.loads(merge["form_fields"]["clientFileIds"]) == [_FIXTURE_PDF.name, _FIXTURE_PDF.name]
+    assert json.loads(merge["form_fields"]["clientFileIds"]) == [f"0:{_FIXTURE_PDF.name}", f"1:{_FIXTURE_PDF.name}"]
     assert compress["endpoint"] == "/api/v1/misc/compress-pdf"
     assert compress["form_fields"]["expectedOutputSize"] == "10MB"
     assert remove["endpoint"] == "/api/v1/general/remove-pages"
     assert remove["form_fields"] == {"pageNumbers": "1,3,5-7"}
+
+
+def test_executable_operations_and_more_wrappers_build_expected_requests():
+    class FakeExecutor:
+        def call_endpoint(self, **kwargs):
+            return kwargs
+
+    registry = StirlingMcpToolRegistry(endpoint_executor=FakeExecutor())  # type: ignore[arg-type]
+
+    operations_payload = registry.call_tool("stirling_list_executable_operations", {})
+    split_payload = registry.call_tool(
+        "stirling_split_pdf",
+        {"pdf_path": str(_FIXTURE_PDF), "page_numbers": "1, 2"},
+    )
+    repair_payload = registry.call_tool("stirling_repair_pdf", {"pdf_path": str(_FIXTURE_PDF)})
+    sanitize_payload = registry.call_tool("stirling_sanitize_pdf", {"pdf_path": str(_FIXTURE_PDF)})
+
+    operations = json.loads(operations_payload["content"][0]["text"])
+    split = json.loads(split_payload["content"][0]["text"])
+    repair = json.loads(repair_payload["content"][0]["text"])
+    sanitize = json.loads(sanitize_payload["content"][0]["text"])
+
+    assert operations["count"] >= 14
+    assert any(item["toolName"] == "stirling_split_pdf" for item in operations["operations"])
+    assert split["endpoint"] == "/api/v1/general/split-pages"
+    assert split["form_fields"] == {"pageNumbers": "1,2"}
+    assert repair["endpoint"] == "/api/v1/misc/repair"
+    assert sanitize["endpoint"] == "/api/v1/security/sanitize-pdf"
+
+
+def test_compress_accepts_friendly_file_size_alias():
+    class FakeExecutor:
+        def call_endpoint(self, **kwargs):
+            return kwargs
+
+    registry = StirlingMcpToolRegistry(endpoint_executor=FakeExecutor())  # type: ignore[arg-type]
+    payload = registry.call_tool(
+        "stirling_compress_pdf",
+        {"pdf_path": str(_FIXTURE_PDF), "compression_method": "file_size", "expected_output_size": "10MB"},
+    )
+    parsed = json.loads(payload["content"][0]["text"])
+
+    assert parsed["form_fields"]["expectedOutputSize"] == "10MB"
 
 
 def test_filename_from_headers_strips_path_segments():

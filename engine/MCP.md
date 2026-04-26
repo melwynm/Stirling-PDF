@@ -16,9 +16,10 @@ It uses the same environment as the normal AI engine, especially:
 - `STIRLING_JAVA_BACKEND_API_KEY` if your backend requires it
 - `STIRLING_MCP_ALLOWED_ROOTS` optional path-list for file access outside the repo/output directories
 - `STIRLING_MCP_MULTIPART_MODE` optional upload mode: `stream` default, or `spool` for compatibility with servers that reject chunked uploads
+- `STIRLING_MCP_MAX_JSON_RESPONSE_BYTES` optional JSON response cap, default 10485760
 - the existing AI provider settings used by the engine
 
-The server reads and writes files only under the repository root, `engine/src/output`, and any paths listed in
+The server reads and writes files only under the repository root, `engine/output`, and any paths listed in
 `STIRLING_MCP_ALLOWED_ROOTS`. Use the platform path separator: `:` on Linux/macOS and `;` on Windows.
 
 Multipart uploads stream file bytes by default, so request bodies do not require temp disk space proportional to the
@@ -40,6 +41,10 @@ Adjust the absolute repository path, backend URL, and provider keys before using
   Checks MCP liveness, required engine environment variables, output/temp filesystem access, Java backend health, `pdftohtml`, the rotate-pdf backend probe, and AI provider readiness.
 - `stirling_list_operations`
   Lists the operations the engine can plan and describe.
+- `stirling_list_executable_operations`
+  Lists operations that have first-class executable MCP wrappers and their backend endpoints.
+- `stirling_cleanup_mcp_output`
+  Deletes old MCP temp/output files. Defaults to dry-run.
 - `stirling_get_operation_details`
   Returns JSON schema, defaults, and frontend hook hints for one operation.
 - `stirling_plan_edit_request`
@@ -60,6 +65,23 @@ Adjust the absolute repository path, backend URL, and provider keys before using
   Convenience wrapper around `/api/v1/misc/compress-pdf` with quality and target-size modes.
 - `stirling_remove_pages`
   Convenience wrapper around `/api/v1/general/remove-pages`.
+- `stirling_split_pdf`, `stirling_extract_images`, `stirling_ocr_pdf`, `stirling_convert_file`
+  Convenience wrappers for split, image extraction, OCR, and common conversions.
+- `stirling_add_watermark`, `stirling_add_password`, `stirling_remove_password`
+  Convenience wrappers for watermarking and password operations.
+- `stirling_repair_pdf`, `stirling_sanitize_pdf`, `stirling_flatten_pdf`
+  Convenience wrappers for repair, sanitise, and flatten operations.
+
+## Live Integration Test
+
+With the Java backend running:
+
+```bash
+cd engine
+STIRLING_JAVA_BACKEND_URL=http://localhost:8080 python scripts/mcp_live_integration.py
+```
+
+The script runs rotate, merge, compress, and remove-pages against `testing/test_pdf_1.pdf`.
 
 ## Async Jobs
 
@@ -75,6 +97,7 @@ The engine PDF editor workflow uses `pdftohtml`. Install Poppler and ensure `pdf
 
 - `stirling://operations/catalog`
 - `stirling://mcp/readme`
+- `stirling://mcp/workflows`
 
 ## Notes
 
