@@ -45,7 +45,11 @@ public class RepairController {
         return endpointConfiguration.isGroupEnabled("qpdf");
     }
 
-    @AutoJobPostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE, value = "/repair")
+    @AutoJobPostMapping(
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+            value = "/repair",
+            queueable = true,
+            resourceWeight = 75)
     @StandardPdfResponse
     @Operation(
             summary = "Repair a PDF file",

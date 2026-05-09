@@ -3,9 +3,11 @@ package stirling.software.SPDF.controller.api.converters;
 import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URLConnection;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -72,7 +74,11 @@ public class ConvertImgPDFController {
         return endpointConfiguration.isGroupEnabled("Ghostscript");
     }
 
-    @AutoJobPostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE, value = "/pdf/img")
+    @AutoJobPostMapping(
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+            value = "/pdf/img",
+            queueable = true,
+            resourceWeight = 80)
     @MultiFileResponse
     @Operation(
             summary = "Convert PDF to image(s)",
@@ -83,60 +89,35 @@ public class ConvertImgPDFController {
     public ResponseEntity<?> convertToImage(@ModelAttribute ConvertToImageRequest request)
             throws Exception {
         MultipartFile file = request.getFileInput();
-        String imageFormat = request.getImageFormat();
-        String singleOrMultiple = request.getSingleOrMultiple();
+        String imageFormat = defaultIfBlank(request.getImageFormat(), "png");
+        String singleOrMultiple = defaultIfBlank(request.getSingleOrMultiple(), "multiple");
         String colorType = request.getColorType();
-        int dpi = request.getDpi();
+        int dpi = request.getDpi() != null && request.getDpi() > 0 ? request.getDpi() : 300;
         String pageNumbers = request.getPageNumbers();
         boolean includeAnnotations = Boolean.TRUE.equals(request.getIncludeAnnotations());
         Path tempFile = null;
         Path tempOutputDir = null;
         Path tempPdfPath = null;
-        byte[] result = null;
         String[] pageOrderArr =
                 (pageNumbers != null && !pageNumbers.trim().isEmpty())
                         ? pageNumbers.split(",")
                         : new String[] {"all"};
-        ;
+        boolean hasExplicitPageSelection = hasExplicitPageSelection(pageNumbers);
+        boolean webpOutput = "webp".equalsIgnoreCase(imageFormat);
         try {
-            // Load the input PDF
-            byte[] newPdfBytes = rearrangePdfPages(file, pageOrderArr);
-
             ImageType colorTypeResult = ImageType.RGB;
             if ("greyscale".equals(colorType)) {
                 colorTypeResult = ImageType.GRAY;
             } else if ("blackwhite".equals(colorType)) {
                 colorTypeResult = ImageType.BINARY;
             }
-            // returns bytes for image
             boolean singleImage = "single".equals(singleOrMultiple);
             String filename = GeneralUtils.generateFilename(file.getOriginalFilename(), "");
 
-            result =
-                    PdfUtils.convertFromPdf(
-                            pdfDocumentFactory,
-                            newPdfBytes,
-                            "webp".equalsIgnoreCase(imageFormat)
-                                    ? "png"
-                                    : imageFormat.toUpperCase(Locale.ROOT),
-                            colorTypeResult,
-                            singleImage,
-                            dpi,
-                            filename,
-                            includeAnnotations);
-            if (result == null || result.length == 0) {
-                log.error("resultant bytes for {} is null, error converting ", filename);
-            }
-            if ("webp".equalsIgnoreCase(imageFormat) && !CheckProgramInstall.isPythonAvailable()) {
+            if (webpOutput && !CheckProgramInstall.isPythonAvailable()) {
                 throw ExceptionUtils.createPythonRequiredForWebpException();
-            } else if ("webp".equalsIgnoreCase(imageFormat)
-                    && CheckProgramInstall.isPythonAvailable()) {
-                // Write the output stream to a temp file
-                tempFile = Files.createTempFile("temp_png", ".png");
-                try (FileOutputStream fos = new FileOutputStream(tempFile.toFile())) {
-                    fos.write(result);
-                    fos.flush();
-                }
+            } else if (webpOutput) {
+                byte[] result = null;
 
                 String pythonVersion = CheckProgramInstall.getAvailablePythonCommand();
                 Path pngToWebpScript = GeneralUtils.extractScript("png_to_webp.py");
@@ -151,6 +132,26 @@ public class ConvertImgPDFController {
                 // Create a temporary directory for the output WebP files
                 tempOutputDir = Files.createTempDirectory("webp_output");
                 if (singleImage) {
+                    result =
+                            convertPdfToImageBytes(
+                                    file,
+                                    pageOrderArr,
+                                    hasExplicitPageSelection,
+                                    "png",
+                                    colorTypeResult,
+                                    true,
+                                    dpi,
+                                    filename,
+                                    includeAnnotations);
+                    assertNonEmptyResult(result, filename);
+
+                    // Write the output stream to a temp file
+                    tempFile = Files.createTempFile("temp_png", ".png");
+                    try (FileOutputStream fos = new FileOutputStream(tempFile.toFile())) {
+                        fos.write(result);
+                        fos.flush();
+                    }
+
                     // Run the Python script to convert PNG to WebP
                     command.add(tempFile.toString());
                     command.add(tempOutputDir.toString());
@@ -158,7 +159,14 @@ public class ConvertImgPDFController {
                 } else {
                     // Save the uploaded PDF to a temporary file
                     tempPdfPath = Files.createTempFile("temp_pdf", ".pdf");
-                    file.transferTo(tempPdfPath.toFile());
+                    if (hasExplicitPageSelection) {
+                        Files.write(tempPdfPath, rearrangePdfPages(file, pageOrderArr));
+                    } else {
+                        try (InputStream inputStream = file.getInputStream()) {
+                            Files.copy(
+                                    inputStream, tempPdfPath, StandardCopyOption.REPLACE_EXISTING);
+                        }
+                    }
                     // Run the Python script to convert PDF to WebP
                     command.add(tempPdfPath.toString());
                     command.add(tempOutputDir.toString());
@@ -211,6 +219,19 @@ public class ConvertImgPDFController {
                 }
             }
 
+            byte[] result =
+                    convertPdfToImageBytes(
+                            file,
+                            pageOrderArr,
+                            hasExplicitPageSelection,
+                            imageFormat.toUpperCase(Locale.ROOT),
+                            colorTypeResult,
+                            singleImage,
+                            dpi,
+                            filename,
+                            includeAnnotations);
+            assertNonEmptyResult(result, filename);
+
             if (singleImage) {
                 String docName = filename + "." + imageFormat;
                 MediaType mediaType = MediaType.parseMediaType(getMediaType(imageFormat));
@@ -236,6 +257,61 @@ public class ConvertImgPDFController {
             } catch (Exception e) {
                 log.error("Error cleaning up temporary files", e);
             }
+        }
+    }
+
+    private byte[] convertPdfToImageBytes(
+            MultipartFile file,
+            String[] pageOrderArr,
+            boolean hasExplicitPageSelection,
+            String imageFormat,
+            ImageType colorType,
+            boolean singleImage,
+            int dpi,
+            String filename,
+            boolean includeAnnotations)
+            throws Exception {
+        if (hasExplicitPageSelection) {
+            return PdfUtils.convertFromPdf(
+                    pdfDocumentFactory,
+                    rearrangePdfPages(file, pageOrderArr),
+                    imageFormat,
+                    colorType,
+                    singleImage,
+                    dpi,
+                    filename,
+                    includeAnnotations);
+        }
+
+        return PdfUtils.convertFromPdf(
+                pdfDocumentFactory,
+                file,
+                imageFormat,
+                colorType,
+                singleImage,
+                dpi,
+                filename,
+                includeAnnotations);
+    }
+
+    private static boolean hasExplicitPageSelection(String pageNumbers) {
+        return pageNumbers != null
+                && !pageNumbers.trim().isEmpty()
+                && !"all".equalsIgnoreCase(pageNumbers.trim());
+    }
+
+    private static String defaultIfBlank(String value, String defaultValue) {
+        return value == null || value.isBlank() ? defaultValue : value;
+    }
+
+    private static void assertNonEmptyResult(byte[] result, String filename) throws IOException {
+        if (result == null || result.length == 0) {
+            log.error("Resultant bytes for {} are empty after conversion", filename);
+            throw ExceptionUtils.createIOException(
+                    "error.conversionFailed",
+                    "No output was produced while converting {0}.",
+                    null,
+                    filename);
         }
     }
 

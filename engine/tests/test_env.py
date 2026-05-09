@@ -17,7 +17,7 @@ def _parse_example_keys() -> set[str]:
 def _find_stirling_env_vars() -> set[str]:
     env_vars: set[str] = set()
     for path in SRC_DIR.rglob("*.py"):
-        for match in re.finditer(r"\b(STIRLING_\w+)\b", path.read_text()):
+        for match in re.finditer(r"\b(STIRLING_\w+)\b", path.read_text(encoding="utf-8")):
             env_vars.add(match.group(1))
     return env_vars
 

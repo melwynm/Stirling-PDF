@@ -18,6 +18,18 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 _FIXTURE_PDF = _REPO_ROOT / "testing" / "test_pdf_1.pdf"
 
 
+def _json_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    content = payload["content"]
+    assert isinstance(content, list)
+    first = content[0]
+    assert isinstance(first, dict)
+    text = first["text"]
+    assert isinstance(text, str)
+    parsed = json.loads(text)
+    assert isinstance(parsed, dict)
+    return parsed
+
+
 class _FakeHttpResponse:
     def __init__(self, body: bytes, headers: dict[str, str], status: int = 200) -> None:
         self._body = body
@@ -114,7 +126,7 @@ def test_list_operations_includes_frontend_metadata():
     registry = StirlingMcpToolRegistry()
 
     payload = registry.call_tool("stirling_list_operations", {})
-    parsed = json.loads(payload["content"][0]["text"])
+    parsed = _json_payload(payload)
 
     rotate_entry = next(item for item in parsed["operations"] if item["operationId"] == "rotate")
     assert rotate_entry["frontendMetadata"]["endpointExpression"] == "'/api/v1/general/rotate-pdf'"
@@ -131,7 +143,7 @@ def test_health_check_reports_missing_runtime_without_crashing(monkeypatch: Monk
         "stirling_health_check",
         {"run_backend_operation_probe": False},
     )
-    parsed = json.loads(payload["content"][0]["text"])
+    parsed = _json_payload(payload)
     checks = {check["name"]: check for check in parsed["checks"]}
 
     assert parsed["status"] == "unhealthy"
@@ -164,7 +176,7 @@ def test_health_check_passes_with_mocked_dependencies(monkeypatch: MonkeyPatch):
 
     registry = StirlingMcpToolRegistry()
     payload = registry.call_tool("stirling_health_check", {})
-    parsed = json.loads(payload["content"][0]["text"])
+    parsed = _json_payload(payload)
     checks = {check["name"]: check for check in parsed["checks"]}
 
     assert parsed["status"] == "healthy"
@@ -177,7 +189,7 @@ def test_get_operation_details_returns_schema_and_defaults():
     registry = StirlingMcpToolRegistry()
 
     payload = registry.call_tool("stirling_get_operation_details", {"operation_id": "rotate"})
-    parsed = json.loads(payload["content"][0]["text"])
+    parsed = _json_payload(payload)
 
     assert parsed["operationId"] == "rotate"
     assert parsed["fieldDefaults"]["angle"] == 0
@@ -219,7 +231,7 @@ def test_plan_edit_request_uses_catalog(monkeypatch: MonkeyPatch):
         "stirling_plan_edit_request",
         {"request": "Rotate this PDF 90 degrees", "file_paths": [str(_FIXTURE_PDF)]},
     )
-    parsed = json.loads(payload["content"][0]["text"])
+    parsed = _json_payload(payload)
 
     assert parsed["selectionAction"] == "call_tool"
     assert parsed["operations"] == [{"operationId": "rotate", "parameters": {"angle": 90.0}}]
@@ -324,7 +336,7 @@ def test_rotate_pdf_tool_calls_backend_executor():
             "wait_for_job": True,
         },
     )
-    parsed = json.loads(payload["content"][0]["text"])
+    parsed = _json_payload(payload)
 
     assert parsed["endpoint"] == "/api/v1/general/rotate-pdf"
     assert parsed["file_paths"] == [str(_FIXTURE_PDF)]
@@ -350,8 +362,8 @@ def test_job_status_tool_fetches_result_when_requested():
         {"job_id": "job-123", "fetch_result": True, "output_path": "done.pdf"},
     )
 
-    assert json.loads(status_payload["content"][0]["text"])["status"] == {"complete": False}
-    assert json.loads(result_payload["content"][0]["text"])["savedPath"] == "done.pdf"
+    assert _json_payload(status_payload)["status"] == {"complete": False}
+    assert _json_payload(result_payload)["savedPath"] == "done.pdf"
 
 
 def test_operation_adapter_tools_build_expected_backend_requests():
@@ -379,9 +391,9 @@ def test_operation_adapter_tools_build_expected_backend_requests():
         {"pdf_path": str(_FIXTURE_PDF), "page_numbers": "1, 3, 5-7"},
     )
 
-    merge = json.loads(merge_payload["content"][0]["text"])
-    compress = json.loads(compress_payload["content"][0]["text"])
-    remove = json.loads(remove_payload["content"][0]["text"])
+    merge = _json_payload(merge_payload)
+    compress = _json_payload(compress_payload)
+    remove = _json_payload(remove_payload)
 
     assert merge["endpoint"] == "/api/v1/general/merge-pdfs"
     assert merge["form_fields"]["sortType"] == "orderProvided"
@@ -408,10 +420,10 @@ def test_executable_operations_and_more_wrappers_build_expected_requests():
     repair_payload = registry.call_tool("stirling_repair_pdf", {"pdf_path": str(_FIXTURE_PDF)})
     sanitize_payload = registry.call_tool("stirling_sanitize_pdf", {"pdf_path": str(_FIXTURE_PDF)})
 
-    operations = json.loads(operations_payload["content"][0]["text"])
-    split = json.loads(split_payload["content"][0]["text"])
-    repair = json.loads(repair_payload["content"][0]["text"])
-    sanitize = json.loads(sanitize_payload["content"][0]["text"])
+    operations = _json_payload(operations_payload)
+    split = _json_payload(split_payload)
+    repair = _json_payload(repair_payload)
+    sanitize = _json_payload(sanitize_payload)
 
     assert operations["count"] >= 14
     assert any(item["toolName"] == "stirling_split_pdf" for item in operations["operations"])
@@ -431,7 +443,7 @@ def test_compress_accepts_friendly_file_size_alias():
         "stirling_compress_pdf",
         {"pdf_path": str(_FIXTURE_PDF), "compression_method": "file_size", "expected_output_size": "10MB"},
     )
-    parsed = json.loads(payload["content"][0]["text"])
+    parsed = _json_payload(payload)
 
     assert parsed["form_fields"]["expectedOutputSize"] == "10MB"
 

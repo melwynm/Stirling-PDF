@@ -6,7 +6,9 @@ import static stirling.software.common.service.SpyPDFDocumentFactory.*;
 
 import java.io.*;
 import java.nio.file.*;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.cos.COSName;
@@ -29,6 +31,7 @@ class CustomPDFDocumentFactoryTest {
 
     private SpyPDFDocumentFactory factory;
     private byte[] basePdfBytes;
+    private final List<Path> tempFiles = new ArrayList<>();
 
     @BeforeEach
     void setup() throws IOException {
@@ -60,17 +63,20 @@ class CustomPDFDocumentFactoryTest {
         }
     }
 
-    private static File writeTempFile(byte[] content) throws IOException {
-        File file = Files.createTempFile("pdf-test-", ".pdf").toFile();
-        Files.write(file.toPath(), content);
-        return file;
+    private File writeTempFile(byte[] content) throws IOException {
+        Path path = Files.createTempFile("pdf-test-", ".pdf");
+        tempFiles.add(path);
+        Files.write(path, content);
+        return path.toFile();
     }
 
     @ParameterizedTest
     @CsvSource({"5,MEMORY_ONLY", "20,MIXED", "60,TEMP_FILE"})
     void testStrategy_FileInput(int sizeMB, StrategyType expected) throws IOException {
         File file = writeTempFile(inflatePdf(basePdfBytes, sizeMB));
-        factory.load(file);
+        try (PDDocument ignored = factory.load(file)) {
+            assertNotNull(ignored);
+        }
         Assertions.assertEquals(expected, factory.lastStrategyUsed);
     }
 
@@ -78,7 +84,9 @@ class CustomPDFDocumentFactoryTest {
     @CsvSource({"5,MEMORY_ONLY", "20,MIXED", "60,TEMP_FILE"})
     void testStrategy_ByteArray(int sizeMB, StrategyType expected) throws IOException {
         byte[] inflated = inflatePdf(basePdfBytes, sizeMB);
-        factory.load(inflated);
+        try (PDDocument ignored = factory.load(inflated)) {
+            assertNotNull(ignored);
+        }
         Assertions.assertEquals(expected, factory.lastStrategyUsed);
     }
 
@@ -86,7 +94,9 @@ class CustomPDFDocumentFactoryTest {
     @CsvSource({"5,MEMORY_ONLY", "20,MIXED", "60,TEMP_FILE"})
     void testStrategy_InputStream(int sizeMB, StrategyType expected) throws IOException {
         byte[] inflated = inflatePdf(basePdfBytes, sizeMB);
-        factory.load(new ByteArrayInputStream(inflated));
+        try (PDDocument ignored = factory.load(new ByteArrayInputStream(inflated))) {
+            assertNotNull(ignored);
+        }
         Assertions.assertEquals(expected, factory.lastStrategyUsed);
     }
 
@@ -96,7 +106,24 @@ class CustomPDFDocumentFactoryTest {
         byte[] inflated = inflatePdf(basePdfBytes, sizeMB);
         MockMultipartFile multipart =
                 new MockMultipartFile("file", "doc.pdf", MediaType.APPLICATION_PDF_VALUE, inflated);
-        factory.load(multipart);
+        try (PDDocument ignored = factory.load(multipart)) {
+            assertNotNull(ignored);
+        }
+        Assertions.assertEquals(expected, factory.lastStrategyUsed);
+    }
+
+    @Tag("large-file-reliability")
+    @ParameterizedTest
+    @CsvSource({"5,MEMORY_ONLY", "50,TEMP_FILE", "100,TEMP_FILE"})
+    void reliabilityGateGeneratedLargePdfUsesSafeCacheStrategy(int sizeMB, StrategyType expected)
+            throws IOException {
+        File file = writeTempFile(inflatePdf(basePdfBytes, sizeMB));
+
+        try (PDDocument document = factory.load(file)) {
+            assertNotNull(document);
+            assertTrue(document.getNumberOfPages() > 0);
+        }
+
         Assertions.assertEquals(expected, factory.lastStrategyUsed);
     }
 
@@ -207,12 +234,34 @@ class CustomPDFDocumentFactoryTest {
                 new MockMultipartFile("file", "doc.pdf", MediaType.APPLICATION_PDF_VALUE, inflated);
         PDFFile pdfFile = new PDFFile();
         pdfFile.setFileInput(multipart);
-        factory.load(pdfFile);
+        try (PDDocument ignored = factory.load(pdfFile)) {
+            assertNotNull(ignored);
+        }
         Assertions.assertEquals(expected, factory.lastStrategyUsed);
     }
 
     @BeforeEach
     void cleanup() {
         System.gc();
+    }
+
+    @AfterEach
+    void deleteTempFiles() throws IOException {
+        IOException failure = null;
+        for (Path tempFile : tempFiles) {
+            try {
+                Files.deleteIfExists(tempFile);
+            } catch (IOException e) {
+                if (failure == null) {
+                    failure = e;
+                } else {
+                    failure.addSuppressed(e);
+                }
+            }
+        }
+        tempFiles.clear();
+        if (failure != null) {
+            throw failure;
+        }
     }
 }

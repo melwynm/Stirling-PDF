@@ -271,7 +271,11 @@ public class MergeController {
         return -1;
     }
 
-    @AutoJobPostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE, value = "/merge-pdfs")
+    @AutoJobPostMapping(
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+            value = "/merge-pdfs",
+            queueable = true,
+            resourceWeight = 70)
     @StandardPdfResponse
     @Operation(
             summary = "Merge multiple PDF files into one",

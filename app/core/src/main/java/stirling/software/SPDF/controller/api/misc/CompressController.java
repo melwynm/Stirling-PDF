@@ -918,7 +918,11 @@ public class CompressController {
         return Math.min(9, currentLevel + 1);
     }
 
-    @AutoJobPostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE, value = "/compress-pdf")
+    @AutoJobPostMapping(
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+            value = "/compress-pdf",
+            queueable = true,
+            resourceWeight = 85)
     @Operation(
             summary = "Optimize PDF file",
             description =

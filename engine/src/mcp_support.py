@@ -293,7 +293,9 @@ class RotatePdfArgs(BaseModel):
 class MergePdfsArgs(BaseModel):
     pdf_paths: list[str] = Field(min_length=2, description="PDF files to merge in the provided order.")
     remove_digital_signature: bool = Field(default=False, description="Remove certificate signatures before merge.")
-    generate_table_of_contents: bool = Field(default=False, description="Generate a table of contents in the merged PDF.")
+    generate_table_of_contents: bool = Field(
+        default=False, description="Generate a table of contents in the merged PDF."
+    )
     output_path: str | None = Field(default=None, description="Optional destination path for the merged PDF.")
     async_job: bool = Field(default=False, description="Submit as a backend async job.")
     wait_for_job: bool = Field(default=False, description="Poll and fetch the result when async_job is true.")
@@ -714,9 +716,7 @@ class MultipartStreamingBody:
             for normalized in field_normalizer(value):
                 parts.append(
                     (
-                        f"--{boundary}\r\n"
-                        f'Content-Disposition: form-data; name="{field_name}"\r\n\r\n'
-                        f"{normalized}\r\n"
+                        f'--{boundary}\r\nContent-Disposition: form-data; name="{field_name}"\r\n\r\n{normalized}\r\n'
                     ).encode()
                 )
         for field_name, path in files:
@@ -864,7 +864,9 @@ class MultipartEndpointExecutor:
         if content_length:
             try:
                 if int(content_length) > max_bytes:
-                    raise McpToolError(f"JSON response is larger than STIRLING_MCP_MAX_JSON_RESPONSE_BYTES ({max_bytes}).")
+                    raise McpToolError(
+                        f"JSON response is larger than STIRLING_MCP_MAX_JSON_RESPONSE_BYTES ({max_bytes})."
+                    )
             except ValueError:
                 pass
         raw = response.read(max_bytes + 1)
@@ -942,7 +944,9 @@ class MultipartEndpointExecutor:
             handle.write(f"--{boundary}--\r\n".encode())
         return (body_path, boundary, body_path.stat().st_size)
 
-    def _open_multipart_body(self, form_fields: dict[str, JsonValue], files: list[tuple[str, Path]]) -> tuple[Any, str, int | None]:
+    def _open_multipart_body(
+        self, form_fields: dict[str, JsonValue], files: list[tuple[str, Path]]
+    ) -> tuple[Any, str, int | None]:
         mode = self._multipart_mode()
         if mode == "spool":
             body_path, boundary, body_size = self._write_multipart_body(form_fields, files)
@@ -996,7 +1000,9 @@ class MultipartEndpointExecutor:
         return self.output_dir / "mcp" / filename
 
     def _allowed_roots(self) -> list[Path]:
-        configured = [item.strip() for item in _env_value("STIRLING_MCP_ALLOWED_ROOTS").split(os.pathsep) if item.strip()]
+        configured = [
+            item.strip() for item in _env_value("STIRLING_MCP_ALLOWED_ROOTS").split(os.pathsep) if item.strip()
+        ]
         roots = [Path(item).expanduser().resolve() for item in configured]
         roots.extend([_REPO_ROOT.resolve(), self.output_dir.resolve()])
         return list(dict.fromkeys(roots))
@@ -1098,14 +1104,16 @@ class StirlingMcpHealthChecker:
             "name": "engine.environment",
             "status": "fail" if problems else "pass",
             "message": "; ".join(problems) if problems else "Required engine environment is present.",
-            "details": _normalize_json_value({
-                "missingKeys": missing,
-                "emptyRequiredKeys": empty_required,
-                "openaiConfigured": openai_configured,
-                "anthropicConfigured": anthropic_configured,
-                "posthogConfigured": bool(_env_value("STIRLING_POSTHOG_API_KEY")),
-                "javaBackendConfigured": bool(_env_value("STIRLING_JAVA_BACKEND_URL")),
-            }),
+            "details": _normalize_json_value(
+                {
+                    "missingKeys": missing,
+                    "emptyRequiredKeys": empty_required,
+                    "openaiConfigured": openai_configured,
+                    "anthropicConfigured": anthropic_configured,
+                    "posthogConfigured": bool(_env_value("STIRLING_POSTHOG_API_KEY")),
+                    "javaBackendConfigured": bool(_env_value("STIRLING_JAVA_BACKEND_URL")),
+                }
+            ),
         }
 
     def _validate_float_env(self, name: str) -> str | None:
@@ -1204,7 +1212,9 @@ class StirlingMcpHealthChecker:
             with urllib.request.urlopen(request, timeout=_java_request_timeout_seconds()) as response:
                 body = response.read(4096)
                 parsed = self._parse_json_body(body)
-                healthy = response.status < 400 and isinstance(parsed, dict) and str(parsed.get("status", "")).upper() == "UP"
+                healthy = (
+                    response.status < 400 and isinstance(parsed, dict) and str(parsed.get("status", "")).upper() == "UP"
+                )
                 return {
                     "path": path,
                     "statusCode": response.status,
@@ -1262,9 +1272,7 @@ class StirlingMcpHealthChecker:
                 with urllib.request.urlopen(request, timeout=_java_request_timeout_seconds()) as response:
                     response_body = response.read(1024)
                     content_type = response.headers.get("Content-Type", "")
-                    ok = response.status < 400 and (
-                        "pdf" in content_type.lower() or response_body.startswith(b"%PDF")
-                    )
+                    ok = response.status < 400 and ("pdf" in content_type.lower() or response_body.startswith(b"%PDF"))
                     return {
                         "name": "backend.operationProbe",
                         "status": "pass" if ok else "fail",
@@ -1342,7 +1350,9 @@ class StirlingMcpHealthChecker:
             return {
                 "name": "ai.provider",
                 "status": "pass" if response.success else "fail",
-                "message": "Live AI provider probe succeeded." if response.success else "Live AI provider probe returned false.",
+                "message": "Live AI provider probe succeeded."
+                if response.success
+                else "Live AI provider probe returned false.",
                 "details": {"model": FAST_MODEL, "liveProbe": True},
             }
         except Exception as exc:
@@ -1751,7 +1761,9 @@ Call `stirling_cleanup_mcp_output` with `dry_run=true` first, then repeat with `
         return {
             "operationId": operation_id,
             "inputSchema": _normalize_json_value(param_model.model_json_schema(by_alias=True)) if param_model else None,
-            "fieldDefaults": _normalize_json_value(param_model.model_validate({}).model_dump(by_alias=True, mode="json"))
+            "fieldDefaults": _normalize_json_value(
+                param_model.model_validate({}).model_dump(by_alias=True, mode="json")
+            )
             if param_model
             else {},
             "frontendMetadata": metadata.to_dict() if metadata else None,
@@ -1892,7 +1904,9 @@ Call `stirling_cleanup_mcp_output` with `dry_run=true` first, then repeat with `
     def _compress_pdf(self, args: CompressPdfArgs) -> dict[str, JsonValue]:
         compression_method = self._normalize_compression_method(args.compression_method)
         if compression_method not in {"quality", "fileSize"}:
-            raise McpToolError("compression_method must be 'quality', 'fileSize', 'file_size', 'size', or 'target_size'.")
+            raise McpToolError(
+                "compression_method must be 'quality', 'fileSize', 'file_size', 'size', or 'target_size'."
+            )
         form_fields: dict[str, JsonValue] = {
             "grayscale": args.grayscale,
             "lineArt": args.line_art,
@@ -2147,7 +2161,12 @@ Call `stirling_cleanup_mcp_output` with `dry_run=true` first, then repeat with `
         if source in {"html", "zip"} and target == "pdf":
             return {"zoom": 1.0}
         if source in {"eml", "msg"} and target == "pdf":
-            return {"includeAttachments": True, "maxAttachmentSizeMB": 10, "downloadHtml": False, "includeAllRecipients": True}
+            return {
+                "includeAttachments": True,
+                "maxAttachmentSizeMB": 10,
+                "downloadHtml": False,
+                "includeAllRecipients": True,
+            }
         if source in {"epub", "mobi", "azw3", "fb2"} and target == "pdf":
             return {
                 "embedAllFonts": False,

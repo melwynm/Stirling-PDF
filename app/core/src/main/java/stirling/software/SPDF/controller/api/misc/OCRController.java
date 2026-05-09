@@ -81,7 +81,11 @@ public class OCRController {
                 .toList();
     }
 
-    @AutoJobPostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE, value = "/ocr-pdf")
+    @AutoJobPostMapping(
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+            value = "/ocr-pdf",
+            queueable = true,
+            resourceWeight = 90)
     @Operation(
             summary = "Process a PDF file with OCR",
             description =

@@ -29,7 +29,11 @@ public class RotationController {
 
     private final CustomPDFDocumentFactory pdfDocumentFactory;
 
-    @AutoJobPostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE, value = "/rotate-pdf")
+    @AutoJobPostMapping(
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+            value = "/rotate-pdf",
+            queueable = true,
+            resourceWeight = 25)
     @StandardPdfResponse
     @Operation(
             summary = "Rotate a PDF file",

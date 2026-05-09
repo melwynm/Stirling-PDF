@@ -14,6 +14,7 @@ import { createChildStub, generateProcessedFileMetadata } from '@app/contexts/fi
 import { createNewStirlingFileStub } from '@app/types/fileContext';
 import { ToolOperation } from '@app/types/file';
 import { ensureBackendReady } from '@app/services/backendReadinessGuard';
+import { shouldUseAsyncJob, submitAndWaitForJob } from '@app/services/jobClient';
 import { useWillUseCloud } from '@app/hooks/useWillUseCloud';
 import { useCreditCheck } from '@app/hooks/useCreditCheck';
 import { notifyPdfProcessingComplete } from '@app/services/desktopNotificationService';
@@ -194,22 +195,40 @@ export const useToolOperation = <TParams>(
           const formData = config.buildFormData(params, filesForAPI);
           const endpoint = typeof config.endpoint === 'function' ? config.endpoint(params) : config.endpoint;
 
-          const response = await apiClient.post(endpoint, formData, { responseType: 'blob' });
-
-          // Multi-file responses are typically ZIP files that need extraction, but some may return single PDFs
-          if (config.responseHandler) {
-            // Use custom responseHandler for multi-file (handles ZIP extraction)
-            processedFiles = await config.responseHandler(response.data, filesForAPI);
-          } else if (response.data.type === 'application/pdf' ||
-                    (response.headers && response.headers['content-type'] === 'application/pdf')) {
-            // Single PDF response (e.g. split with merge option) - add prefix to first original filename
-            const filename = `${config.filePrefix}${filesForAPI[0]?.name || 'document.pdf'}`;
-            const singleFile = new File([response.data], filename, { type: 'application/pdf' });
-            processedFiles = [singleFile];
+          if (shouldUseAsyncJob(filesForAPI)) {
+            processedFiles = await submitAndWaitForJob(endpoint, formData, filesForAPI, {
+              filePrefix: config.filePrefix,
+              preserveBackendFilename: config.preserveBackendFilename,
+              responseHandler: async (blob, originalFiles) => {
+                if (config.responseHandler) {
+                  return await config.responseHandler(blob, originalFiles);
+                }
+                if (blob.type === 'application/pdf') {
+                  const filename = `${config.filePrefix}${originalFiles[0]?.name || 'document.pdf'}`;
+                  return [new File([blob], filename, { type: 'application/pdf' })];
+                }
+                return await extractZipFiles(blob);
+              },
+              onStatus: actions.setStatus,
+            });
           } else {
-            // Default: assume ZIP response for multi-file endpoints
-            // Note: extractZipFiles will check preferences.autoUnzip setting
-            processedFiles = await extractZipFiles(response.data);
+            const response = await apiClient.post(endpoint, formData, { responseType: 'blob' });
+
+            // Multi-file responses are typically ZIP files that need extraction, but some may return single PDFs
+            if (config.responseHandler) {
+              // Use custom responseHandler for multi-file (handles ZIP extraction)
+              processedFiles = await config.responseHandler(response.data, filesForAPI);
+            } else if (response.data.type === 'application/pdf' ||
+                      (response.headers && response.headers['content-type'] === 'application/pdf')) {
+              // Single PDF response (e.g. split with merge option) - add prefix to first original filename
+              const filename = `${config.filePrefix}${filesForAPI[0]?.name || 'document.pdf'}`;
+              const singleFile = new File([response.data], filename, { type: 'application/pdf' });
+              processedFiles = [singleFile];
+            } else {
+              // Default: assume ZIP response for multi-file endpoints
+              // Note: extractZipFiles will check preferences.autoUnzip setting
+              processedFiles = await extractZipFiles(response.data);
+            }
           }
           // Assume all inputs succeeded together unless server provided an error earlier
           successSourceIds = validFiles.map(f => f.fileId);

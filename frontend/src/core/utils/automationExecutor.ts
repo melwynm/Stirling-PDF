@@ -5,6 +5,7 @@ import { AUTOMATION_CONSTANTS } from '@app/constants/automation';
 import { AutomationFileProcessor } from '@app/utils/automationFileProcessor';
 import { ToolType } from '@app/hooks/tools/shared/useToolOperation';
 import { processResponse } from '@app/utils/toolResponseProcessor';
+import { shouldUseAsyncJob, submitAndWaitForJob } from '@app/services/jobClient';
 
 /**
  * Process multi-file tool response (handles ZIP or single PDF responses)
@@ -58,6 +59,15 @@ const executeApiRequest = async (
   filePrefix: string,
   preserveBackendFilename?: boolean
 ): Promise<File[]> => {
+  if (shouldUseAsyncJob(files)) {
+    return await submitAndWaitForJob(endpoint, formData, files, {
+      filePrefix,
+      preserveBackendFilename,
+      responseHandler: async (blob, originalFiles) =>
+        await processMultiFileResponse(blob, {}, originalFiles, filePrefix, preserveBackendFilename),
+    });
+  }
+
   const response = await apiClient.post(endpoint, formData, {
     responseType: 'blob',
     timeout: AUTOMATION_CONSTANTS.OPERATION_TIMEOUT

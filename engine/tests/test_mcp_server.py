@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+from typing import cast
 
 from mcp_server import StirlingMcpServer
+from mcp_support import StirlingMcpToolRegistry
 
 
 class FakeRegistry:
@@ -14,7 +16,10 @@ class FakeRegistry:
         return [{"name": "demo", "description": "demo", "inputSchema": {"type": "object"}}]
 
     def call_tool(self, name, arguments):
-        return {"content": [{"type": "text", "text": json.dumps({"name": name, "arguments": arguments})}], "isError": False}
+        return {
+            "content": [{"type": "text", "text": json.dumps({"name": name, "arguments": arguments})}],
+            "isError": False,
+        }
 
     def list_resources(self):
         return [{"uri": "stirling://demo", "name": "Demo", "mimeType": "application/json"}]
@@ -24,7 +29,7 @@ class FakeRegistry:
 
 
 def test_initialize_response():
-    server = StirlingMcpServer(registry=FakeRegistry())
+    server = StirlingMcpServer(registry=cast(StirlingMcpToolRegistry, FakeRegistry()))
 
     response = server.handle_message(
         {
@@ -47,7 +52,7 @@ def test_initialize_response():
 
 
 def test_tools_list_response():
-    server = StirlingMcpServer(registry=FakeRegistry())
+    server = StirlingMcpServer(registry=cast(StirlingMcpToolRegistry, FakeRegistry()))
 
     response = server.handle_message({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}})
 
@@ -59,7 +64,7 @@ def test_tools_list_response():
 
 
 def test_tools_call_response():
-    server = StirlingMcpServer(registry=FakeRegistry())
+    server = StirlingMcpServer(registry=cast(StirlingMcpToolRegistry, FakeRegistry()))
 
     response = server.handle_message(
         {

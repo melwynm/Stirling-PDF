@@ -696,8 +696,7 @@ public class ApplicationProperties {
 
         @Override
         public String toString() {
-            return
-                    """
+            return """
             Driver {
               driverName='%s'
             }

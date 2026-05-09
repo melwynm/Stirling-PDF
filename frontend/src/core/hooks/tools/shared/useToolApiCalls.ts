@@ -3,6 +3,7 @@ import axios, {type CancelTokenSource} from 'axios'; // Real axios for static me
 import apiClient from '@app/services/apiClient'; // Our configured instance
 import { processResponse, ResponseHandler } from '@app/utils/toolResponseProcessor';
 import { isEmptyOutput } from '@app/services/errorUtils';
+import { shouldUseAsyncJob, submitAndWaitForJob } from '@app/services/jobClient';
 import type { ProcessingProgress } from '@app/hooks/tools/shared/useToolState';
 import type { StirlingFile, FileId } from '@app/types/fileContext';
 
@@ -44,20 +45,29 @@ export const useToolApiCalls = <TParams = void>() => {
         const formData = config.buildFormData(params, file);
         const endpoint = typeof config.endpoint === 'function' ? config.endpoint(params) : config.endpoint;
         console.debug('[processFiles] POST', { endpoint, name: file.name });
-        const response = await apiClient.post(endpoint, formData, {
-          responseType: 'blob',
-          cancelToken: cancelTokenRef.current?.token,
-        });
-        console.debug('[processFiles] Response OK', { name: file.name, status: response.status });
+        const responseFiles = shouldUseAsyncJob([file])
+          ? await submitAndWaitForJob(endpoint, formData, [file], {
+              filePrefix: config.filePrefix,
+              preserveBackendFilename: config.preserveBackendFilename,
+              responseHandler: config.responseHandler,
+              onStatus,
+            })
+          : await (async () => {
+              const response = await apiClient.post(endpoint, formData, {
+                responseType: 'blob',
+                cancelToken: cancelTokenRef.current?.token,
+              });
+              console.debug('[processFiles] Response OK', { name: file.name, status: response.status });
 
-        // Forward to shared response processor (uses tool-specific responseHandler if provided)
-        const responseFiles = await processResponse(
-          response.data,
-          [file],
-          config.filePrefix,
-          config.responseHandler,
-          config.preserveBackendFilename ? response.headers : undefined
-        );
+              // Forward to shared response processor (uses tool-specific responseHandler if provided)
+              return await processResponse(
+                response.data,
+                [file],
+                config.filePrefix,
+                config.responseHandler,
+                config.preserveBackendFilename ? response.headers : undefined
+              );
+            })();
         // Guard: some endpoints may return an empty/0-byte file with 200
         const empty = isEmptyOutput(responseFiles);
         if (empty) {

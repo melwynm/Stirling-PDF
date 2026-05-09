@@ -241,7 +241,24 @@ subprojects {
 
     tasks.withType(Test).configureEach {
         useJUnitPlatform()
+    }
+
+    tasks.named("test", Test) {
+        useJUnitPlatform {
+            excludeTags "large-file-reliability"
+        }
         finalizedBy(jacocoReport)
+    }
+
+    tasks.register("largeFileReliabilityTest", Test) {
+        group = "verification"
+        description = "Runs generated 5/50/100 MB PDF reliability tests."
+        testClassesDirs = sourceSets.test.output.classesDirs
+        classpath = sourceSets.test.runtimeClasspath
+        useJUnitPlatform {
+            includeTags "large-file-reliability"
+        }
+        shouldRunAfter(tasks.named("test"))
     }
 
     jacocoReport.configure {

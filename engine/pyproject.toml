@@ -41,6 +41,11 @@ exclude = [
 [tool.ruff]
 line-length = 120
 target-version = "py313"
+extend-exclude = [
+    ".pytest-tmp",
+    "pytest-cache-files-*",
+    "tmp*",
+]
 
 [tool.ruff.lint]
 select = [

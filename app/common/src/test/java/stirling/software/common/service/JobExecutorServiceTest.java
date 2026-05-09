@@ -8,9 +8,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
@@ -132,6 +134,49 @@ class JobExecutorServiceTest {
         @SuppressWarnings("unchecked")
         Map<String, String> errorMap = (Map<String, String>) response.getBody();
         assertEquals("Job failed: Test error", errorMap.get("error"));
+    }
+
+    @Test
+    void shouldNormalizeTemporaryStorageFailuresForSyncJobs() {
+        // Given
+        Supplier<Object> work =
+                () -> {
+                    throw new RuntimeException(new IOException("No space left on device"));
+                };
+
+        // When
+        ResponseEntity<?> response = jobExecutorService.runJobGeneric(false, work);
+
+        // Then
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+
+        @SuppressWarnings("unchecked")
+        Map<String, String> errorMap = (Map<String, String>) response.getBody();
+        assertEquals(
+                "Temporary storage is unavailable or full. Free disk space or change the temp directory and try again.",
+                errorMap.get("error"));
+    }
+
+    @Test
+    void shouldNormalizeTemporaryStorageFailuresForAsyncJobs() {
+        // Given
+        Supplier<Object> work =
+                () -> {
+                    throw new RuntimeException(new IOException("No space left on device"));
+                };
+
+        // When
+        ResponseEntity<?> response = jobExecutorService.runJobGeneric(true, work);
+
+        // Then
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertInstanceOf(JobResponse.class, response.getBody());
+
+        verify(taskManager, timeout(1000))
+                .setError(
+                        anyString(),
+                        eq(
+                                "Temporary storage is unavailable or full. Free disk space or change the temp directory and try again."));
     }
 
     @Test

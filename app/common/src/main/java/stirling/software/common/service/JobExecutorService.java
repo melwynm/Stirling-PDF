@@ -181,7 +181,8 @@ public class JobExecutorService {
                                     capturedJobIdForQueue,
                                     e.getMessage(),
                                     e);
-                            taskManager.setError(capturedJobIdForQueue, e.getMessage());
+                            taskManager.setError(
+                                    capturedJobIdForQueue, controlledFailureMessage(e));
                             throw e;
                         } finally {
                             // Clean up ThreadLocal to avoid memory leaks
@@ -223,7 +224,7 @@ public class JobExecutorService {
                             taskManager.setError(jobId, "Job timed out");
                         } catch (Exception e) {
                             log.error("Error executing job {}: {}", jobId, e.getMessage(), e);
-                            taskManager.setError(jobId, e.getMessage());
+                            taskManager.setError(jobId, controlledFailureMessage(e));
                         } finally {
                             // Clean up ThreadLocal to avoid memory leaks
                             stirling.software.common.util.JobContext.clear();
@@ -271,16 +272,56 @@ public class JobExecutorService {
                 // Handle other RuntimeExceptions as generic errors
                 log.error("Error executing synchronous job: {}", e.getMessage(), e);
                 return ResponseEntity.internalServerError()
-                        .body(Map.of("error", "Job failed: " + e.getMessage()));
+                        .body(Map.of("error", controlledFailureMessage(e)));
             } catch (Exception e) {
                 log.error("Error executing synchronous job: {}", e.getMessage(), e);
                 // Construct a JSON error response
                 return ResponseEntity.internalServerError()
-                        .body(Map.of("error", "Job failed: " + e.getMessage()));
+                        .body(Map.of("error", controlledFailureMessage(e)));
             } finally {
                 stirling.software.common.util.JobContext.clear();
             }
         }
+    }
+
+    private String controlledFailureMessage(Throwable throwable) {
+        Throwable root = throwable;
+        while (root.getCause() != null && root.getCause() != root) {
+            root = root.getCause();
+        }
+
+        String message = root.getMessage();
+        String lowerMessage = message == null ? "" : message.toLowerCase(java.util.Locale.ROOT);
+
+        if (root instanceof java.io.FileNotFoundException
+                || lowerMessage.contains("no space left")
+                || lowerMessage.contains("not enough space")
+                || lowerMessage.contains("disk full")) {
+            return "Temporary storage is unavailable or full. Free disk space or change the temp directory and try again.";
+        }
+
+        if (root instanceof java.util.concurrent.TimeoutException) {
+            return "Job timed out before processing completed.";
+        }
+
+        if (root instanceof java.io.IOException) {
+            return "File processing failed because the input could not be read or written: "
+                    + safeMessage(root);
+        }
+
+        if (lowerMessage.contains("outofmemory") || lowerMessage.contains("java heap space")) {
+            return "The server does not have enough memory to process this file safely. Increase the JVM/container memory or use a smaller file.";
+        }
+
+        return "Job failed: " + safeMessage(root);
+    }
+
+    private String safeMessage(Throwable throwable) {
+        String message = throwable.getMessage();
+        if (message == null || message.isBlank()) {
+            return throwable.getClass().getSimpleName();
+        }
+        return message;
     }
 
     /**

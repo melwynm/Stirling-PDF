@@ -12,12 +12,24 @@ target/
 # Gradle caches (local, not what's in the container)
 .gradle/
 **/.gradle/
+.gradle-codex/
 
 # Node / frontend
 node_modules/
 **/node_modules/
 .npm/
 .yarn/
+
+# Local Python / tool caches
+.uv-cache/
+.uv-cache-codex/
+.uv-python/
+.uv-python-codex/
+engine/.pytest-tmp/
+engine/.ruff_cache/
+engine/.venv/
+engine/pytest-cache-files-*/
+engine/tmp*/
 
 # IDE and editor
 .idea/
