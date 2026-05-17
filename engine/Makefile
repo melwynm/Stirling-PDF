@@ -72,7 +72,7 @@ run-dev: prep
 	cd src && PYTHONUNBUFFERED=1 uv run python app.py
 
 run-mcp: prep
-	cd src && PYTHONUNBUFFERED=1 uv run python mcp_server.py
+	PYTHONUNBUFFERED=1 uv run python src/mcp_server.py
 
 frontend-deps:
 	if [ ! -x "$(FRONTEND_TSX)" ]; then cd $(FRONTEND_DIR) && npm install; fi

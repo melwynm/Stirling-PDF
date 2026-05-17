@@ -2,7 +2,7 @@
   "mcpServers": {
     "stirling-pdf": {
       "command": "uv",
-      "args": ["run", "python", "-m", "mcp_server"],
+      "args": ["run", "python", "src/mcp_server.py"],
       "cwd": "C:\\Github\\Stirling-PDF\\engine",
       "env": {
         "STIRLING_JAVA_BACKEND_URL": "http://localhost:8080",

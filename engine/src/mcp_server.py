@@ -2,9 +2,14 @@ from __future__ import annotations
 
 import json
 import sys
+from pathlib import Path
 from typing import Any
 
-from mcp_support import McpToolError, StirlingMcpToolRegistry
+from dotenv import load_dotenv
+
+from mcp_support import McpProtocolError, McpToolError, StirlingMcpToolRegistry
+
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 
 class JsonRpcError(RuntimeError):
@@ -16,34 +21,62 @@ class JsonRpcError(RuntimeError):
 
 
 class StirlingMcpServer:
+    SUPPORTED_PROTOCOL_VERSIONS = (
+        "2024-11-05",
+        "2025-03-26",
+        "2025-06-18",
+        "2025-11-25",
+    )
+
     def __init__(self, registry: StirlingMcpToolRegistry | None = None) -> None:
         self.registry = registry or StirlingMcpToolRegistry()
         self._initialized = False
 
     def run(self) -> None:
         while True:
-            message = self._read_message()
+            try:
+                message = self._read_message()
+            except JsonRpcError as exc:
+                self._write_message(self._error(None, exc.code, exc.message, exc.data))
+                continue
             if message is None:
                 return
             response = self.handle_message(message)
             if response is not None:
                 self._write_message(response)
 
-    def handle_message(self, message: dict[str, Any]) -> dict[str, Any] | None:
+    def handle_message(self, message: Any) -> dict[str, Any] | list[dict[str, Any]] | None:
+        if isinstance(message, list):
+            if not message:
+                return self._error(None, -32600, "Invalid Request")
+            responses = [response for item in message if (response := self._handle_single_message(item)) is not None]
+            return responses or None
+        return self._handle_single_message(message)
+
+    def _handle_single_message(self, message: Any) -> dict[str, Any] | None:
+        if not isinstance(message, dict):
+            return self._error(None, -32600, "Invalid Request")
+
+        message_id = self._response_id(message)
+        is_notification = "id" not in message
+        method = message.get("method")
         try:
             if message.get("jsonrpc") != "2.0":
                 raise JsonRpcError(-32600, "Invalid Request")
-            method = message.get("method")
             if not isinstance(method, str):
                 raise JsonRpcError(-32600, "Invalid Request")
-            message_id = message.get("id")
+            if "id" in message and not self._is_request_id(message["id"]):
+                raise JsonRpcError(-32600, "Invalid Request")
             params = message.get("params", {})
 
             if method == "initialize":
+                if is_notification:
+                    return None
+                self._require_params_object(params)
                 return self._success(
                     message_id,
                     {
-                        "protocolVersion": self.registry.PROTOCOL_VERSION,
+                        "protocolVersion": self._negotiate_protocol_version(params.get("protocolVersion")),
                         "capabilities": {
                             "tools": {},
                             "resources": {},
@@ -54,12 +87,17 @@ class StirlingMcpServer:
                         },
                     },
                 )
-            if method == "initialized":
+            if method in {"notifications/initialized", "initialized"}:
                 self._initialized = True
+                return None
+            if method == "notifications/cancelled":
+                return None
+            if is_notification:
                 return None
             if method == "ping":
                 return self._success(message_id, {})
             if method == "tools/list":
+                self._require_params_object(params)
                 return self._success(message_id, {"tools": self.registry.list_tools()})
             if method == "tools/call":
                 self._require_params_object(params)
@@ -71,6 +109,7 @@ class StirlingMcpServer:
                     raise JsonRpcError(-32602, "tools/call arguments must be an object")
                 return self._success(message_id, self.registry.call_tool(name, arguments))
             if method == "resources/list":
+                self._require_params_object(params)
                 return self._success(message_id, {"resources": self.registry.list_resources()})
             if method == "resources/read":
                 self._require_params_object(params)
@@ -78,26 +117,43 @@ class StirlingMcpServer:
                 if not isinstance(uri, str):
                     raise JsonRpcError(-32602, "resources/read requires a string uri")
                 return self._success(message_id, self.registry.read_resource(uri))
+            if method == "resources/templates/list":
+                self._require_params_object(params)
+                return self._success(message_id, {"resourceTemplates": []})
 
             raise JsonRpcError(-32601, f"Method not found: {method}")
         except JsonRpcError as exc:
-            return self._error(message.get("id"), exc.code, exc.message, exc.data)
+            return None if is_notification else self._error(message_id, exc.code, exc.message, exc.data)
+        except McpProtocolError as exc:
+            return None if is_notification else self._error(message_id, exc.code, exc.message, exc.data)
         except McpToolError as exc:
-            if message.get("method") == "tools/call" and message.get("id") is not None:
+            if method == "tools/call" and not is_notification:
                 return self._success(
-                    message["id"],
+                    message_id,
                     {
                         "content": [{"type": "text", "text": str(exc)}],
                         "isError": True,
                     },
                 )
-            return self._error(message.get("id"), -32603, str(exc))
+            return None if is_notification else self._error(message_id, -32603, str(exc))
         except Exception as exc:  # pragma: no cover - last-resort protection
-            return self._error(message.get("id"), -32603, str(exc))
+            return None if is_notification else self._error(message_id, -32603, str(exc))
 
     def _require_params_object(self, params: Any) -> None:
         if not isinstance(params, dict):
             raise JsonRpcError(-32602, "params must be an object")
+
+    def _is_request_id(self, value: Any) -> bool:
+        return isinstance(value, (str, int)) and not isinstance(value, bool)
+
+    def _response_id(self, message: dict[str, Any]) -> str | int | None:
+        message_id = message.get("id")
+        return message_id if self._is_request_id(message_id) else None
+
+    def _negotiate_protocol_version(self, requested: Any) -> str:
+        if isinstance(requested, str) and requested in self.SUPPORTED_PROTOCOL_VERSIONS:
+            return requested
+        return self.registry.PROTOCOL_VERSION
 
     def _success(self, message_id: Any, result: Any) -> dict[str, Any]:
         return {"jsonrpc": "2.0", "id": message_id, "result": result}
@@ -108,34 +164,58 @@ class StirlingMcpServer:
             error["data"] = data
         return {"jsonrpc": "2.0", "id": message_id, "error": error}
 
-    def _read_message(self) -> dict[str, Any] | None:
-        headers: dict[str, str] = {}
+    def _read_message(self) -> Any | None:
         while True:
             line = sys.stdin.buffer.readline()
             if not line:
                 return None
-            if line in {b"\r\n", b"\n"}:
-                if not headers:
-                    continue
+            if line.strip():
                 break
-            decoded = line.decode("utf-8").strip()
-            if ":" not in decoded:
-                continue
-            key, value = decoded.split(":", 1)
-            headers[key.strip().lower()] = value.strip()
+
+        if line.lower().startswith(b"content-length:"):
+            return self._read_content_length_message(line)
+
+        try:
+            return json.loads(line.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise JsonRpcError(-32700, f"Parse error: {exc}") from exc
+
+    def _read_content_length_message(self, first_line: bytes) -> Any:
+        headers: dict[str, str] = {}
+        self._read_header_line(headers, first_line)
+        while True:
+            line = sys.stdin.buffer.readline()
+            if not line:
+                raise JsonRpcError(-32700, "Unexpected end of input")
+            if line in {b"\r\n", b"\n"}:
+                break
+            self._read_header_line(headers, line)
         content_length = headers.get("content-length")
         if content_length is None:
             raise JsonRpcError(-32700, "Missing Content-Length header")
-        body = sys.stdin.buffer.read(int(content_length))
+        try:
+            body_length = int(content_length)
+        except ValueError as exc:
+            raise JsonRpcError(-32700, "Invalid Content-Length header") from exc
+        body = sys.stdin.buffer.read(body_length)
+        if len(body) != body_length:
+            raise JsonRpcError(-32700, "Unexpected end of input")
         try:
             return json.loads(body.decode("utf-8"))
-        except json.JSONDecodeError as exc:
-            raise JsonRpcError(-32700, f"Invalid JSON: {exc}") from exc
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise JsonRpcError(-32700, f"Parse error: {exc}") from exc
 
-    def _write_message(self, payload: dict[str, Any]) -> None:
+    def _read_header_line(self, headers: dict[str, str], line: bytes) -> None:
+        decoded = line.decode("utf-8").strip()
+        if ":" not in decoded:
+            raise JsonRpcError(-32700, "Invalid header")
+        key, value = decoded.split(":", 1)
+        headers[key.strip().lower()] = value.strip()
+
+    def _write_message(self, payload: dict[str, Any] | list[dict[str, Any]]) -> None:
         encoded = json.dumps(payload, ensure_ascii=True).encode("utf-8")
-        sys.stdout.buffer.write(f"Content-Length: {len(encoded)}\r\n\r\n".encode())
         sys.stdout.buffer.write(encoded)
+        sys.stdout.buffer.write(b"\n")
         sys.stdout.buffer.flush()
 
 

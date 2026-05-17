@@ -426,11 +426,34 @@ def test_executable_operations_and_more_wrappers_build_expected_requests():
     sanitize = _json_payload(sanitize_payload)
 
     assert operations["count"] >= 14
+    assert operations["genericOperationCount"] >= operations["firstClassWrapperCount"]
     assert any(item["toolName"] == "stirling_split_pdf" for item in operations["operations"])
     assert split["endpoint"] == "/api/v1/general/split-pages"
     assert split["form_fields"] == {"pageNumbers": "1,2"}
     assert repair["endpoint"] == "/api/v1/misc/repair"
     assert sanitize["endpoint"] == "/api/v1/security/sanitize-pdf"
+
+
+def test_execute_operation_resolves_static_frontend_endpoint():
+    class FakeExecutor:
+        def call_endpoint(self, **kwargs):
+            return kwargs
+
+    registry = StirlingMcpToolRegistry(endpoint_executor=FakeExecutor())  # type: ignore[arg-type]
+    payload = registry.call_tool(
+        "stirling_execute_operation",
+        {
+            "operation_id": "crop",
+            "file_paths": [str(_FIXTURE_PDF)],
+            "form_fields": {"x": 1, "y": 2, "width": 100, "height": 100},
+        },
+    )
+    parsed = _json_payload(payload)
+
+    assert parsed["endpoint"] == "/api/v1/general/crop"
+    assert parsed["file_paths"] == [str(_FIXTURE_PDF)]
+    assert parsed["file_field_name"] == "fileInput"
+    assert parsed["form_fields"] == {"x": 1, "y": 2, "width": 100, "height": 100}
 
 
 def test_compress_accepts_friendly_file_size_alias():

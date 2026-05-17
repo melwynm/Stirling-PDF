@@ -11,11 +11,12 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
+from ast import literal_eval
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 import models
 
@@ -71,6 +72,18 @@ _AI_PROVIDER_ENV = ("STIRLING_OPENAI_API_KEY", "STIRLING_ANTHROPIC_API_KEY")
 
 class McpToolError(RuntimeError):
     pass
+
+
+class McpProtocolError(RuntimeError):
+    def __init__(self, code: int, message: str, data: Any = None) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.data = data
+
+
+class McpArgsModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
 
 
 def _normalize_json_value(value: Any) -> JsonValue:
@@ -186,11 +199,11 @@ class StaticToolCatalogService:
         return models.tool_models.OPERATIONS.get(operation_id)
 
 
-class NoArgs(BaseModel):
+class NoArgs(McpArgsModel):
     pass
 
 
-class CleanupMcpOutputArgs(BaseModel):
+class CleanupMcpOutputArgs(McpArgsModel):
     max_age_hours: float = Field(
         default=24.0,
         ge=0.0,
@@ -200,7 +213,7 @@ class CleanupMcpOutputArgs(BaseModel):
     dry_run: bool = Field(default=True, description="Report files that would be deleted without deleting them.")
 
 
-class HealthCheckArgs(BaseModel):
+class HealthCheckArgs(McpArgsModel):
     backend_health_paths: list[str] = Field(
         default_factory=lambda: list(_DEFAULT_BACKEND_HEALTH_PATHS),
         description="Backend health paths to try, relative to STIRLING_JAVA_BACKEND_URL.",
@@ -215,11 +228,11 @@ class HealthCheckArgs(BaseModel):
     )
 
 
-class GetOperationDetailsArgs(BaseModel):
+class GetOperationDetailsArgs(McpArgsModel):
     operation_id: str = Field(description="Stirling operation id, for example 'rotate' or 'merge'.")
 
 
-class PlanEditRequestArgs(BaseModel):
+class PlanEditRequestArgs(McpArgsModel):
     request: str = Field(description="Natural-language PDF edit request.")
     file_paths: list[str] = Field(
         default_factory=list,
@@ -231,16 +244,16 @@ class PlanEditRequestArgs(BaseModel):
     )
 
 
-class AnswerPdfQuestionArgs(BaseModel):
+class AnswerPdfQuestionArgs(McpArgsModel):
     pdf_path: str = Field(description="Absolute or relative path to a local PDF file.")
     question: str = Field(description="Question to answer from the PDF text.")
 
 
-class ReadPdfEditorDocumentArgs(BaseModel):
+class ReadPdfEditorDocumentArgs(McpArgsModel):
     pdf_path: str = Field(description="Absolute or relative path to a local PDF file.")
 
 
-class CallEndpointArgs(BaseModel):
+class CallEndpointArgs(McpArgsModel):
     endpoint: str = Field(description="Backend endpoint path starting with /api/v1/.")
     file_paths: list[str] = Field(
         default_factory=list,
@@ -274,13 +287,39 @@ class CallEndpointArgs(BaseModel):
     poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
 
 
-class JobStatusArgs(BaseModel):
+class ExecuteOperationArgs(McpArgsModel):
+    operation_id: str = Field(description="Stirling operation id, for example 'crop' or 'removeBlanks'.")
+    file_paths: list[str] = Field(
+        default_factory=list,
+        description="Primary local files to attach under file_field_name.",
+    )
+    file_field_name: str = Field(default="fileInput", description="Multipart field name used for the primary files.")
+    extra_file_fields: dict[str, str | list[str]] = Field(
+        default_factory=dict,
+        description="Additional multipart file fields required by the operation.",
+    )
+    form_fields: dict[str, JsonValue] = Field(
+        default_factory=dict,
+        description="Non-file multipart fields for the backend operation.",
+    )
+    endpoint: str | None = Field(
+        default=None,
+        description="Optional endpoint override for dynamic operations. Must start with /api/v1/.",
+    )
+    output_path: str | None = Field(default=None, description="Optional destination path for binary responses.")
+    async_job: bool = False
+    wait_for_job: bool = False
+    poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
+    poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
+
+
+class JobStatusArgs(McpArgsModel):
     job_id: str = Field(description="Stirling backend job id.")
     fetch_result: bool = Field(default=False, description="Fetch the final result if the job is complete.")
     output_path: str | None = Field(default=None, description="Optional destination path for binary job results.")
 
 
-class RotatePdfArgs(BaseModel):
+class RotatePdfArgs(McpArgsModel):
     pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
     angle: int = Field(default=90, description="Rotation angle. Must be a multiple of 90.")
     output_path: str | None = Field(default=None, description="Optional destination path for the rotated PDF.")
@@ -290,7 +329,7 @@ class RotatePdfArgs(BaseModel):
     poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
 
 
-class MergePdfsArgs(BaseModel):
+class MergePdfsArgs(McpArgsModel):
     pdf_paths: list[str] = Field(min_length=2, description="PDF files to merge in the provided order.")
     remove_digital_signature: bool = Field(default=False, description="Remove certificate signatures before merge.")
     generate_table_of_contents: bool = Field(
@@ -303,7 +342,7 @@ class MergePdfsArgs(BaseModel):
     poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
 
 
-class CompressPdfArgs(BaseModel):
+class CompressPdfArgs(McpArgsModel):
     pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
     compression_method: str = Field(default="quality", description="Compression method: quality or fileSize.")
     compression_level: int = Field(default=3, ge=1, le=5, description="Optimize level for quality compression.")
@@ -323,7 +362,7 @@ class CompressPdfArgs(BaseModel):
     poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
 
 
-class RemovePagesArgs(BaseModel):
+class RemovePagesArgs(McpArgsModel):
     pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
     page_numbers: str = Field(description="Pages or ranges to remove, for example 1,3,5-7.")
     output_path: str | None = Field(default=None, description="Optional destination path for the result PDF.")
@@ -333,7 +372,7 @@ class RemovePagesArgs(BaseModel):
     poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
 
 
-class SplitPdfArgs(BaseModel):
+class SplitPdfArgs(McpArgsModel):
     pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
     page_numbers: str = Field(description="Pages/ranges to split at, for example 1,3,5-7.")
     output_path: str | None = Field(default=None, description="Optional destination path for the result ZIP/PDF.")
@@ -343,7 +382,7 @@ class SplitPdfArgs(BaseModel):
     poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
 
 
-class ExtractImagesArgs(BaseModel):
+class ExtractImagesArgs(McpArgsModel):
     pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
     image_format: str = Field(default="png", description="Image format, for example png, jpg, or tiff.")
     output_path: str | None = Field(default=None, description="Optional destination path for the result ZIP.")
@@ -353,7 +392,7 @@ class ExtractImagesArgs(BaseModel):
     poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
 
 
-class OcrPdfArgs(BaseModel):
+class OcrPdfArgs(McpArgsModel):
     pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
     languages: list[str] = Field(default_factory=lambda: ["eng"], description="OCR languages.")
     ocr_type: str = Field(default="skip-text", description="OCR type sent to backend.")
@@ -370,7 +409,7 @@ class OcrPdfArgs(BaseModel):
     poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
 
 
-class ConvertFileArgs(BaseModel):
+class ConvertFileArgs(McpArgsModel):
     file_paths: list[str] = Field(min_length=1, description="Local files to convert.")
     from_extension: str = Field(description="Source extension/type, for example pdf, docx, image, html.")
     to_extension: str = Field(description="Target extension/type, for example pdf, png, docx, txt.")
@@ -381,7 +420,7 @@ class ConvertFileArgs(BaseModel):
     poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
 
 
-class WatermarkPdfArgs(BaseModel):
+class WatermarkPdfArgs(McpArgsModel):
     pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
     watermark_text: str = Field(description="Text watermark to add.")
     font_size: int = 30
@@ -396,7 +435,7 @@ class WatermarkPdfArgs(BaseModel):
     poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
 
 
-class AddPasswordArgs(BaseModel):
+class AddPasswordArgs(McpArgsModel):
     pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
     password: str = Field(description="User password.")
     owner_password: str = Field(default="", description="Owner password. Defaults to password when empty.")
@@ -408,7 +447,7 @@ class AddPasswordArgs(BaseModel):
     poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
 
 
-class RemovePasswordArgs(BaseModel):
+class RemovePasswordArgs(McpArgsModel):
     pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
     password: str = Field(description="Current PDF password.")
     output_path: str | None = Field(default=None, description="Optional destination path for decrypted PDF.")
@@ -418,7 +457,7 @@ class RemovePasswordArgs(BaseModel):
     poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
 
 
-class RepairPdfArgs(BaseModel):
+class RepairPdfArgs(McpArgsModel):
     pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
     output_path: str | None = Field(default=None, description="Optional destination path for repaired PDF.")
     async_job: bool = False
@@ -427,7 +466,7 @@ class RepairPdfArgs(BaseModel):
     poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
 
 
-class SanitizePdfArgs(BaseModel):
+class SanitizePdfArgs(McpArgsModel):
     pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
     remove_javascript: bool = True
     remove_embedded_files: bool = True
@@ -442,7 +481,7 @@ class SanitizePdfArgs(BaseModel):
     poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
 
 
-class FlattenPdfArgs(BaseModel):
+class FlattenPdfArgs(McpArgsModel):
     pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
     flatten_only_forms: bool = False
     render_dpi: int | None = Field(default=None, description="Optional render DPI.")
@@ -1367,7 +1406,7 @@ class StirlingMcpHealthChecker:
 class StirlingMcpToolRegistry:
     SERVER_NAME = "stirling-pdf-engine-mcp"
     SERVER_VERSION = "0.1.0"
-    PROTOCOL_VERSION = "2024-11-05"
+    PROTOCOL_VERSION = "2025-11-25"
 
     def __init__(
         self,
@@ -1425,6 +1464,11 @@ class StirlingMcpToolRegistry:
                 name="stirling_call_endpoint",
                 description="Call a Stirling backend /api/v1/ endpoint with multipart form data and save the binary output.",
                 input_model=CallEndpointArgs,
+            ),
+            "stirling_execute_operation": ToolDefinition(
+                name="stirling_execute_operation",
+                description="Execute a backend-backed Stirling operation by operation id using multipart form data.",
+                input_model=ExecuteOperationArgs,
             ),
             "stirling_get_job_status": ToolDefinition(
                 name="stirling_get_job_status",
@@ -1526,7 +1570,7 @@ class StirlingMcpToolRegistry:
 
     def call_tool(self, name: str, arguments: dict[str, Any] | None) -> dict[str, JsonValue]:
         if name not in self._tools:
-            raise McpToolError(f"Unknown MCP tool: {name}")
+            raise McpProtocolError(-32602, f"Unknown tool: {name}")
         payload = arguments or {}
         try:
             if name == "stirling_health_check":
@@ -1556,6 +1600,9 @@ class StirlingMcpToolRegistry:
             elif name == "stirling_call_endpoint":
                 args = CallEndpointArgs.model_validate(payload)
                 result = self._call_endpoint(args)
+            elif name == "stirling_execute_operation":
+                args = ExecuteOperationArgs.model_validate(payload)
+                result = self._execute_operation(args)
             elif name == "stirling_get_job_status":
                 args = JobStatusArgs.model_validate(payload)
                 result = self._get_job_status(args)
@@ -1604,7 +1651,11 @@ class StirlingMcpToolRegistry:
             else:
                 raise McpToolError(f"Unhandled MCP tool: {name}")
         except ValidationError as exc:
-            raise McpToolError(str(exc)) from exc
+            raise McpProtocolError(
+                -32602,
+                f"Invalid arguments for tool: {name}",
+                _normalize_json_value(exc.errors()),
+            ) from exc
         return {
             "content": [
                 {
@@ -1648,7 +1699,7 @@ class StirlingMcpToolRegistry:
             payload = self._workflow_examples()
             mime_type = "text/markdown"
         else:
-            raise McpToolError(f"Unknown MCP resource: {uri}")
+            raise McpProtocolError(-32602, f"Unknown MCP resource: {uri}")
         return {
             "contents": [
                 {
@@ -1695,16 +1746,24 @@ Call `stirling_cleanup_mcp_output` with `dry_run=true` first, then repeat with `
 
     def _list_executable_operations(self) -> dict[str, JsonValue]:
         wrappers = self._executable_operation_map()
+        generic = self._generic_operation_endpoint_map()
+        operation_ids = sorted(set(wrappers) | set(generic))
         return {
-            "count": len(wrappers),
+            "count": len(operation_ids),
+            "firstClassWrapperCount": len(wrappers),
+            "genericOperationCount": len(generic),
             "operations": [
                 {
                     "operationId": operation_id,
-                    "toolName": data["toolName"],
-                    "endpoint": data["endpoint"],
-                    "notes": data.get("notes", ""),
+                    "toolName": wrappers.get(operation_id, {}).get("toolName", "stirling_execute_operation"),
+                    "endpoint": wrappers.get(operation_id, {}).get("endpoint", generic.get(operation_id, "")),
+                    "execution": "firstClassWrapper" if operation_id in wrappers else "genericOperation",
+                    "notes": wrappers.get(operation_id, {}).get(
+                        "notes",
+                        "Use stirling_execute_operation with operation_id, files, and form_fields.",
+                    ),
                 }
-                for operation_id, data in sorted(wrappers.items())
+                for operation_id in operation_ids
             ],
         }
 
@@ -1725,6 +1784,31 @@ Call `stirling_cleanup_mcp_output` with `dry_run=true` first, then repeat with `
             "sanitize": {"toolName": "stirling_sanitize_pdf", "endpoint": "/api/v1/security/sanitize-pdf"},
             "flatten": {"toolName": "stirling_flatten_pdf", "endpoint": "/api/v1/misc/flatten"},
         }
+
+    def _generic_operation_endpoint_map(self) -> dict[str, str]:
+        operation_ids = [str(operation_id) for operation_id in self.tool_catalog.get_catalog().operation_ids]
+        endpoints = {
+            operation_id: endpoint
+            for operation_id in operation_ids
+            if (endpoint := self._operation_endpoint(operation_id)) is not None
+        }
+        return dict(sorted(endpoints.items()))
+
+    def _operation_endpoint(self, operation_id: str) -> str | None:
+        wrapper_endpoint = self._executable_operation_map().get(operation_id, {}).get("endpoint")
+        if wrapper_endpoint and wrapper_endpoint.startswith("/api/v1/"):
+            return wrapper_endpoint
+        metadata = self.metadata_resolver.get(operation_id)
+        if not metadata or not metadata.endpoint_expression:
+            return None
+        return self._literal_backend_endpoint(metadata.endpoint_expression)
+
+    def _literal_backend_endpoint(self, expression: str) -> str | None:
+        try:
+            value = literal_eval(expression.strip())
+        except (SyntaxError, ValueError):
+            return None
+        return value if isinstance(value, str) and value.startswith("/api/v1/") else None
 
     def _cleanup_mcp_output(self, args: CleanupMcpOutputArgs) -> dict[str, JsonValue]:
         roots = [self.endpoint_executor.output_dir / "mcp" / "tmp"]
@@ -1849,6 +1933,26 @@ Call `stirling_cleanup_mcp_output` with `dry_run=true` first, then repeat with `
     def _call_endpoint(self, args: CallEndpointArgs) -> dict[str, JsonValue]:
         return self.endpoint_executor.call_endpoint(
             endpoint=args.endpoint,
+            file_paths=args.file_paths,
+            file_field_name=args.file_field_name,
+            extra_file_fields=args.extra_file_fields,
+            form_fields=args.form_fields,
+            output_path=args.output_path,
+            async_job=args.async_job,
+            wait_for_job=args.wait_for_job,
+            poll_interval_seconds=args.poll_interval_seconds,
+            poll_timeout_seconds=args.poll_timeout_seconds,
+        )
+
+    def _execute_operation(self, args: ExecuteOperationArgs) -> dict[str, JsonValue]:
+        endpoint = args.endpoint or self._operation_endpoint(args.operation_id)
+        if not endpoint:
+            raise McpToolError(
+                f"Operation '{args.operation_id}' does not expose a static backend endpoint. "
+                "Pass endpoint explicitly or use stirling_call_endpoint."
+            )
+        return self.endpoint_executor.call_endpoint(
+            endpoint=endpoint,
             file_paths=args.file_paths,
             file_field_name=args.file_field_name,
             extra_file_fields=args.extra_file_fields,

@@ -55,6 +55,8 @@ Adjust the absolute repository path, backend URL, and provider keys before using
   Converts a local PDF into the structured JSON format used by the PDF text editor.
 - `stirling_call_endpoint`
   Calls a backend `/api/v1/` endpoint with multipart form data and saves the binary output. Multipart request bodies stream from source files by default instead of being assembled fully in memory or on disk.
+- `stirling_execute_operation`
+  Executes a backend-backed Stirling operation by `operation_id`, resolving static frontend endpoint metadata when a first-class wrapper does not exist.
 - `stirling_get_job_status`
   Checks a backend async job and optionally fetches the completed result.
 - `stirling_rotate_pdf`
