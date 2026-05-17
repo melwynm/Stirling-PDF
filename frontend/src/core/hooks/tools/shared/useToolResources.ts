@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { generateThumbnailForFile, generateThumbnailWithMetadata, ThumbnailWithMetadata } from '@app/utils/thumbnailUtils';
 import { zipFileService } from '@app/services/zipFileService';
 import { usePreferences } from '@app/contexts/PreferencesContext';
@@ -6,43 +6,30 @@ import { usePreferences } from '@app/contexts/PreferencesContext';
 
 export const useToolResources = () => {
   const { preferences } = usePreferences();
-  const [blobUrls, setBlobUrls] = useState<string[]>([]);
+  const blobUrlsRef = useRef<Set<string>>(new Set());
 
   const addBlobUrl = useCallback((url: string) => {
-    setBlobUrls(prev => [...prev, url]);
+    if (url.startsWith('blob:')) {
+      blobUrlsRef.current.add(url);
+    }
   }, []);
 
   const cleanupBlobUrls = useCallback(() => {
-    setBlobUrls(prev => {
-      prev.forEach(url => {
-        try {
-          URL.revokeObjectURL(url);
-        } catch (error) {
-          console.warn('Failed to revoke blob URL:', error);
-        }
-      });
-      return [];
+    const urlsToRevoke = Array.from(blobUrlsRef.current);
+    blobUrlsRef.current.clear();
+
+    urlsToRevoke.forEach(url => {
+      try {
+        URL.revokeObjectURL(url);
+      } catch (error) {
+        console.warn('Failed to revoke blob URL:', error);
+      }
     });
-  }, []); // No dependencies - use functional update pattern
-
-  // Cleanup on unmount - use ref to avoid dependency on blobUrls state
-  const blobUrlsRef = useRef<string[]>([]);
+  }, []);
 
   useEffect(() => {
-    blobUrlsRef.current = blobUrls;
-  }, [blobUrls]);
-
-  useEffect(() => {
-    return () => {
-      blobUrlsRef.current.forEach(url => {
-        try {
-          URL.revokeObjectURL(url);
-        } catch (error) {
-          console.warn('Failed to revoke blob URL during cleanup:', error);
-        }
-      });
-    };
-  }, []); // No dependencies - use ref to access current URLs
+    return cleanupBlobUrls;
+  }, [cleanupBlobUrls]);
 
   const generateThumbnails = useCallback(async (files: File[]): Promise<string[]> => {
     console.log(`🖼️ useToolResources.generateThumbnails: Starting for ${files.length} files`);
