@@ -43,6 +43,13 @@ export class FileLifecycleManager {
   };
 
   /**
+   * Clean up resources for a file that will be removed by a separate state action.
+   */
+  cleanupDetachedFile = (fileId: FileId, stateRef?: React.MutableRefObject<any>): void => {
+    this.cleanupAllResourcesForFile(fileId, stateRef);
+  };
+
+  /**
    * Clean up all files and resources
    */
   cleanupAllFiles = (): void => {
@@ -134,6 +141,7 @@ export class FileLifecycleManager {
         if (record.thumbnailUrl && record.thumbnailUrl.startsWith('blob:')) {
           try {
             URL.revokeObjectURL(record.thumbnailUrl);
+            this.blobUrls.delete(record.thumbnailUrl);
           } catch {
             // Ignore revocation errors
           }
@@ -142,6 +150,7 @@ export class FileLifecycleManager {
         if (record.blobUrl && record.blobUrl.startsWith('blob:')) {
           try {
             URL.revokeObjectURL(record.blobUrl);
+            this.blobUrls.delete(record.blobUrl);
           } catch {
             // Ignore revocation errors
           }
@@ -153,6 +162,7 @@ export class FileLifecycleManager {
             if (page.thumbnail && page.thumbnail.startsWith('blob:')) {
               try {
                 URL.revokeObjectURL(page.thumbnail);
+                this.blobUrls.delete(page.thumbnail);
               } catch {
                 // Ignore revocation errors
               }

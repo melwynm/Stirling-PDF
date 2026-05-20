@@ -26,6 +26,8 @@ node_modules/
 .uv-python/
 .uv-python-codex/
 engine/.pytest-tmp/
+engine/.pytest_cache/
+**/.pytest_cache/
 engine/.ruff_cache/
 engine/.venv/
 engine/pytest-cache-files-*/

@@ -232,8 +232,8 @@ function FileContextInner({
 
   // Helper functions for pinned files
   const consumeFilesWrapper = useCallback(async (inputFileIds: FileId[], outputStirlingFiles: StirlingFile[], outputStirlingFileStubs: StirlingFileStub[]): Promise<FileId[]> => {
-    return consumeFiles(inputFileIds, outputStirlingFiles, outputStirlingFileStubs, filesRef, dispatch);
-  }, []);
+    return consumeFiles(inputFileIds, outputStirlingFiles, outputStirlingFileStubs, filesRef, dispatch, lifecycleManager, stateRef);
+  }, [lifecycleManager]);
 
   const runAutomaticPasswordRemoval = useCallback(async (fileId: FileId, password: string): Promise<void> => {
     const file = filesRef.current.get(fileId);
@@ -310,8 +310,8 @@ function FileContextInner({
   }, [activeEncryptedFileId, unlockPassword, runAutomaticPasswordRemoval, t]);
 
   const undoConsumeFilesWrapper = useCallback(async (inputFiles: File[], inputStirlingFileStubs: StirlingFileStub[], outputFileIds: FileId[]): Promise<void> => {
-    return undoConsumeFiles(inputFiles, inputStirlingFileStubs, outputFileIds, filesRef, dispatch, indexedDB);
-  }, [indexedDB]);
+    return undoConsumeFiles(inputFiles, inputStirlingFileStubs, outputFileIds, filesRef, dispatch, stateRef, lifecycleManager, indexedDB);
+  }, [indexedDB, lifecycleManager]);
 
   // File pinning functions - use StirlingFile directly
   const pinFileWrapper = useCallback((file: StirlingFile) => {

@@ -468,7 +468,9 @@ export async function consumeFiles(
   outputStirlingFiles: StirlingFile[],
   outputStirlingFileStubs: StirlingFileStub[],
   filesRef: React.MutableRefObject<Map<FileId, File>>,
-  dispatch: React.Dispatch<FileContextAction>
+  dispatch: React.Dispatch<FileContextAction>,
+  lifecycleManager: FileLifecycleManager,
+  stateRef: React.MutableRefObject<FileContextState>
 ): Promise<FileId[]> {
   if (DEBUG) console.log(`📄 consumeFiles: Processing ${inputFileIds.length} input files, ${outputStirlingFiles.length} output files with pre-created stubs`);
 
@@ -526,6 +528,10 @@ export async function consumeFiles(
     }
   }
 
+  inputFileIds
+    .filter(fileId => !stateRef.current.pinnedFiles.has(fileId))
+    .forEach(fileId => lifecycleManager.cleanupDetachedFile(fileId, stateRef));
+
   // Dispatch the consume action with pre-created stubs (no processing needed)
   dispatch({
     type: 'CONSUME_FILES',
@@ -547,13 +553,18 @@ async function restoreFilesAndCleanup(
   filesToRestore: Array<{ file: File; record: StirlingFileStub }>,
   fileIdsToRemove: FileId[],
   filesRef: React.MutableRefObject<Map<FileId, File>>,
+  stateRef: React.MutableRefObject<FileContextState>,
+  lifecycleManager: FileLifecycleManager,
   indexedDB?: { deleteFile: (fileId: FileId) => Promise<void> } | null
 ): Promise<void> {
   // Remove files from filesRef
   fileIdsToRemove.forEach(id => {
+    if (stateRef.current.pinnedFiles.has(id)) {
+      return;
+    }
+
     if (filesRef.current.has(id)) {
       if (DEBUG) console.log(`📄 Removing file ${id} from filesRef`);
-      filesRef.current.delete(id);
     } else {
       if (DEBUG) console.warn(`📄 File ${id} not found in filesRef`);
     }
@@ -586,6 +597,10 @@ async function restoreFilesAndCleanup(
     // Execute all IndexedDB operations
     await Promise.all(indexedDBPromises);
   }
+
+  fileIdsToRemove
+    .filter(id => !stateRef.current.pinnedFiles.has(id))
+    .forEach(id => lifecycleManager.cleanupDetachedFile(id, stateRef));
 }
 
 /**
@@ -597,6 +612,8 @@ export async function undoConsumeFiles(
   outputFileIds: FileId[],
   filesRef: React.MutableRefObject<Map<FileId, File>>,
   dispatch: React.Dispatch<FileContextAction>,
+  stateRef: React.MutableRefObject<FileContextState>,
+  lifecycleManager: FileLifecycleManager,
   indexedDB?: { saveFile: (file: File, fileId: FileId, existingThumbnail?: string) => Promise<any>; deleteFile: (fileId: FileId) => Promise<void> } | null
 ): Promise<void> {
   if (DEBUG) console.log(`📄 undoConsumeFiles: Restoring ${inputStirlingFileStubs.length} input files, removing ${outputFileIds.length} output files`);
@@ -621,6 +638,8 @@ export async function undoConsumeFiles(
       filesToRestore,
       outputFileIds,
       filesRef,
+      stateRef,
+      lifecycleManager,
       indexedDB
     );
 
