@@ -795,6 +795,43 @@ def test_execute_operation_resolves_static_frontend_endpoint():
     assert parsed["form_fields"] == {"x": 1, "y": 2, "width": 100, "height": 100}
 
 
+def test_generic_endpoint_tools_require_confirmation_for_high_risk_endpoints():
+    class FakeExecutor:
+        def call_endpoint(self, **kwargs):
+            return kwargs
+
+    registry = StirlingMcpToolRegistry(endpoint_executor=FakeExecutor())  # type: ignore[arg-type]
+
+    with pytest.raises(RuntimeError, match="requires confirmed=true"):
+        registry.call_tool(
+            "stirling_call_endpoint",
+            {
+                "endpoint": "/api/v1/security/auto-redact",
+                "file_paths": [str(_FIXTURE_PDF)],
+                "form_fields": {"listOfText": "secret"},
+            },
+        )
+    with pytest.raises(RuntimeError, match="requires confirmed=true"):
+        registry.call_tool(
+            "stirling_execute_operation",
+            {"operation_id": "redact", "file_paths": [str(_FIXTURE_PDF)], "form_fields": {"listOfText": "secret"}},
+        )
+
+    confirmed = _json_payload(
+        registry.call_tool(
+            "stirling_call_endpoint",
+            {
+                "endpoint": "/api/v1/security/auto-redact",
+                "file_paths": [str(_FIXTURE_PDF)],
+                "form_fields": {"listOfText": "secret"},
+                "confirmed": True,
+            },
+        )
+    )
+
+    assert confirmed["endpoint"] == "/api/v1/security/auto-redact"
+
+
 def test_compress_accepts_friendly_file_size_alias():
     class FakeExecutor:
         def call_endpoint(self, **kwargs):

@@ -331,6 +331,10 @@ class CallEndpointArgs(McpArgsModel):
         default=False,
         description="When async_job is true, poll until the job completes and fetch the final result.",
     )
+    confirmed: bool = Field(
+        default=False,
+        description="Required for high-risk security/signing/redaction endpoints.",
+    )
     poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
     poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
 
@@ -357,6 +361,7 @@ class ExecuteOperationArgs(McpArgsModel):
     output_path: str | None = Field(default=None, description="Optional destination path for binary responses.")
     async_job: bool = False
     wait_for_job: bool = False
+    confirmed: bool = Field(default=False, description="Required for high-risk security/signing/redaction endpoints.")
     poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
     poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
 
@@ -2668,6 +2673,7 @@ Call `stirling_cleanup_mcp_output` with `dry_run=true` first, then repeat with `
         }
 
     def _call_endpoint(self, args: CallEndpointArgs) -> dict[str, JsonValue]:
+        self._require_endpoint_confirmation(args.endpoint, args.confirmed)
         return self.endpoint_executor.call_endpoint(
             endpoint=args.endpoint,
             file_paths=args.file_paths,
@@ -2688,6 +2694,7 @@ Call `stirling_cleanup_mcp_output` with `dry_run=true` first, then repeat with `
                 f"Operation '{args.operation_id}' does not expose a static backend endpoint. "
                 "Pass endpoint explicitly or use stirling_call_endpoint."
             )
+        self._require_endpoint_confirmation(endpoint, args.confirmed)
         return self.endpoint_executor.call_endpoint(
             endpoint=endpoint,
             file_paths=args.file_paths,
@@ -3227,6 +3234,21 @@ Call `stirling_cleanup_mcp_output` with `dry_run=true` first, then repeat with `
     def _require_confirmed(self, args: ConfirmedPdfArgs, label: str) -> None:
         if not args.confirmed:
             raise McpToolError(f"{label} requires confirmed=true.")
+
+    def _require_endpoint_confirmation(self, endpoint: str, confirmed: bool) -> None:
+        high_risk_endpoints = {
+            "/api/v1/security/add-password",
+            "/api/v1/security/remove-password",
+            "/api/v1/security/auto-redact",
+            "/api/v1/security/add-signature",
+            "/api/v1/security/cert-sign",
+            "/api/v1/security/remove-cert-sign",
+            "/api/v1/security/sanitize-pdf",
+            "/api/v1/misc/unlock-pdf-forms",
+        }
+        endpoint_path = endpoint.split("?", 1)[0]
+        if endpoint_path in high_risk_endpoints and not confirmed:
+            raise McpToolError(f"Endpoint {endpoint_path} requires confirmed=true.")
 
     def _call_single_pdf_endpoint(
         self,
