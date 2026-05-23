@@ -1142,9 +1142,10 @@ class MultipartEndpointExecutor:
             values = value if isinstance(value, list) else [value]
             additional_files.extend((field_name, self._resolve_file_path(item)) for item in values)
 
+        request_id = f"mcp-{uuid.uuid4().hex}"
         body, boundary, body_size = self._open_multipart_body(form_fields, primary_files + additional_files)
         request_endpoint = f"{endpoint}?async=true" if async_job else endpoint
-        headers = self._multipart_headers(boundary, body_size)
+        headers = self._multipart_headers(boundary, body_size, request_id)
         try:
             request = urllib.request.Request(
                 _java_backend_url(request_endpoint),
@@ -1153,7 +1154,7 @@ class MultipartEndpointExecutor:
                 method="POST",
             )
             with urllib.request.urlopen(request, timeout=_java_request_timeout_seconds()) as response:
-                result = self._handle_response(response, endpoint, output_path)
+                result = self._handle_response(response, endpoint, output_path, request_id)
             if async_job and wait_for_job:
                 job_id = self._extract_job_id(result)
                 if not job_id:
@@ -1161,7 +1162,7 @@ class MultipartEndpointExecutor:
                 return self.wait_for_job(job_id, output_path, poll_interval_seconds, poll_timeout_seconds)
             return result
         except urllib.error.HTTPError as exc:
-            raise self._backend_http_error(exc, endpoint) from exc
+            raise self._backend_http_error(exc, endpoint, request_id) from exc
         except urllib.error.URLError as exc:
             raise self._backend_url_error(exc) from exc
         finally:
@@ -1173,12 +1174,15 @@ class MultipartEndpointExecutor:
 
     def get_job_result(self, job_id: str, output_path: str | None) -> dict[str, JsonValue]:
         endpoint = f"/api/v1/general/job/{urllib.parse.quote(job_id)}/result"
-        request = urllib.request.Request(_java_backend_url(endpoint), headers=_java_backend_headers(), method="GET")
+        request_id = f"mcp-{uuid.uuid4().hex}"
+        headers = _java_backend_headers()
+        headers["X-Stirling-MCP-Request-ID"] = request_id
+        request = urllib.request.Request(_java_backend_url(endpoint), headers=headers, method="GET")
         try:
             with urllib.request.urlopen(request, timeout=_java_request_timeout_seconds()) as response:
-                return self._handle_response(response, endpoint, output_path)
+                return self._handle_response(response, endpoint, output_path, request_id)
         except urllib.error.HTTPError as exc:
-            raise self._backend_http_error(exc, endpoint) from exc
+            raise self._backend_http_error(exc, endpoint, request_id) from exc
         except urllib.error.URLError as exc:
             raise self._backend_url_error(exc) from exc
 
@@ -1200,17 +1204,22 @@ class MultipartEndpointExecutor:
         return {"jobId": job_id, "status": last_status or {}, "timedOut": True}
 
     def _get_json(self, endpoint: str) -> JsonValue:
-        request = urllib.request.Request(_java_backend_url(endpoint), headers=_java_backend_headers(), method="GET")
+        request_id = f"mcp-{uuid.uuid4().hex}"
+        headers = _java_backend_headers()
+        headers["X-Stirling-MCP-Request-ID"] = request_id
+        request = urllib.request.Request(_java_backend_url(endpoint), headers=headers, method="GET")
         try:
             with urllib.request.urlopen(request, timeout=_java_request_timeout_seconds()) as response:
                 raw = self._read_limited_json_response(response)
                 return _normalize_json_value(json.loads(raw.decode("utf-8"))) if raw else {}
         except urllib.error.HTTPError as exc:
-            raise self._backend_http_error(exc, endpoint) from exc
+            raise self._backend_http_error(exc, endpoint, request_id) from exc
         except urllib.error.URLError as exc:
             raise self._backend_url_error(exc) from exc
 
-    def _handle_response(self, response: Any, endpoint: str, output_path: str | None) -> dict[str, JsonValue]:
+    def _handle_response(
+        self, response: Any, endpoint: str, output_path: str | None, request_id: str
+    ) -> dict[str, JsonValue]:
         content_type = response.headers.get("Content-Type", "application/octet-stream")
         if "application/json" in content_type:
             raw = self._read_limited_json_response(response)
@@ -1218,6 +1227,7 @@ class MultipartEndpointExecutor:
             parsed = json.loads(text) if text else {}
             return {
                 "endpoint": endpoint,
+                "requestId": request_id,
                 "contentType": content_type,
                 "resultJson": _normalize_json_value(parsed),
             }
@@ -1231,17 +1241,20 @@ class MultipartEndpointExecutor:
                 output_handle.write(chunk)
         return {
             "endpoint": endpoint,
+            "requestId": request_id,
             "contentType": content_type,
             "savedPath": str(destination),
             "sizeBytes": size_bytes,
         }
 
-    def _backend_http_error(self, exc: urllib.error.HTTPError, endpoint: str) -> McpToolError:
+    def _backend_http_error(self, exc: urllib.error.HTTPError, endpoint: str, request_id: str) -> McpToolError:
         detail = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
         parsed = self._parse_backend_error_detail(detail)
         message = parsed.get("message") or parsed.get("error") or detail or str(exc.reason)
         suggestion = self._backend_http_suggestion(exc.code, endpoint, message)
-        return McpToolError(f"Backend HTTP {exc.code} for {endpoint}: {message}. Suggested fix: {suggestion}")
+        return McpToolError(
+            f"Backend HTTP {exc.code} for {endpoint} (requestId={request_id}): {message}. Suggested fix: {suggestion}"
+        )
 
     def _parse_backend_error_detail(self, detail: str) -> dict[str, str]:
         if not detail:
@@ -1398,9 +1411,10 @@ class MultipartEndpointExecutor:
     def _multipart_mode(self) -> str:
         return (_env_value("STIRLING_MCP_MULTIPART_MODE") or "stream").strip().lower()
 
-    def _multipart_headers(self, boundary: str, body_size: int | None) -> dict[str, str]:
+    def _multipart_headers(self, boundary: str, body_size: int | None, request_id: str) -> dict[str, str]:
         headers = _java_backend_headers()
         headers["Content-Type"] = f"multipart/form-data; boundary={boundary}"
+        headers["X-Stirling-MCP-Request-ID"] = request_id
         if body_size is not None:
             headers["Content-Length"] = str(body_size)
         return headers
@@ -1694,10 +1708,11 @@ class StirlingMcpHealthChecker:
                 [("fileInput", fixture_pdf)],
             )
             try:
+                request_id = f"mcp-{uuid.uuid4().hex}"
                 request = urllib.request.Request(
                     _java_backend_url("/api/v1/general/rotate-pdf"),
                     data=body,
-                    headers=executor._multipart_headers(boundary, body_size),
+                    headers=executor._multipart_headers(boundary, body_size, request_id),
                     method="POST",
                 )
                 with urllib.request.urlopen(request, timeout=_java_request_timeout_seconds()) as response:
@@ -1715,6 +1730,7 @@ class StirlingMcpHealthChecker:
                             "statusCode": response.status,
                             "contentType": content_type,
                             "bytesRead": len(response_body),
+                            "requestId": request_id,
                         },
                     }
             finally:

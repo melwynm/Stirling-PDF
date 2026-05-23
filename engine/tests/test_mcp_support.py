@@ -337,17 +337,19 @@ def test_call_endpoint_saves_binary_response(monkeypatch: MonkeyPatch):
     output_path = _REPO_ROOT / "engine" / "output" / "mcp-test-result.pdf"
     fake_destination = _FakeOutputPath(str(output_path.resolve()))
     fake_body_path = _FakeBodyPath()
+    captured_headers: dict[str, str] = {}
 
-    monkeypatch.setattr(
-        "urllib.request.urlopen",
-        lambda request, timeout: _FakeHttpResponse(
+    def fake_urlopen(request, timeout):
+        captured_headers.update(dict(request.header_items()))
+        return _FakeHttpResponse(
             b"%PDF-output%",
             {
                 "Content-Type": "application/pdf",
                 "Content-Disposition": 'attachment; filename="result.pdf"',
             },
-        ),
-    )
+        )
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
 
     executor = MultipartEndpointExecutor(output_dir=str(_REPO_ROOT / "engine" / "output"))
     monkeypatch.setattr(
@@ -371,6 +373,9 @@ def test_call_endpoint_saves_binary_response(monkeypatch: MonkeyPatch):
     )
 
     assert result["savedPath"] == str(output_path.resolve())
+    assert isinstance(result["requestId"], str)
+    assert str(result["requestId"]).startswith("mcp-")
+    assert captured_headers["X-stirling-mcp-request-id"] == result["requestId"]
     assert fake_destination.written_bytes == b"%PDF-output%"
     assert fake_body_path.closed is True
 
