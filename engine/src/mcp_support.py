@@ -244,6 +244,54 @@ class PlanEditRequestArgs(McpArgsModel):
     )
 
 
+class SetupDiagnosticsArgs(McpArgsModel):
+    pass
+
+
+class DiscoverPdfsArgs(McpArgsModel):
+    root_paths: list[str] = Field(
+        default_factory=list,
+        description="Allowed directories to search. Defaults to the configured MCP allowed roots.",
+    )
+    recursive: bool = Field(default=True, description="Search child directories.")
+    name_contains: str = Field(default="", description="Optional case-insensitive filename filter.")
+    include_preflight: bool = Field(default=False, description="Include PDF preflight for each matched PDF.")
+    max_results: int = Field(default=50, ge=1, le=500, description="Maximum PDFs to return.")
+
+
+class ExecutePlanOperation(McpArgsModel):
+    operation_id: str = Field(description="Operation id from stirling_plan_edit_request.")
+    parameters: dict[str, JsonValue] = Field(
+        default_factory=dict,
+        description="Operation parameters. These are sent as multipart form fields.",
+    )
+    endpoint: str | None = Field(
+        default=None,
+        description="Optional static backend endpoint override for operations without a resolvable endpoint.",
+    )
+    file_field_name: str = Field(default="fileInput", description="Primary multipart file field name.")
+    extra_file_fields: dict[str, str | list[str]] = Field(
+        default_factory=dict,
+        description="Additional multipart file fields for this step.",
+    )
+
+
+class ExecutePlanArgs(McpArgsModel):
+    file_paths: list[str] = Field(
+        min_length=1,
+        description="Initial local files for the first plan step. Later PDF steps use the prior saved PDF output.",
+    )
+    operations: list[ExecutePlanOperation] = Field(min_length=1, description="Operations from a validated plan.")
+    confirmed: bool = Field(
+        default=False,
+        description="Must be true when the chain risk assessment says the plan should be confirmed.",
+    )
+    output_path: str | None = Field(
+        default=None,
+        description="Optional destination for the final binary response. Intermediate outputs use engine/output/mcp.",
+    )
+
+
 class AnswerPdfQuestionArgs(McpArgsModel):
     pdf_path: str = Field(description="Absolute or relative path to a local PDF file.")
     question: str = Field(description="Question to answer from the PDF text.")
@@ -490,6 +538,288 @@ class FlattenPdfArgs(McpArgsModel):
     wait_for_job: bool = False
     poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
     poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
+
+
+class ExtractPagesPdfArgs(McpArgsModel):
+    pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
+    page_numbers: str = Field(description="Backend-ready one-based page numbers/ranges to keep.")
+    output_path: str | None = Field(default=None, description="Optional destination path for extracted pages PDF.")
+    async_job: bool = False
+    wait_for_job: bool = False
+    poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
+    poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
+
+
+class CropPdfArgs(McpArgsModel):
+    pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
+    auto_crop: bool = Field(default=False, description="Let the backend determine the crop area.")
+    x: float | None = Field(default=None, description="Crop x coordinate when auto_crop is false.")
+    y: float | None = Field(default=None, description="Crop y coordinate when auto_crop is false.")
+    width: float | None = Field(default=None, description="Crop width when auto_crop is false.")
+    height: float | None = Field(default=None, description="Crop height when auto_crop is false.")
+    output_path: str | None = Field(default=None, description="Optional destination path for cropped PDF.")
+    async_job: bool = False
+    wait_for_job: bool = False
+    poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
+    poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
+
+
+class ScalePagesPdfArgs(McpArgsModel):
+    pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
+    scale_factor: float = Field(default=1.0, gt=0, description="Page content scale factor.")
+    page_size: str = Field(default="KEEP", description="Target page size, for example KEEP, A4, LETTER.")
+    output_path: str | None = Field(default=None, description="Optional destination path for scaled PDF.")
+    async_job: bool = False
+    wait_for_job: bool = False
+    poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
+    poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
+
+
+class RedactPdfArgs(McpArgsModel):
+    pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
+    words_to_redact: list[str] = Field(min_length=1, description="Text lines or patterns to redact.")
+    confirmed: bool = Field(default=False, description="Must be true because automatic redaction is destructive.")
+    use_regex: bool = False
+    whole_word_search: bool = False
+    redact_color: str = Field(default="#000000", description="Redaction fill color, with or without leading #.")
+    custom_padding: float = Field(default=0.1, ge=0)
+    convert_pdf_to_image: bool = True
+    output_path: str | None = Field(default=None, description="Optional destination path for redacted PDF.")
+    async_job: bool = False
+    wait_for_job: bool = False
+    poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
+    poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
+
+
+class ReorganizePagesPdfArgs(McpArgsModel):
+    pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
+    page_numbers: str | None = Field(default=None, description="Page order sent to rearrange-pages.")
+    custom_mode: str | None = Field(default=None, description="Optional backend custom rearrange mode.")
+    output_path: str | None = Field(default=None, description="Optional destination path for reorganized PDF.")
+    async_job: bool = False
+    wait_for_job: bool = False
+    poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
+    poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
+
+
+class OverlayPdfsArgs(McpArgsModel):
+    pdf_path: str = Field(description="Base PDF to receive overlays.")
+    overlay_pdf_paths: list[str] = Field(min_length=1, description="Overlay PDF files.")
+    overlay_mode: str = Field(default="SequentialOverlay")
+    overlay_position: int = Field(default=0, description="Backend overlay position value.")
+    counts: list[int] = Field(default_factory=list, description="Repeat counts for FixedRepeatOverlay mode.")
+    output_path: str | None = Field(default=None, description="Optional destination path for overlaid PDF.")
+    async_job: bool = False
+    wait_for_job: bool = False
+    poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
+    poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
+
+
+class PageLayoutPdfArgs(McpArgsModel):
+    pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
+    pages_per_sheet: int = Field(default=4, ge=1)
+    add_border: bool = False
+    output_path: str | None = Field(default=None, description="Optional destination path for page layout PDF.")
+    async_job: bool = False
+    wait_for_job: bool = False
+    poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
+    poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
+
+
+class BookletPdfArgs(McpArgsModel):
+    pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
+    pages_per_sheet: int = Field(default=2, ge=1)
+    add_border: bool = False
+    spine_location: str = "LEFT"
+    add_gutter: bool = False
+    gutter_size: float = Field(default=12, ge=0)
+    double_sided: bool = True
+    duplex_pass: str = "BOTH"
+    flip_on_short_edge: bool = False
+    output_path: str | None = Field(default=None, description="Optional destination path for booklet PDF.")
+    async_job: bool = False
+    wait_for_job: bool = False
+    poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
+    poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
+
+
+class SignaturePositionArgs(McpArgsModel):
+    x: float = Field(ge=0)
+    y: float = Field(ge=0)
+    width: float = Field(gt=0)
+    height: float = Field(gt=0)
+    page: int = Field(ge=0, description="Zero-based page index used by the add-signature endpoint.")
+
+
+class SignPdfArgs(McpArgsModel):
+    pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
+    signature_type: str = Field(default="text", description="text, image, or canvas.")
+    signature_data: str | None = Field(default=None, description="Base64/data payload for image or canvas signatures.")
+    signature_position: SignaturePositionArgs | None = None
+    reason: str | None = None
+    location: str | None = None
+    signer_name: str | None = Field(default=None, description="Required for text signatures.")
+    confirmed: bool = Field(default=False, description="Must be true because signing changes the document.")
+    output_path: str | None = Field(default=None, description="Optional destination path for signed PDF.")
+    async_job: bool = False
+    wait_for_job: bool = False
+    poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
+    poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
+
+
+class CertSignPdfArgs(McpArgsModel):
+    pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
+    sign_mode: str = Field(default="MANUAL", description="MANUAL or AUTO server-certificate signing.")
+    cert_type: str = Field(default="", description="PEM, PKCS12, PFX, or JKS for manual signing.")
+    password: str = ""
+    private_key_path: str | None = Field(default=None, description="PEM private key path.")
+    cert_path: str | None = Field(default=None, description="PEM certificate path.")
+    p12_path: str | None = Field(default=None, description="PKCS12/PFX keystore path.")
+    jks_path: str | None = Field(default=None, description="JKS keystore path.")
+    show_signature: bool = False
+    reason: str = ""
+    location: str = ""
+    name: str = ""
+    page_number: int = Field(default=1, ge=1, description="One-based visible signature page number.")
+    show_logo: bool = True
+    confirmed: bool = Field(default=False, description="Must be true because certificate signing changes the document.")
+    output_path: str | None = Field(default=None, description="Optional destination path for certificate-signed PDF.")
+    async_job: bool = False
+    wait_for_job: bool = False
+    poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
+    poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
+
+
+class MetadataEntryArgs(McpArgsModel):
+    key: str
+    value: str
+
+
+class ChangeMetadataPdfArgs(McpArgsModel):
+    pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
+    title: str = ""
+    author: str = ""
+    subject: str = ""
+    keywords: str = ""
+    creator: str = ""
+    producer: str = ""
+    creation_date: str = Field(default="", description="Backend metadata date string, YYYY/MM/DD HH:MM:SS.")
+    modification_date: str = Field(default="", description="Backend metadata date string, YYYY/MM/DD HH:MM:SS.")
+    trapped: str = ""
+    delete_all: bool = False
+    custom_metadata: list[MetadataEntryArgs] = Field(default_factory=list)
+    output_path: str | None = Field(default=None, description="Optional destination path for metadata PDF.")
+    async_job: bool = False
+    wait_for_job: bool = False
+    poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
+    poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
+
+
+class ChangePermissionsPdfArgs(McpArgsModel):
+    pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
+    password: str = Field(default="", description="Optional user password for the output PDF.")
+    owner_password: str = Field(default="", description="Optional owner password for the output PDF.")
+    key_length: int = Field(default=256)
+    prevent_assembly: bool = False
+    prevent_extract_content: bool = False
+    prevent_extract_for_accessibility: bool = False
+    prevent_fill_in_form: bool = False
+    prevent_modify: bool = False
+    prevent_modify_annotations: bool = False
+    prevent_printing: bool = False
+    prevent_printing_faithful: bool = False
+    confirmed: bool = Field(default=False, description="Must be true because permissions/security are changed.")
+    output_path: str | None = Field(default=None, description="Optional destination path for permissions PDF.")
+    async_job: bool = False
+    wait_for_job: bool = False
+    poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
+    poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
+
+
+class ConfirmedPdfArgs(McpArgsModel):
+    pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
+    confirmed: bool = Field(default=False, description="Must be true because this operation changes the document.")
+    output_path: str | None = Field(default=None, description="Optional destination path for output PDF.")
+    async_job: bool = False
+    wait_for_job: bool = False
+    poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
+    poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
+
+
+class AddAttachmentsPdfArgs(McpArgsModel):
+    pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
+    attachment_paths: list[str] = Field(min_length=1, description="Local files to embed into the PDF.")
+    convert_to_pdfa3b: bool = Field(default=False, description="Convert the result to PDF/A-3b before embedding.")
+    output_path: str | None = Field(default=None, description="Optional destination path for attached PDF.")
+    async_job: bool = False
+    wait_for_job: bool = False
+    poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
+    poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
+
+
+class BookmarkArgs(McpArgsModel):
+    title: str = Field(min_length=1)
+    page_number: int = Field(default=1, ge=1)
+    children: list[BookmarkArgs] = Field(default_factory=list)
+
+
+class EditTableOfContentsPdfArgs(McpArgsModel):
+    pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
+    bookmarks: list[BookmarkArgs] = Field(min_length=1, description="Bookmarks/table-of-contents entries to apply.")
+    replace_existing: bool = Field(
+        default=True, description="Kept for frontend parity; backend currently replaces outline."
+    )
+    output_path: str | None = Field(default=None, description="Optional destination path for TOC-updated PDF.")
+    async_job: bool = False
+    wait_for_job: bool = False
+    poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
+    poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
+
+
+class RemoveBlanksPdfArgs(McpArgsModel):
+    pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
+    threshold: int = Field(default=10, ge=0, le=255, description="Pixel whiteness threshold.")
+    white_percent: float = Field(
+        default=99.9, ge=0, le=100, description="Percentage of white pixels to treat as blank."
+    )
+    output_path: str | None = Field(default=None, description="Optional destination path for the result ZIP.")
+    async_job: bool = False
+    wait_for_job: bool = False
+    poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
+    poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
+
+
+class ScannerImageSplitPdfArgs(McpArgsModel):
+    pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF/image.")
+    angle_threshold: float = 10
+    tolerance: float = 30
+    min_area: float = 10000
+    min_contour_area: float = 500
+    border_size: float = 1
+    output_path: str | None = Field(default=None, description="Optional destination path for the result image/ZIP.")
+    async_job: bool = False
+    wait_for_job: bool = False
+    poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
+    poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
+
+
+class ReplaceColorPdfArgs(McpArgsModel):
+    pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
+    replace_and_invert_option: str = Field(
+        default="HIGH_CONTRAST_COLOR",
+        description="HIGH_CONTRAST_COLOR, CUSTOM_COLOR, FULL_INVERSION, or COLOR_SPACE_CONVERSION.",
+    )
+    high_contrast_color_combination: str = Field(default="WHITE_TEXT_ON_BLACK")
+    text_color: str = Field(default="#000000")
+    background_color: str = Field(default="#ffffff")
+    output_path: str | None = Field(default=None, description="Optional destination path for color-processed PDF.")
+    async_job: bool = False
+    wait_for_job: bool = False
+    poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
+    poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
+
+
+BookmarkArgs.model_rebuild()
 
 
 class FrontendOperationMetadataResolver:
@@ -1425,6 +1755,16 @@ class StirlingMcpToolRegistry:
                 description="Check MCP, engine environment, filesystem access, backend reachability, PDF tooling, and AI provider readiness.",
                 input_model=HealthCheckArgs,
             ),
+            "stirling_setup_diagnostics": ToolDefinition(
+                name="stirling_setup_diagnostics",
+                description="Report MCP client setup diagnostics and desktop-client config hints.",
+                input_model=SetupDiagnosticsArgs,
+            ),
+            "stirling_discover_pdfs": ToolDefinition(
+                name="stirling_discover_pdfs",
+                description="List PDFs under allowed MCP roots and optionally include PDF preflight metadata.",
+                input_model=DiscoverPdfsArgs,
+            ),
             "stirling_list_operations": ToolDefinition(
                 name="stirling_list_operations",
                 description="List the Stirling PDF operations that the AI engine can plan and describe.",
@@ -1449,6 +1789,11 @@ class StirlingMcpToolRegistry:
                 name="stirling_plan_edit_request",
                 description="Turn a natural-language PDF editing request into Stirling operation ids and parameters.",
                 input_model=PlanEditRequestArgs,
+            ),
+            "stirling_execute_plan": ToolDefinition(
+                name="stirling_execute_plan",
+                description="Execute a validated static-backend Stirling operation plan step by step.",
+                input_model=ExecutePlanArgs,
             ),
             "stirling_answer_pdf_question": ToolDefinition(
                 name="stirling_answer_pdf_question",
@@ -1545,6 +1890,101 @@ class StirlingMcpToolRegistry:
                 description="Flatten a local PDF through the Stirling backend.",
                 input_model=FlattenPdfArgs,
             ),
+            "stirling_extract_pages": ToolDefinition(
+                name="stirling_extract_pages",
+                description="Extract selected pages into a PDF through the Stirling backend.",
+                input_model=ExtractPagesPdfArgs,
+            ),
+            "stirling_crop_pdf": ToolDefinition(
+                name="stirling_crop_pdf",
+                description="Crop a local PDF through the Stirling backend.",
+                input_model=CropPdfArgs,
+            ),
+            "stirling_scale_pages": ToolDefinition(
+                name="stirling_scale_pages",
+                description="Scale PDF page content and page size through the Stirling backend.",
+                input_model=ScalePagesPdfArgs,
+            ),
+            "stirling_redact_pdf": ToolDefinition(
+                name="stirling_redact_pdf",
+                description="Automatically redact matching text in a local PDF after explicit confirmation.",
+                input_model=RedactPdfArgs,
+            ),
+            "stirling_reorganize_pages": ToolDefinition(
+                name="stirling_reorganize_pages",
+                description="Rearrange pages in a local PDF through the Stirling backend.",
+                input_model=ReorganizePagesPdfArgs,
+            ),
+            "stirling_overlay_pdfs": ToolDefinition(
+                name="stirling_overlay_pdfs",
+                description="Overlay one or more PDFs onto a base PDF.",
+                input_model=OverlayPdfsArgs,
+            ),
+            "stirling_page_layout": ToolDefinition(
+                name="stirling_page_layout",
+                description="Place multiple PDF pages onto each output sheet.",
+                input_model=PageLayoutPdfArgs,
+            ),
+            "stirling_booklet_pdf": ToolDefinition(
+                name="stirling_booklet_pdf",
+                description="Create a booklet imposition PDF through the Stirling backend.",
+                input_model=BookletPdfArgs,
+            ),
+            "stirling_sign_pdf": ToolDefinition(
+                name="stirling_sign_pdf",
+                description="Add a visual PDF signature after explicit confirmation.",
+                input_model=SignPdfArgs,
+            ),
+            "stirling_cert_sign_pdf": ToolDefinition(
+                name="stirling_cert_sign_pdf",
+                description="Digitally sign a PDF with certificate material after explicit confirmation.",
+                input_model=CertSignPdfArgs,
+            ),
+            "stirling_change_metadata": ToolDefinition(
+                name="stirling_change_metadata",
+                description="Update PDF metadata through the Stirling backend.",
+                input_model=ChangeMetadataPdfArgs,
+            ),
+            "stirling_change_permissions": ToolDefinition(
+                name="stirling_change_permissions",
+                description="Apply PDF permission flags through the password/security backend endpoint.",
+                input_model=ChangePermissionsPdfArgs,
+            ),
+            "stirling_remove_certificate_signatures": ToolDefinition(
+                name="stirling_remove_certificate_signatures",
+                description="Remove certificate signatures from a PDF after explicit confirmation.",
+                input_model=ConfirmedPdfArgs,
+            ),
+            "stirling_unlock_pdf_forms": ToolDefinition(
+                name="stirling_unlock_pdf_forms",
+                description="Unlock PDF form fields after explicit confirmation.",
+                input_model=ConfirmedPdfArgs,
+            ),
+            "stirling_add_attachments": ToolDefinition(
+                name="stirling_add_attachments",
+                description="Embed one or more local files as PDF attachments.",
+                input_model=AddAttachmentsPdfArgs,
+            ),
+            "stirling_edit_table_of_contents": ToolDefinition(
+                name="stirling_edit_table_of_contents",
+                description="Apply a bookmark/table-of-contents outline to a PDF.",
+                input_model=EditTableOfContentsPdfArgs,
+            ),
+            "stirling_remove_blank_pages": ToolDefinition(
+                name="stirling_remove_blank_pages",
+                description="Detect blank pages and return a ZIP with non-blank and blank-page PDFs.",
+                input_model=RemoveBlanksPdfArgs,
+            ),
+            "stirling_split_scanned_photos": ToolDefinition(
+                name="stirling_split_scanned_photos",
+                description="Detect and split scanned photos from a PDF/image through the backend OpenCV flow.",
+                input_model=ScannerImageSplitPdfArgs,
+            ),
+            "stirling_replace_colors": ToolDefinition(
+                name="stirling_replace_colors",
+                description="Replace, invert, or convert PDF colors through the backend.",
+                input_model=ReplaceColorPdfArgs,
+            ),
         }
 
     @property
@@ -1576,6 +2016,12 @@ class StirlingMcpToolRegistry:
             if name == "stirling_health_check":
                 args = HealthCheckArgs.model_validate(payload)
                 result = self.health_checker.run(args)
+            elif name == "stirling_setup_diagnostics":
+                SetupDiagnosticsArgs.model_validate(payload)
+                result = self._setup_diagnostics()
+            elif name == "stirling_discover_pdfs":
+                args = DiscoverPdfsArgs.model_validate(payload)
+                result = self._discover_pdfs(args)
             elif name == "stirling_list_operations":
                 NoArgs.model_validate(payload)
                 result = self._list_operations()
@@ -1591,6 +2037,9 @@ class StirlingMcpToolRegistry:
             elif name == "stirling_plan_edit_request":
                 args = PlanEditRequestArgs.model_validate(payload)
                 result = self._plan_edit_request(args)
+            elif name == "stirling_execute_plan":
+                args = ExecutePlanArgs.model_validate(payload)
+                result = self._execute_plan(args)
             elif name == "stirling_answer_pdf_question":
                 args = AnswerPdfQuestionArgs.model_validate(payload)
                 result = self._answer_pdf_question(args)
@@ -1648,6 +2097,63 @@ class StirlingMcpToolRegistry:
             elif name == "stirling_flatten_pdf":
                 args = FlattenPdfArgs.model_validate(payload)
                 result = self._flatten_pdf(args)
+            elif name == "stirling_extract_pages":
+                args = ExtractPagesPdfArgs.model_validate(payload)
+                result = self._extract_pages(args)
+            elif name == "stirling_crop_pdf":
+                args = CropPdfArgs.model_validate(payload)
+                result = self._crop_pdf(args)
+            elif name == "stirling_scale_pages":
+                args = ScalePagesPdfArgs.model_validate(payload)
+                result = self._scale_pages(args)
+            elif name == "stirling_redact_pdf":
+                args = RedactPdfArgs.model_validate(payload)
+                result = self._redact_pdf(args)
+            elif name == "stirling_reorganize_pages":
+                args = ReorganizePagesPdfArgs.model_validate(payload)
+                result = self._reorganize_pages(args)
+            elif name == "stirling_overlay_pdfs":
+                args = OverlayPdfsArgs.model_validate(payload)
+                result = self._overlay_pdfs(args)
+            elif name == "stirling_page_layout":
+                args = PageLayoutPdfArgs.model_validate(payload)
+                result = self._page_layout(args)
+            elif name == "stirling_booklet_pdf":
+                args = BookletPdfArgs.model_validate(payload)
+                result = self._booklet_pdf(args)
+            elif name == "stirling_sign_pdf":
+                args = SignPdfArgs.model_validate(payload)
+                result = self._sign_pdf(args)
+            elif name == "stirling_cert_sign_pdf":
+                args = CertSignPdfArgs.model_validate(payload)
+                result = self._cert_sign_pdf(args)
+            elif name == "stirling_change_metadata":
+                args = ChangeMetadataPdfArgs.model_validate(payload)
+                result = self._change_metadata(args)
+            elif name == "stirling_change_permissions":
+                args = ChangePermissionsPdfArgs.model_validate(payload)
+                result = self._change_permissions(args)
+            elif name == "stirling_remove_certificate_signatures":
+                args = ConfirmedPdfArgs.model_validate(payload)
+                result = self._remove_certificate_signatures(args)
+            elif name == "stirling_unlock_pdf_forms":
+                args = ConfirmedPdfArgs.model_validate(payload)
+                result = self._unlock_pdf_forms(args)
+            elif name == "stirling_add_attachments":
+                args = AddAttachmentsPdfArgs.model_validate(payload)
+                result = self._add_attachments(args)
+            elif name == "stirling_edit_table_of_contents":
+                args = EditTableOfContentsPdfArgs.model_validate(payload)
+                result = self._edit_table_of_contents(args)
+            elif name == "stirling_remove_blank_pages":
+                args = RemoveBlanksPdfArgs.model_validate(payload)
+                result = self._remove_blank_pages(args)
+            elif name == "stirling_split_scanned_photos":
+                args = ScannerImageSplitPdfArgs.model_validate(payload)
+                result = self._split_scanned_photos(args)
+            elif name == "stirling_replace_colors":
+                args = ReplaceColorPdfArgs.model_validate(payload)
+                result = self._replace_colors(args)
             else:
                 raise McpToolError(f"Unhandled MCP tool: {name}")
         except ValidationError as exc:
@@ -1783,6 +2289,55 @@ Call `stirling_cleanup_mcp_output` with `dry_run=true` first, then repeat with `
             "repair": {"toolName": "stirling_repair_pdf", "endpoint": "/api/v1/misc/repair"},
             "sanitize": {"toolName": "stirling_sanitize_pdf", "endpoint": "/api/v1/security/sanitize-pdf"},
             "flatten": {"toolName": "stirling_flatten_pdf", "endpoint": "/api/v1/misc/flatten"},
+            "extractPages": {"toolName": "stirling_extract_pages", "endpoint": "/api/v1/general/rearrange-pages"},
+            "crop": {"toolName": "stirling_crop_pdf", "endpoint": "/api/v1/general/crop"},
+            "scalePages": {"toolName": "stirling_scale_pages", "endpoint": "/api/v1/general/scale-pages"},
+            "redact": {"toolName": "stirling_redact_pdf", "endpoint": "/api/v1/security/auto-redact"},
+            "reorganizePages": {
+                "toolName": "stirling_reorganize_pages",
+                "endpoint": "/api/v1/general/rearrange-pages",
+            },
+            "overlayPdfs": {"toolName": "stirling_overlay_pdfs", "endpoint": "/api/v1/general/overlay-pdfs"},
+            "pageLayout": {"toolName": "stirling_page_layout", "endpoint": "/api/v1/general/multi-page-layout"},
+            "bookletImposition": {
+                "toolName": "stirling_booklet_pdf",
+                "endpoint": "/api/v1/general/booklet-imposition",
+            },
+            "sign": {"toolName": "stirling_sign_pdf", "endpoint": "/api/v1/security/add-signature"},
+            "certSign": {"toolName": "stirling_cert_sign_pdf", "endpoint": "/api/v1/security/cert-sign"},
+            "changeMetadata": {"toolName": "stirling_change_metadata", "endpoint": "/api/v1/misc/update-metadata"},
+            "changePermissions": {
+                "toolName": "stirling_change_permissions",
+                "endpoint": "/api/v1/security/add-password",
+            },
+            "removeCertSign": {
+                "toolName": "stirling_remove_certificate_signatures",
+                "endpoint": "/api/v1/security/remove-cert-sign",
+            },
+            "unlockPDFForms": {
+                "toolName": "stirling_unlock_pdf_forms",
+                "endpoint": "/api/v1/misc/unlock-pdf-forms",
+            },
+            "addAttachments": {
+                "toolName": "stirling_add_attachments",
+                "endpoint": "/api/v1/misc/add-attachments",
+            },
+            "editTableOfContents": {
+                "toolName": "stirling_edit_table_of_contents",
+                "endpoint": "/api/v1/general/edit-table-of-contents",
+            },
+            "removeBlanks": {
+                "toolName": "stirling_remove_blank_pages",
+                "endpoint": "/api/v1/misc/remove-blanks",
+            },
+            "scannerImageSplit": {
+                "toolName": "stirling_split_scanned_photos",
+                "endpoint": "/api/v1/misc/extract-image-scans",
+            },
+            "replaceColor": {
+                "toolName": "stirling_replace_colors",
+                "endpoint": "/api/v1/misc/replace-invert-pdf",
+            },
         }
 
     def _generic_operation_endpoint_map(self) -> dict[str, str]:
@@ -1853,6 +2408,115 @@ Call `stirling_cleanup_mcp_output` with `dry_run=true` first, then repeat with `
             "frontendMetadata": metadata.to_dict() if metadata else None,
         }
 
+    def _setup_diagnostics(self) -> dict[str, JsonValue]:
+        engine_command: JsonArray = ["--directory", str(_ENGINE_ROOT), "run", "python", "scripts/mcp_launcher.py"]
+        executor = self.endpoint_executor
+        cwd = Path.cwd().resolve()
+        warnings: JsonArray = []
+        if cwd != _ENGINE_ROOT.resolve():
+            warnings.append(
+                {
+                    "code": "cwd",
+                    "message": "Current working directory is not engine/. Keep cwd and pass uv --directory.",
+                }
+            )
+        if not _env_value("UV_CACHE_DIR"):
+            warnings.append(
+                {
+                    "code": "uv-cache",
+                    "message": "UV_CACHE_DIR is unset. Desktop clients may need an engine-local writable uv cache.",
+                }
+            )
+        if not _env_value("STIRLING_JAVA_BACKEND_URL"):
+            warnings.append({"code": "backend-url", "message": "STIRLING_JAVA_BACKEND_URL is unset."})
+        client_env: JsonObject = {
+            "UV_CACHE_DIR": str((_ENGINE_ROOT / ".uv-cache").resolve()),
+            "STIRLING_JAVA_BACKEND_URL": _env_value("STIRLING_JAVA_BACKEND_URL") or "http://localhost:8080",
+            "STIRLING_MCP_ALLOWED_ROOTS": os.pathsep.join(str(path) for path in executor.allowed_roots),
+        }
+        client_hint: JsonObject = {
+            "command": "uv",
+            "args": engine_command,
+            "cwd": str(_ENGINE_ROOT.resolve()),
+            "env": client_env,
+        }
+        return {
+            "status": "warn" if warnings else "ready",
+            "cwd": str(cwd),
+            "engineRoot": str(_ENGINE_ROOT.resolve()),
+            "repoRoot": str(_REPO_ROOT.resolve()),
+            "backendUrl": _env_value("STIRLING_JAVA_BACKEND_URL"),
+            "uvCacheDir": _env_value("UV_CACHE_DIR"),
+            "allowedRoots": [str(path) for path in executor.allowed_roots],
+            "warnings": warnings,
+            "clientConfigHint": client_hint,
+        }
+
+    def _discover_pdfs(self, args: DiscoverPdfsArgs) -> dict[str, JsonValue]:
+        roots = (
+            [self._resolve_directory(path) for path in args.root_paths]
+            if args.root_paths
+            else [root for root in self.endpoint_executor.allowed_roots if root.exists() and root.is_dir()]
+        )
+        files: JsonArray = []
+        skipped: JsonArray = []
+        name_filter = args.name_contains.casefold()
+        for root in roots:
+            candidates = root.rglob("*.pdf") if args.recursive else root.glob("*.pdf")
+            try:
+                for candidate in candidates:
+                    if len(files) >= args.max_results:
+                        break
+                    try:
+                        resolved = candidate.resolve()
+                        self.endpoint_executor._ensure_allowed_path(resolved, "discovered PDF")
+                        if not resolved.is_file() or name_filter not in resolved.name.casefold():
+                            continue
+                        item: JsonObject = {
+                            "path": str(resolved),
+                            "name": resolved.name,
+                            "sizeBytes": resolved.stat().st_size,
+                        }
+                        if args.include_preflight:
+                            try:
+                                item["preflight"] = _normalize_json_value(
+                                    _get_pdf_preflight(str(resolved)).model_dump(
+                                        by_alias=True,
+                                        exclude_none=True,
+                                        mode="json",
+                                    )
+                                )
+                            except Exception as exc:
+                                item["preflightError"] = str(exc)
+                        files.append(item)
+                    except OSError as exc:
+                        skipped.append({"path": str(candidate), "error": str(exc)})
+                if len(files) >= args.max_results:
+                    break
+            except OSError as exc:
+                skipped.append({"path": str(root), "error": str(exc)})
+        return {
+            "roots": [str(root) for root in roots],
+            "recursive": args.recursive,
+            "nameContains": args.name_contains,
+            "count": len(files),
+            "truncated": len(files) >= args.max_results,
+            "pdfs": files,
+            "skipped": skipped,
+        }
+
+    def _resolve_directory(self, directory_path: str) -> Path:
+        path = Path(directory_path).expanduser()
+        if not path.is_absolute():
+            path = Path.cwd() / path
+        path = path.resolve()
+        self.endpoint_executor._ensure_allowed_path(path, "search root")
+        if not path.exists():
+            raise McpToolError(f"Search root not found: {path}")
+        if not path.is_dir():
+            raise McpToolError(f"Search root is not a directory: {path}")
+        return path
+
     def _plan_edit_request(self, args: PlanEditRequestArgs) -> dict[str, JsonValue]:
         uploaded_files = [self._uploaded_file_info(path) for path in args.file_paths]
         preflight = self._first_pdf_preflight(args.file_paths)
@@ -1911,6 +2575,79 @@ Call `stirling_cleanup_mcp_output` with `dry_run=true` first, then repeat with `
                 else None,
             },
         }
+
+    def _execute_plan(self, args: ExecutePlanArgs) -> dict[str, JsonValue]:
+        operation_ids = self._plan_operation_ids(args.operations)
+        validation = _validate_operation_chain(operation_ids)
+        if not validation.is_valid:
+            raise McpToolError(validation.error_message or "Plan operation chain is invalid.")
+        preflight = self._first_pdf_preflight(args.file_paths)
+        risk = _assess_plan_risk(operation_ids, preflight)
+        if bool(risk.get("should_confirm")) and not args.confirmed:
+            raise McpToolError(
+                "Plan requires confirmation. Review the risk details and call again with confirmed=true."
+            )
+
+        active_files = list(args.file_paths)
+        steps: JsonArray = []
+        final_result: dict[str, JsonValue] | None = None
+        for index, operation in enumerate(args.operations):
+            endpoint = operation.endpoint or self._operation_endpoint(operation.operation_id)
+            if not endpoint:
+                raise McpToolError(
+                    f"Plan step {index + 1} operation '{operation.operation_id}' has no static backend endpoint. "
+                    "Use stirling_execute_operation with an endpoint override for this step."
+                )
+            result = self.endpoint_executor.call_endpoint(
+                endpoint=endpoint,
+                file_paths=active_files,
+                file_field_name=operation.file_field_name,
+                extra_file_fields=operation.extra_file_fields,
+                form_fields=operation.parameters,
+                output_path=args.output_path if index == len(args.operations) - 1 else None,
+            )
+            final_result = result
+            steps.append(
+                _normalize_json_value(
+                    {
+                        "index": index + 1,
+                        "operationId": operation.operation_id,
+                        "endpoint": endpoint,
+                        "inputPaths": active_files,
+                        "result": result,
+                    }
+                )
+            )
+            if index < len(args.operations) - 1:
+                saved_path = result.get("savedPath")
+                if not isinstance(saved_path, str) or Path(saved_path).suffix.casefold() != ".pdf":
+                    raise McpToolError(
+                        f"Plan step {index + 1} did not save a PDF for the next step. "
+                        "Split non-PDF or ZIP-producing operations into separate calls."
+                    )
+                active_files = [saved_path]
+        if final_result is None:
+            raise McpToolError("Plan did not produce a result.")
+        return {
+            "status": "completed",
+            "confirmed": args.confirmed,
+            "validation": {"isValid": True},
+            "risk": _normalize_json_value(risk),
+            "steps": steps,
+            "result": final_result,
+        }
+
+    def _plan_operation_ids(
+        self,
+        operations: list[ExecutePlanOperation],
+    ) -> list[models.tool_models.OperationId]:
+        operation_ids: list[models.tool_models.OperationId] = []
+        for operation in operations:
+            try:
+                operation_ids.append(models.tool_models.OperationId(operation.operation_id))
+            except ValueError as exc:
+                raise McpToolError(f"Unknown operation id in plan: {operation.operation_id}") from exc
+        return operation_ids
 
     def _answer_pdf_question(self, args: AnswerPdfQuestionArgs) -> dict[str, JsonValue]:
         pdf_path = str(self._resolve_path(args.pdf_path))
@@ -2180,6 +2917,317 @@ Call `stirling_cleanup_mcp_output` with `dry_run=true` first, then repeat with `
             form_fields["renderDpi"] = args.render_dpi
         return self._call_single_pdf_endpoint("/api/v1/misc/flatten", args.pdf_path, form_fields, args)
 
+    def _extract_pages(self, args: ExtractPagesPdfArgs) -> dict[str, JsonValue]:
+        page_numbers = re.sub(r"\s+", "", args.page_numbers)
+        if not page_numbers:
+            raise McpToolError("page_numbers must not be empty.")
+        return self._call_single_pdf_endpoint(
+            "/api/v1/general/rearrange-pages",
+            args.pdf_path,
+            {"pageNumbers": page_numbers},
+            args,
+        )
+
+    def _crop_pdf(self, args: CropPdfArgs) -> dict[str, JsonValue]:
+        form_fields: dict[str, JsonValue] = {"autoCrop": args.auto_crop}
+        if not args.auto_crop:
+            crop_values = {"x": args.x, "y": args.y, "width": args.width, "height": args.height}
+            missing = [key for key, value in crop_values.items() if value is None]
+            if missing:
+                raise McpToolError(f"{', '.join(missing)} are required when auto_crop is false.")
+            form_fields.update({key: value for key, value in crop_values.items() if value is not None})
+        return self._call_single_pdf_endpoint("/api/v1/general/crop", args.pdf_path, form_fields, args)
+
+    def _scale_pages(self, args: ScalePagesPdfArgs) -> dict[str, JsonValue]:
+        return self._call_single_pdf_endpoint(
+            "/api/v1/general/scale-pages",
+            args.pdf_path,
+            {"scaleFactor": args.scale_factor, "pageSize": args.page_size},
+            args,
+        )
+
+    def _redact_pdf(self, args: RedactPdfArgs) -> dict[str, JsonValue]:
+        if not args.confirmed:
+            raise McpToolError("Automatic redaction requires confirmed=true.")
+        if not any(word.strip() for word in args.words_to_redact):
+            raise McpToolError("words_to_redact must include at least one non-empty text line.")
+        return self._call_single_pdf_endpoint(
+            "/api/v1/security/auto-redact",
+            args.pdf_path,
+            {
+                "listOfText": "\n".join(word for word in args.words_to_redact if word.strip()),
+                "useRegex": args.use_regex,
+                "wholeWordSearch": args.whole_word_search,
+                "redactColor": args.redact_color.removeprefix("#"),
+                "customPadding": args.custom_padding,
+                "convertPDFToImage": args.convert_pdf_to_image,
+            },
+            args,
+        )
+
+    def _reorganize_pages(self, args: ReorganizePagesPdfArgs) -> dict[str, JsonValue]:
+        form_fields: dict[str, JsonValue] = {}
+        if args.custom_mode:
+            form_fields["customMode"] = args.custom_mode
+        if args.page_numbers:
+            form_fields["pageNumbers"] = re.sub(r"\s+", "", args.page_numbers)
+        if not form_fields:
+            raise McpToolError("page_numbers or custom_mode is required.")
+        return self._call_single_pdf_endpoint(
+            "/api/v1/general/rearrange-pages",
+            args.pdf_path,
+            form_fields,
+            args,
+        )
+
+    def _overlay_pdfs(self, args: OverlayPdfsArgs) -> dict[str, JsonValue]:
+        form_fields: dict[str, JsonValue] = {
+            "overlayMode": args.overlay_mode,
+            "overlayPosition": args.overlay_position,
+        }
+        if args.overlay_mode == "FixedRepeatOverlay":
+            form_fields["counts"] = [int(count) for count in args.counts]
+        return self.endpoint_executor.call_endpoint(
+            endpoint="/api/v1/general/overlay-pdfs",
+            file_paths=[args.pdf_path],
+            file_field_name="fileInput",
+            extra_file_fields={"overlayFiles": args.overlay_pdf_paths},
+            form_fields=form_fields,
+            output_path=args.output_path,
+            async_job=args.async_job,
+            wait_for_job=args.wait_for_job,
+            poll_interval_seconds=args.poll_interval_seconds,
+            poll_timeout_seconds=args.poll_timeout_seconds,
+        )
+
+    def _page_layout(self, args: PageLayoutPdfArgs) -> dict[str, JsonValue]:
+        return self._call_single_pdf_endpoint(
+            "/api/v1/general/multi-page-layout",
+            args.pdf_path,
+            {"pagesPerSheet": args.pages_per_sheet, "addBorder": args.add_border},
+            args,
+        )
+
+    def _booklet_pdf(self, args: BookletPdfArgs) -> dict[str, JsonValue]:
+        return self._call_single_pdf_endpoint(
+            "/api/v1/general/booklet-imposition",
+            args.pdf_path,
+            {
+                "pagesPerSheet": args.pages_per_sheet,
+                "addBorder": args.add_border,
+                "spineLocation": args.spine_location,
+                "addGutter": args.add_gutter,
+                "gutterSize": args.gutter_size,
+                "doubleSided": args.double_sided,
+                "duplexPass": args.duplex_pass,
+                "flipOnShortEdge": args.flip_on_short_edge,
+            },
+            args,
+        )
+
+    def _sign_pdf(self, args: SignPdfArgs) -> dict[str, JsonValue]:
+        if not args.confirmed:
+            raise McpToolError("Visual signing requires confirmed=true.")
+        if args.signature_type in {"image", "canvas"} and not args.signature_data:
+            raise McpToolError("signature_data is required for image or canvas signatures.")
+        if args.signature_type == "text" and not args.signer_name:
+            raise McpToolError("signer_name is required for text signatures.")
+        if args.signature_type not in {"text", "image", "canvas"}:
+            raise McpToolError("signature_type must be text, image, or canvas.")
+        form_fields: dict[str, JsonValue] = {"signatureType": args.signature_type}
+        if args.signature_data:
+            form_fields["signatureData"] = args.signature_data
+        if args.signature_position:
+            form_fields.update(args.signature_position.model_dump(mode="json"))
+        for field_name, value in {
+            "reason": args.reason,
+            "location": args.location,
+            "signerName": args.signer_name,
+        }.items():
+            if value:
+                form_fields[field_name] = value
+        return self._call_single_pdf_endpoint("/api/v1/security/add-signature", args.pdf_path, form_fields, args)
+
+    def _cert_sign_pdf(self, args: CertSignPdfArgs) -> dict[str, JsonValue]:
+        if not args.confirmed:
+            raise McpToolError("Certificate signing requires confirmed=true.")
+        sign_mode = args.sign_mode.upper()
+        extra_files: dict[str, str | list[str]] = {}
+        form_fields: dict[str, JsonValue] = {}
+        if sign_mode == "AUTO":
+            form_fields["certType"] = "SERVER"
+        elif sign_mode == "MANUAL":
+            cert_type = args.cert_type.upper()
+            form_fields.update({"certType": cert_type, "password": args.password})
+            if cert_type == "PEM":
+                if not args.private_key_path or not args.cert_path:
+                    raise McpToolError("private_key_path and cert_path are required for PEM certificate signing.")
+                extra_files.update({"privateKeyFile": args.private_key_path, "certFile": args.cert_path})
+            elif cert_type in {"PKCS12", "PFX"}:
+                if not args.p12_path:
+                    raise McpToolError("p12_path is required for PKCS12 or PFX certificate signing.")
+                extra_files["p12File"] = args.p12_path
+            elif cert_type == "JKS":
+                if not args.jks_path:
+                    raise McpToolError("jks_path is required for JKS certificate signing.")
+                extra_files["jksFile"] = args.jks_path
+            else:
+                raise McpToolError("cert_type must be PEM, PKCS12, PFX, or JKS for manual certificate signing.")
+        else:
+            raise McpToolError("sign_mode must be MANUAL or AUTO.")
+        if args.show_signature:
+            form_fields.update(
+                {
+                    "showSignature": True,
+                    "reason": args.reason,
+                    "location": args.location,
+                    "name": args.name,
+                    "pageNumber": args.page_number,
+                    "showLogo": args.show_logo,
+                }
+            )
+        return self.endpoint_executor.call_endpoint(
+            endpoint="/api/v1/security/cert-sign",
+            file_paths=[args.pdf_path],
+            file_field_name="fileInput",
+            extra_file_fields=extra_files,
+            form_fields=form_fields,
+            output_path=args.output_path,
+            async_job=args.async_job,
+            wait_for_job=args.wait_for_job,
+            poll_interval_seconds=args.poll_interval_seconds,
+            poll_timeout_seconds=args.poll_timeout_seconds,
+        )
+
+    def _change_metadata(self, args: ChangeMetadataPdfArgs) -> dict[str, JsonValue]:
+        form_fields: dict[str, JsonValue] = {
+            "title": args.title,
+            "author": args.author,
+            "subject": args.subject,
+            "keywords": args.keywords,
+            "creator": args.creator,
+            "producer": args.producer,
+            "creationDate": args.creation_date,
+            "modificationDate": args.modification_date,
+            "deleteAll": args.delete_all,
+        }
+        if args.trapped:
+            form_fields["trapped"] = args.trapped
+        key_number = 0
+        for entry in args.custom_metadata:
+            key = entry.key.strip()
+            value = entry.value.strip()
+            if key and value:
+                key_number += 1
+                form_fields[f"allRequestParams[customKey{key_number}]"] = key
+                form_fields[f"allRequestParams[customValue{key_number}]"] = value
+        return self._call_single_pdf_endpoint("/api/v1/misc/update-metadata", args.pdf_path, form_fields, args)
+
+    def _change_permissions(self, args: ChangePermissionsPdfArgs) -> dict[str, JsonValue]:
+        if not args.confirmed:
+            raise McpToolError("Permission changes require confirmed=true.")
+        return self._call_single_pdf_endpoint(
+            "/api/v1/security/add-password",
+            args.pdf_path,
+            {
+                "password": args.password,
+                "ownerPassword": args.owner_password,
+                "keyLength": args.key_length,
+                "preventAssembly": args.prevent_assembly,
+                "preventExtractContent": args.prevent_extract_content,
+                "preventExtractForAccessibility": args.prevent_extract_for_accessibility,
+                "preventFillInForm": args.prevent_fill_in_form,
+                "preventModify": args.prevent_modify,
+                "preventModifyAnnotations": args.prevent_modify_annotations,
+                "preventPrinting": args.prevent_printing,
+                "preventPrintingFaithful": args.prevent_printing_faithful,
+            },
+            args,
+        )
+
+    def _remove_certificate_signatures(self, args: ConfirmedPdfArgs) -> dict[str, JsonValue]:
+        self._require_confirmed(args, "Certificate signature removal")
+        return self._call_single_pdf_endpoint("/api/v1/security/remove-cert-sign", args.pdf_path, {}, args)
+
+    def _unlock_pdf_forms(self, args: ConfirmedPdfArgs) -> dict[str, JsonValue]:
+        self._require_confirmed(args, "PDF form unlocking")
+        return self._call_single_pdf_endpoint("/api/v1/misc/unlock-pdf-forms", args.pdf_path, {}, args)
+
+    def _add_attachments(self, args: AddAttachmentsPdfArgs) -> dict[str, JsonValue]:
+        return self.endpoint_executor.call_endpoint(
+            endpoint="/api/v1/misc/add-attachments",
+            file_paths=[args.pdf_path],
+            file_field_name="fileInput",
+            extra_file_fields={"attachments": args.attachment_paths},
+            form_fields={"convertToPdfA3b": args.convert_to_pdfa3b},
+            output_path=args.output_path,
+            async_job=args.async_job,
+            wait_for_job=args.wait_for_job,
+            poll_interval_seconds=args.poll_interval_seconds,
+            poll_timeout_seconds=args.poll_timeout_seconds,
+        )
+
+    def _edit_table_of_contents(self, args: EditTableOfContentsPdfArgs) -> dict[str, JsonValue]:
+        bookmark_data = [self._bookmark_payload(bookmark) for bookmark in args.bookmarks]
+        return self._call_single_pdf_endpoint(
+            "/api/v1/general/edit-table-of-contents",
+            args.pdf_path,
+            {
+                "replaceExisting": args.replace_existing,
+                "bookmarkData": json.dumps(bookmark_data, ensure_ascii=True),
+            },
+            args,
+        )
+
+    def _bookmark_payload(self, bookmark: BookmarkArgs) -> JsonObject:
+        return {
+            "title": bookmark.title,
+            "pageNumber": bookmark.page_number,
+            "children": [self._bookmark_payload(child) for child in bookmark.children],
+        }
+
+    def _remove_blank_pages(self, args: RemoveBlanksPdfArgs) -> dict[str, JsonValue]:
+        return self._call_single_pdf_endpoint(
+            "/api/v1/misc/remove-blanks",
+            args.pdf_path,
+            {"threshold": args.threshold, "whitePercent": args.white_percent},
+            args,
+        )
+
+    def _split_scanned_photos(self, args: ScannerImageSplitPdfArgs) -> dict[str, JsonValue]:
+        return self._call_single_pdf_endpoint(
+            "/api/v1/misc/extract-image-scans",
+            args.pdf_path,
+            {
+                "angle_threshold": args.angle_threshold,
+                "tolerance": args.tolerance,
+                "min_area": args.min_area,
+                "min_contour_area": args.min_contour_area,
+                "border_size": args.border_size,
+            },
+            args,
+        )
+
+    def _replace_colors(self, args: ReplaceColorPdfArgs) -> dict[str, JsonValue]:
+        option = args.replace_and_invert_option.upper()
+        allowed_options = {"HIGH_CONTRAST_COLOR", "CUSTOM_COLOR", "FULL_INVERSION", "COLOR_SPACE_CONVERSION"}
+        if option not in allowed_options:
+            raise McpToolError(
+                "replace_and_invert_option must be HIGH_CONTRAST_COLOR, CUSTOM_COLOR, "
+                "FULL_INVERSION, or COLOR_SPACE_CONVERSION."
+            )
+        form_fields: dict[str, JsonValue] = {"replaceAndInvertOption": option}
+        if option == "HIGH_CONTRAST_COLOR":
+            form_fields["highContrastColorCombination"] = args.high_contrast_color_combination
+        elif option == "CUSTOM_COLOR":
+            form_fields["textColor"] = args.text_color
+            form_fields["backGroundColor"] = args.background_color
+        return self._call_single_pdf_endpoint("/api/v1/misc/replace-invert-pdf", args.pdf_path, form_fields, args)
+
+    def _require_confirmed(self, args: ConfirmedPdfArgs, label: str) -> None:
+        if not args.confirmed:
+            raise McpToolError(f"{label} requires confirmed=true.")
+
     def _call_single_pdf_endpoint(
         self,
         endpoint: str,
@@ -2308,6 +3356,9 @@ Call `stirling_cleanup_mcp_output` with `dry_run=true` first, then repeat with `
         if not path.is_absolute():
             path = Path.cwd() / path
         path = path.resolve()
+        self.endpoint_executor._ensure_allowed_path(path, "input file")
         if not path.exists():
             raise McpToolError(f"File not found: {path}")
+        if not path.is_file():
+            raise McpToolError(f"Path is not a file: {path}")
         return path

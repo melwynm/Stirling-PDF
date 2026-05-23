@@ -2,9 +2,16 @@
   "mcpServers": {
     "stirling-pdf": {
       "command": "uv",
-      "args": ["run", "python", "src/mcp_server.py"],
+      "args": [
+        "--directory",
+        "C:\\Github\\Stirling-PDF\\engine",
+        "run",
+        "python",
+        "scripts/mcp_launcher.py"
+      ],
       "cwd": "C:\\Github\\Stirling-PDF\\engine",
       "env": {
+        "UV_CACHE_DIR": "C:\\Github\\Stirling-PDF\\engine\\.uv-cache",
         "STIRLING_JAVA_BACKEND_URL": "http://localhost:8080",
         "STIRLING_MCP_ALLOWED_ROOTS": "C:\\Github\\Stirling-PDF;C:\\Users\\YOUR_USER\\Documents",
         "STIRLING_OPENAI_API_KEY": "replace-me"

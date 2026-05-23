@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+import pytest
 from pytest import MonkeyPatch
 
 import models
@@ -237,6 +238,95 @@ def test_plan_edit_request_uses_catalog(monkeypatch: MonkeyPatch):
     assert parsed["operations"] == [{"operationId": "rotate", "parameters": {"angle": 90.0}}]
 
 
+def test_setup_diagnostics_includes_desktop_client_hint(monkeypatch: MonkeyPatch):
+    monkeypatch.setenv("STIRLING_JAVA_BACKEND_URL", "http://localhost:8081")
+    monkeypatch.delenv("UV_CACHE_DIR", raising=False)
+
+    registry = StirlingMcpToolRegistry()
+    parsed = _json_payload(registry.call_tool("stirling_setup_diagnostics", {}))
+
+    assert parsed["clientConfigHint"]["command"] == "uv"
+    assert parsed["clientConfigHint"]["args"][:2] == ["--directory", str(_REPO_ROOT / "engine")]
+    assert parsed["clientConfigHint"]["args"][-1] == "scripts/mcp_launcher.py"
+    assert parsed["clientConfigHint"]["env"]["STIRLING_JAVA_BACKEND_URL"] == "http://localhost:8081"
+    assert any(item["code"] == "uv-cache" for item in parsed["warnings"])
+
+
+def test_discover_pdfs_stays_in_allowed_roots_and_can_preflight(monkeypatch: MonkeyPatch, tmp_path: Path):
+    root = tmp_path / "pdfs"
+    root.mkdir()
+    pdf_path = root / "chosen.pdf"
+    pdf_path.write_bytes(b"%PDF-test")
+    (root / "ignored.txt").write_text("not a PDF", encoding="utf-8")
+    monkeypatch.setenv("STIRLING_MCP_ALLOWED_ROOTS", str(root))
+    monkeypatch.setattr(
+        "mcp_support._get_pdf_preflight",
+        lambda file_path: models.PdfPreflight(page_count=3, has_text_layer=True),
+    )
+
+    registry = StirlingMcpToolRegistry()
+    parsed = _json_payload(
+        registry.call_tool(
+            "stirling_discover_pdfs",
+            {"root_paths": [str(root)], "include_preflight": True, "name_contains": "chosen"},
+        )
+    )
+
+    assert parsed["count"] == 1
+    assert parsed["pdfs"][0]["path"] == str(pdf_path.resolve())
+    assert parsed["pdfs"][0]["preflight"]["pageCount"] == 3
+
+
+def test_execute_plan_threads_saved_pdf_into_next_step(monkeypatch: MonkeyPatch):
+    class FakeExecutor:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, Any]] = []
+
+        def call_endpoint(self, **kwargs):
+            self.calls.append(kwargs)
+            index = len(self.calls)
+            return {"savedPath": str(_REPO_ROOT / "engine" / "output" / f"step-{index}.pdf")}
+
+    executor = FakeExecutor()
+    registry = StirlingMcpToolRegistry(endpoint_executor=executor)  # type: ignore[arg-type]
+    monkeypatch.setattr(registry, "_first_pdf_preflight", lambda file_paths: models.PdfPreflight(page_count=1))
+    monkeypatch.setattr("mcp_support._assess_plan_risk", lambda operation_ids, preflight: {"should_confirm": False})
+
+    parsed = _json_payload(
+        registry.call_tool(
+            "stirling_execute_plan",
+            {
+                "file_paths": [str(_FIXTURE_PDF)],
+                "operations": [
+                    {"operation_id": "rotate", "parameters": {"angle": 90}},
+                    {"operation_id": "flatten", "parameters": {"flattenOnlyForms": False}},
+                ],
+                "output_path": "final.pdf",
+            },
+        )
+    )
+
+    assert parsed["status"] == "completed"
+    assert executor.calls[0]["file_paths"] == [str(_FIXTURE_PDF)]
+    assert executor.calls[1]["file_paths"] == [str(_REPO_ROOT / "engine" / "output" / "step-1.pdf")]
+    assert executor.calls[1]["output_path"] == "final.pdf"
+
+
+def test_execute_plan_requires_confirmation_for_risky_chain(monkeypatch: MonkeyPatch):
+    registry = StirlingMcpToolRegistry()
+    monkeypatch.setattr(registry, "_first_pdf_preflight", lambda file_paths: models.PdfPreflight(page_count=1))
+    monkeypatch.setattr("mcp_support._assess_plan_risk", lambda operation_ids, preflight: {"should_confirm": True})
+
+    with pytest.raises(RuntimeError, match="requires confirmation"):
+        registry.call_tool(
+            "stirling_execute_plan",
+            {
+                "file_paths": [str(_FIXTURE_PDF)],
+                "operations": [{"operation_id": "rotate", "parameters": {"angle": 90}}],
+            },
+        )
+
+
 def test_call_endpoint_saves_binary_response(monkeypatch: MonkeyPatch):
     output_path = _REPO_ROOT / "engine" / "output" / "mcp-test-result.pdf"
     fake_destination = _FakeOutputPath(str(output_path.resolve()))
@@ -432,6 +522,255 @@ def test_executable_operations_and_more_wrappers_build_expected_requests():
     assert split["form_fields"] == {"pageNumbers": "1,2"}
     assert repair["endpoint"] == "/api/v1/misc/repair"
     assert sanitize["endpoint"] == "/api/v1/security/sanitize-pdf"
+
+
+def test_page_edit_wrappers_build_frontend_backend_contracts():
+    class FakeExecutor:
+        def call_endpoint(self, **kwargs):
+            return kwargs
+
+    registry = StirlingMcpToolRegistry(endpoint_executor=FakeExecutor())  # type: ignore[arg-type]
+
+    extracted = _json_payload(
+        registry.call_tool("stirling_extract_pages", {"pdf_path": str(_FIXTURE_PDF), "page_numbers": "1, 3"})
+    )
+    crop = _json_payload(
+        registry.call_tool(
+            "stirling_crop_pdf",
+            {"pdf_path": str(_FIXTURE_PDF), "x": 1, "y": 2, "width": 100, "height": 200},
+        )
+    )
+    scaled = _json_payload(
+        registry.call_tool(
+            "stirling_scale_pages", {"pdf_path": str(_FIXTURE_PDF), "scale_factor": 0.8, "page_size": "A4"}
+        )
+    )
+    redacted = _json_payload(
+        registry.call_tool(
+            "stirling_redact_pdf",
+            {"pdf_path": str(_FIXTURE_PDF), "words_to_redact": ["secret", "case [0-9]+"], "confirmed": True},
+        )
+    )
+
+    assert extracted["endpoint"] == "/api/v1/general/rearrange-pages"
+    assert extracted["form_fields"] == {"pageNumbers": "1,3"}
+    assert crop["endpoint"] == "/api/v1/general/crop"
+    assert crop["form_fields"] == {"autoCrop": False, "x": 1.0, "y": 2.0, "width": 100.0, "height": 200.0}
+    assert scaled["endpoint"] == "/api/v1/general/scale-pages"
+    assert scaled["form_fields"] == {"scaleFactor": 0.8, "pageSize": "A4"}
+    assert redacted["endpoint"] == "/api/v1/security/auto-redact"
+    assert redacted["form_fields"]["listOfText"] == "secret\ncase [0-9]+"
+    assert redacted["form_fields"]["redactColor"] == "000000"
+
+
+def test_page_composition_wrappers_build_expected_requests():
+    class FakeExecutor:
+        def call_endpoint(self, **kwargs):
+            return kwargs
+
+    registry = StirlingMcpToolRegistry(endpoint_executor=FakeExecutor())  # type: ignore[arg-type]
+
+    reorganized = _json_payload(
+        registry.call_tool("stirling_reorganize_pages", {"pdf_path": str(_FIXTURE_PDF), "page_numbers": "3, 1"})
+    )
+    overlaid = _json_payload(
+        registry.call_tool(
+            "stirling_overlay_pdfs",
+            {
+                "pdf_path": str(_FIXTURE_PDF),
+                "overlay_pdf_paths": [str(_FIXTURE_PDF)],
+                "overlay_mode": "FixedRepeatOverlay",
+                "counts": [2],
+            },
+        )
+    )
+    layout = _json_payload(registry.call_tool("stirling_page_layout", {"pdf_path": str(_FIXTURE_PDF)}))
+    booklet = _json_payload(
+        registry.call_tool("stirling_booklet_pdf", {"pdf_path": str(_FIXTURE_PDF), "add_gutter": True})
+    )
+
+    assert reorganized["form_fields"] == {"pageNumbers": "3,1"}
+    assert overlaid["endpoint"] == "/api/v1/general/overlay-pdfs"
+    assert overlaid["extra_file_fields"] == {"overlayFiles": [str(_FIXTURE_PDF)]}
+    assert overlaid["form_fields"]["counts"] == [2]
+    assert layout["endpoint"] == "/api/v1/general/multi-page-layout"
+    assert layout["form_fields"] == {"pagesPerSheet": 4, "addBorder": False}
+    assert booklet["endpoint"] == "/api/v1/general/booklet-imposition"
+    assert booklet["form_fields"]["addGutter"] is True
+
+
+def test_redaction_wrapper_requires_confirmation():
+    registry = StirlingMcpToolRegistry()
+
+    with pytest.raises(RuntimeError, match="requires confirmed=true"):
+        registry.call_tool("stirling_redact_pdf", {"pdf_path": str(_FIXTURE_PDF), "words_to_redact": ["secret"]})
+
+
+def test_signing_wrappers_build_expected_requests():
+    class FakeExecutor:
+        def call_endpoint(self, **kwargs):
+            return kwargs
+
+    registry = StirlingMcpToolRegistry(endpoint_executor=FakeExecutor())  # type: ignore[arg-type]
+
+    visual = _json_payload(
+        registry.call_tool(
+            "stirling_sign_pdf",
+            {"pdf_path": str(_FIXTURE_PDF), "signature_type": "text", "signer_name": "Ada", "confirmed": True},
+        )
+    )
+    cert = _json_payload(
+        registry.call_tool(
+            "stirling_cert_sign_pdf",
+            {
+                "pdf_path": str(_FIXTURE_PDF),
+                "cert_type": "PEM",
+                "private_key_path": str(_FIXTURE_PDF),
+                "cert_path": str(_FIXTURE_PDF),
+                "confirmed": True,
+                "show_signature": True,
+            },
+        )
+    )
+
+    assert visual["endpoint"] == "/api/v1/security/add-signature"
+    assert visual["form_fields"] == {"signatureType": "text", "signerName": "Ada"}
+    assert cert["endpoint"] == "/api/v1/security/cert-sign"
+    assert cert["extra_file_fields"] == {"privateKeyFile": str(_FIXTURE_PDF), "certFile": str(_FIXTURE_PDF)}
+    assert cert["form_fields"]["certType"] == "PEM"
+    assert cert["form_fields"]["showSignature"] is True
+
+
+def test_metadata_permissions_and_unlock_wrappers_build_expected_requests():
+    class FakeExecutor:
+        def call_endpoint(self, **kwargs):
+            return kwargs
+
+    registry = StirlingMcpToolRegistry(endpoint_executor=FakeExecutor())  # type: ignore[arg-type]
+
+    metadata = _json_payload(
+        registry.call_tool(
+            "stirling_change_metadata",
+            {
+                "pdf_path": str(_FIXTURE_PDF),
+                "title": "Report",
+                "custom_metadata": [{"key": "Case", "value": "123"}],
+            },
+        )
+    )
+    permissions = _json_payload(
+        registry.call_tool(
+            "stirling_change_permissions",
+            {"pdf_path": str(_FIXTURE_PDF), "prevent_printing": True, "confirmed": True},
+        )
+    )
+    removed = _json_payload(
+        registry.call_tool(
+            "stirling_remove_certificate_signatures",
+            {"pdf_path": str(_FIXTURE_PDF), "confirmed": True},
+        )
+    )
+    unlocked = _json_payload(
+        registry.call_tool("stirling_unlock_pdf_forms", {"pdf_path": str(_FIXTURE_PDF), "confirmed": True})
+    )
+
+    assert metadata["endpoint"] == "/api/v1/misc/update-metadata"
+    assert metadata["form_fields"]["allRequestParams[customKey1]"] == "Case"
+    assert metadata["form_fields"]["allRequestParams[customValue1]"] == "123"
+    assert permissions["endpoint"] == "/api/v1/security/add-password"
+    assert permissions["form_fields"]["preventPrinting"] is True
+    assert removed["endpoint"] == "/api/v1/security/remove-cert-sign"
+    assert unlocked["endpoint"] == "/api/v1/misc/unlock-pdf-forms"
+
+
+def test_attachment_toc_cleanup_wrappers_build_expected_requests():
+    class FakeExecutor:
+        def call_endpoint(self, **kwargs):
+            return kwargs
+
+    registry = StirlingMcpToolRegistry(endpoint_executor=FakeExecutor())  # type: ignore[arg-type]
+
+    attachments = _json_payload(
+        registry.call_tool(
+            "stirling_add_attachments",
+            {
+                "pdf_path": str(_FIXTURE_PDF),
+                "attachment_paths": [str(_FIXTURE_PDF)],
+                "convert_to_pdfa3b": True,
+            },
+        )
+    )
+    toc = _json_payload(
+        registry.call_tool(
+            "stirling_edit_table_of_contents",
+            {
+                "pdf_path": str(_FIXTURE_PDF),
+                "bookmarks": [
+                    {
+                        "title": "Chapter 1",
+                        "page_number": 1,
+                        "children": [{"title": "Section 1.1", "page_number": 2}],
+                    }
+                ],
+            },
+        )
+    )
+    blanks = _json_payload(
+        registry.call_tool("stirling_remove_blank_pages", {"pdf_path": str(_FIXTURE_PDF), "threshold": 12})
+    )
+    scans = _json_payload(
+        registry.call_tool("stirling_split_scanned_photos", {"pdf_path": str(_FIXTURE_PDF), "border_size": 3})
+    )
+    colors = _json_payload(
+        registry.call_tool(
+            "stirling_replace_colors",
+            {
+                "pdf_path": str(_FIXTURE_PDF),
+                "replace_and_invert_option": "CUSTOM_COLOR",
+                "text_color": "#111111",
+                "background_color": "#eeeeee",
+            },
+        )
+    )
+
+    assert attachments["endpoint"] == "/api/v1/misc/add-attachments"
+    assert attachments["extra_file_fields"] == {"attachments": [str(_FIXTURE_PDF)]}
+    assert attachments["form_fields"] == {"convertToPdfA3b": True}
+    assert toc["endpoint"] == "/api/v1/general/edit-table-of-contents"
+    assert json.loads(toc["form_fields"]["bookmarkData"]) == [
+        {"title": "Chapter 1", "pageNumber": 1, "children": [{"title": "Section 1.1", "pageNumber": 2, "children": []}]}
+    ]
+    assert blanks["endpoint"] == "/api/v1/misc/remove-blanks"
+    assert blanks["form_fields"] == {"threshold": 12, "whitePercent": 99.9}
+    assert scans["endpoint"] == "/api/v1/misc/extract-image-scans"
+    assert scans["form_fields"]["border_size"] == 3.0
+    assert colors["endpoint"] == "/api/v1/misc/replace-invert-pdf"
+    assert colors["form_fields"] == {
+        "replaceAndInvertOption": "CUSTOM_COLOR",
+        "textColor": "#111111",
+        "backGroundColor": "#eeeeee",
+    }
+
+
+def test_replace_colors_validates_option():
+    registry = StirlingMcpToolRegistry()
+
+    with pytest.raises(RuntimeError, match="replace_and_invert_option must be"):
+        registry.call_tool(
+            "stirling_replace_colors",
+            {"pdf_path": str(_FIXTURE_PDF), "replace_and_invert_option": "NOT_A_MODE"},
+        )
+
+
+def test_security_wrappers_require_confirmation():
+    registry = StirlingMcpToolRegistry()
+
+    with pytest.raises(RuntimeError, match="signing requires confirmed=true"):
+        registry.call_tool("stirling_sign_pdf", {"pdf_path": str(_FIXTURE_PDF), "signer_name": "Ada"})
+    with pytest.raises(RuntimeError, match="Permission changes require confirmed=true"):
+        registry.call_tool("stirling_change_permissions", {"pdf_path": str(_FIXTURE_PDF)})
+    with pytest.raises(RuntimeError, match="form unlocking requires confirmed=true"):
+        registry.call_tool("stirling_unlock_pdf_forms", {"pdf_path": str(_FIXTURE_PDF)})
 
 
 def test_execute_operation_resolves_static_frontend_endpoint():

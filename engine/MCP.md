@@ -10,6 +10,22 @@ From `engine/`:
 make run-mcp
 ```
 
+For desktop MCP clients, prefer the launcher entrypoint:
+
+```bash
+uv --directory C:\Github\Stirling-PDF\engine run python scripts/mcp_launcher.py
+```
+
+The launcher changes into `engine/`, sets `PYTHONUNBUFFERED=1`, defaults `UV_CACHE_DIR` to `engine/.uv-cache`,
+and starts `src/mcp_server.py`. This keeps startup stable even when the MCP client launches from a different
+working directory.
+
+To check a local MCP process end to end after the Java backend is running:
+
+```bash
+make smoke-mcp
+```
+
 It uses the same environment as the normal AI engine, especially:
 
 - `STIRLING_JAVA_BACKEND_URL`
@@ -35,10 +51,23 @@ Example configs are committed in `engine/examples/`:
 
 Adjust the absolute repository path, backend URL, and provider keys before using them.
 
+On Windows, keep `cwd` in the client config and also pass `uv --directory <engine-dir>`.
+Some MCP clients launch from `C:\Windows\System32` even when they display a configured working directory.
+The examples set `UV_CACHE_DIR` to the engine-local `.uv-cache` directory so a desktop client does not depend on
+access to uv's user cache.
+
+After connecting, call `stirling_setup_diagnostics` first when a client disconnects or cannot reach the backend. It
+reports the current working directory, engine paths, uv cache setting, backend URL, and ready-to-paste client config
+hints without exposing provider keys.
+
 ## Exposed MCP Tools
 
 - `stirling_health_check`
   Checks MCP liveness, required engine environment variables, output/temp filesystem access, Java backend health, `pdftohtml`, the rotate-pdf backend probe, and AI provider readiness.
+- `stirling_setup_diagnostics`
+  Reports MCP startup/config hints for desktop clients, especially Windows working-directory and uv cache issues.
+- `stirling_discover_pdfs`
+  Lists PDFs under allowed MCP roots with optional preflight metadata before an agent chooses inputs.
 - `stirling_list_operations`
   Lists the operations the engine can plan and describe.
 - `stirling_list_executable_operations`
@@ -49,6 +78,8 @@ Adjust the absolute repository path, backend URL, and provider keys before using
   Returns JSON schema, defaults, and frontend hook hints for one operation.
 - `stirling_plan_edit_request`
   Converts a natural-language PDF request into operation ids and parameters.
+- `stirling_execute_plan`
+  Runs a validated static-backend operation plan step by step, threading PDF outputs into subsequent steps and requiring explicit confirmation for risky plans.
 - `stirling_answer_pdf_question`
   Answers a question from a local PDF.
 - `stirling_read_pdf_editor_document`
@@ -73,6 +104,22 @@ Adjust the absolute repository path, backend URL, and provider keys before using
   Convenience wrappers for watermarking and password operations.
 - `stirling_repair_pdf`, `stirling_sanitize_pdf`, `stirling_flatten_pdf`
   Convenience wrappers for repair, sanitise, and flatten operations.
+- `stirling_extract_pages`, `stirling_crop_pdf`, `stirling_scale_pages`
+  Convenience wrappers for selected-page extraction, crop, and page scaling.
+- `stirling_redact_pdf`
+  Automatic text redaction wrapper. It requires `confirmed=true` because redaction is destructive.
+- `stirling_reorganize_pages`, `stirling_overlay_pdfs`, `stirling_page_layout`, `stirling_booklet_pdf`
+  Convenience wrappers for page ordering and page composition workflows.
+- `stirling_sign_pdf`, `stirling_cert_sign_pdf`
+  Visual and certificate signing wrappers. They require `confirmed=true`.
+- `stirling_change_metadata`, `stirling_change_permissions`
+  Metadata and security-permission wrappers. Permission changes require `confirmed=true`.
+- `stirling_remove_certificate_signatures`, `stirling_unlock_pdf_forms`
+  Certificate-signature removal and form-unlock wrappers. They require `confirmed=true`.
+- `stirling_add_attachments`, `stirling_edit_table_of_contents`
+  Convenience wrappers for embedded-file attachments and bookmark/table-of-contents editing.
+- `stirling_remove_blank_pages`, `stirling_split_scanned_photos`, `stirling_replace_colors`
+  Convenience wrappers for blank-page cleanup, scanned-photo extraction, and color replacement/inversion.
 
 ## Live Integration Test
 
@@ -104,5 +151,7 @@ The engine PDF editor workflow uses `pdftohtml`. Install Poppler and ensure `pdf
 ## Notes
 
 - MCP clients can use JSON-RPC `ping` for a minimal liveness check, and `stirling_health_check` for dependency readiness.
+- `scripts/mcp_smoke_test.py` uses the stdio JSON-RPC path: initialize, list tools, run `stirling_health_check`,
+  then require the backend rotate probe to pass.
 - `stirling_call_endpoint` is intentionally generic so MCP clients can execute backend tools without waiting for a one-tool-per-endpoint wrapper.
 - `stirling_get_operation_details` includes the frontend operation hook path and relevant source snippets to help agents construct the correct multipart fields.
