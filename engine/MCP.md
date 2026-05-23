@@ -26,6 +26,15 @@ To check a local MCP process end to end after the Java backend is running:
 make smoke-mcp
 ```
 
+To run live wrapper contract checks against the Java backend:
+
+```bash
+STIRLING_JAVA_BACKEND_URL=http://localhost:8080 make live-mcp
+```
+
+Set `STIRLING_MCP_LIVE_INCLUDE_OPTIONAL=true` to include dependency-heavy or deployment-gated cases such as
+color replacement, blank-page detection, and scanned-photo extraction.
+
 It uses the same environment as the normal AI engine, especially:
 
 - `STIRLING_JAVA_BACKEND_URL`
@@ -133,7 +142,8 @@ cd engine
 STIRLING_JAVA_BACKEND_URL=http://localhost:8080 python scripts/mcp_live_integration.py
 ```
 
-The script runs rotate, merge, compress, and remove-pages against `testing/test_pdf_1.pdf`.
+The script runs safe wrapper contracts against `testing/test_pdf_1.pdf`, including rotate, merge, compress,
+remove-pages, extract-pages, table-of-contents editing, attachments, color replacement, and metadata changes.
 
 ## Async Jobs
 
