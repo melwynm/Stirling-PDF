@@ -1161,10 +1161,9 @@ class MultipartEndpointExecutor:
                 return self.wait_for_job(job_id, output_path, poll_interval_seconds, poll_timeout_seconds)
             return result
         except urllib.error.HTTPError as exc:
-            detail = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
-            raise McpToolError(f"Backend request failed with status {exc.code}: {detail or exc.reason}") from exc
+            raise self._backend_http_error(exc, endpoint) from exc
         except urllib.error.URLError as exc:
-            raise McpToolError(f"Failed to reach Java backend: {exc.reason}") from exc
+            raise self._backend_url_error(exc) from exc
         finally:
             self._close_multipart_body(body)
 
@@ -1179,10 +1178,9 @@ class MultipartEndpointExecutor:
             with urllib.request.urlopen(request, timeout=_java_request_timeout_seconds()) as response:
                 return self._handle_response(response, endpoint, output_path)
         except urllib.error.HTTPError as exc:
-            detail = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
-            raise McpToolError(f"Backend job result failed with status {exc.code}: {detail or exc.reason}") from exc
+            raise self._backend_http_error(exc, endpoint) from exc
         except urllib.error.URLError as exc:
-            raise McpToolError(f"Failed to reach Java backend: {exc.reason}") from exc
+            raise self._backend_url_error(exc) from exc
 
     def wait_for_job(
         self,
@@ -1208,10 +1206,9 @@ class MultipartEndpointExecutor:
                 raw = self._read_limited_json_response(response)
                 return _normalize_json_value(json.loads(raw.decode("utf-8"))) if raw else {}
         except urllib.error.HTTPError as exc:
-            detail = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
-            raise McpToolError(f"Backend request failed with status {exc.code}: {detail or exc.reason}") from exc
+            raise self._backend_http_error(exc, endpoint) from exc
         except urllib.error.URLError as exc:
-            raise McpToolError(f"Failed to reach Java backend: {exc.reason}") from exc
+            raise self._backend_url_error(exc) from exc
 
     def _handle_response(self, response: Any, endpoint: str, output_path: str | None) -> dict[str, JsonValue]:
         content_type = response.headers.get("Content-Type", "application/octet-stream")
@@ -1238,6 +1235,59 @@ class MultipartEndpointExecutor:
             "savedPath": str(destination),
             "sizeBytes": size_bytes,
         }
+
+    def _backend_http_error(self, exc: urllib.error.HTTPError, endpoint: str) -> McpToolError:
+        detail = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
+        parsed = self._parse_backend_error_detail(detail)
+        message = parsed.get("message") or parsed.get("error") or detail or str(exc.reason)
+        suggestion = self._backend_http_suggestion(exc.code, endpoint, message)
+        return McpToolError(f"Backend HTTP {exc.code} for {endpoint}: {message}. Suggested fix: {suggestion}")
+
+    def _parse_backend_error_detail(self, detail: str) -> dict[str, str]:
+        if not detail:
+            return {}
+        try:
+            parsed = json.loads(detail)
+        except json.JSONDecodeError:
+            return {"message": detail.strip()}
+        if not isinstance(parsed, dict):
+            return {"message": detail.strip()}
+        result: dict[str, str] = {}
+        for key in ("error", "message", "path"):
+            value = parsed.get(key)
+            if isinstance(value, str):
+                result[key] = value
+        return result
+
+    def _backend_http_suggestion(self, status: int, endpoint: str, message: str) -> str:
+        message_lower = message.casefold()
+        if status in {401, 403}:
+            if "disabled" in message_lower:
+                return "Enable this endpoint in Stirling's endpoint configuration or choose a supported tool."
+            return "Check STIRLING_JAVA_BACKEND_API_KEY and backend authentication/authorization settings."
+        if status == 404:
+            return "Verify the Java backend version exposes this endpoint and that STIRLING_JAVA_BACKEND_URL points to Stirling PDF."
+        if status == 413:
+            return "Use async mode, reduce input size, or raise the backend upload limit."
+        if status == 415:
+            return "Check file type and multipart field names for this endpoint."
+        if status == 429:
+            return "Retry later or reduce concurrent MCP/backend requests."
+        if status >= 500:
+            if any(
+                token in message_lower for token in ("not installed", "python", "opencv", "ghostscript", "libreoffice")
+            ):
+                return "Install the backend dependency required by this endpoint and rerun stirling_health_check."
+            return "Inspect the Stirling Java backend logs for this request and rerun the MCP live contract test."
+        return "Check endpoint inputs, backend logs, and stirling_operation_coverage for the supported contract."
+
+    def _backend_url_error(self, exc: urllib.error.URLError) -> McpToolError:
+        backend_url = _env_value("STIRLING_JAVA_BACKEND_URL") or "<unset>"
+        return McpToolError(
+            f"Failed to reach Java backend at {backend_url}: {exc.reason}. "
+            "Suggested fix: start Stirling on the configured port, verify STIRLING_JAVA_BACKEND_URL, "
+            "then run stirling_health_check."
+        )
 
     def _read_limited_json_response(self, response: Any) -> bytes:
         max_bytes = self._max_json_response_bytes()

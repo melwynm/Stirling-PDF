@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import json
 import os
+import urllib.error
+from email.message import Message
+from io import BytesIO
 from pathlib import Path
 from typing import Any
 
@@ -51,6 +54,9 @@ class _FakeHttpResponse:
 
     def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> bool:
         return False
+
+    def close(self) -> None:
+        return None
 
 
 class _FakeOutputParent:
@@ -406,6 +412,66 @@ def test_call_endpoint_waits_for_async_job(monkeypatch: MonkeyPatch):
     )
 
     assert result == {"jobId": "job-123", "result": {"savedPath": "rotated.pdf"}}
+    assert fake_body_path.closed is True
+
+
+def test_call_endpoint_formats_disabled_backend_endpoint(monkeypatch: MonkeyPatch):
+    fake_body_path = _FakeBodyPath()
+    executor = MultipartEndpointExecutor(output_dir=str(_REPO_ROOT / "engine" / "output"))
+
+    monkeypatch.setattr(
+        executor,
+        "_open_multipart_body",
+        lambda form_fields, files: (fake_body_path, "test-boundary", None),
+    )
+
+    def fake_urlopen(request, timeout):
+        headers: Message[str, str] = Message()
+        raise urllib.error.HTTPError(
+            request.full_url,
+            403,
+            "Forbidden",
+            headers,
+            BytesIO(b'{"status":403,"error":"Forbidden","message":"This endpoint is disabled"}'),
+        )
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+
+    with pytest.raises(RuntimeError, match="Enable this endpoint"):
+        executor.call_endpoint(
+            endpoint="/api/v1/misc/replace-invert-pdf",
+            file_paths=[str(_FIXTURE_PDF)],
+            file_field_name="fileInput",
+            extra_file_fields={},
+            form_fields={},
+            output_path=None,
+        )
+    assert fake_body_path.closed is True
+
+
+def test_call_endpoint_formats_backend_connection_error(monkeypatch: MonkeyPatch):
+    fake_body_path = _FakeBodyPath()
+    executor = MultipartEndpointExecutor(output_dir=str(_REPO_ROOT / "engine" / "output"))
+
+    monkeypatch.setattr(
+        executor,
+        "_open_multipart_body",
+        lambda form_fields, files: (fake_body_path, "test-boundary", None),
+    )
+    monkeypatch.setattr(
+        "urllib.request.urlopen",
+        lambda request, timeout: (_ for _ in ()).throw(urllib.error.URLError("connection refused")),
+    )
+
+    with pytest.raises(RuntimeError, match="run stirling_health_check"):
+        executor.call_endpoint(
+            endpoint="/api/v1/general/rotate-pdf",
+            file_paths=[str(_FIXTURE_PDF)],
+            file_field_name="fileInput",
+            extra_file_fields={},
+            form_fields={},
+            output_path=None,
+        )
     assert fake_body_path.closed is True
 
 
