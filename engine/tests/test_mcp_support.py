@@ -524,6 +524,19 @@ def test_executable_operations_and_more_wrappers_build_expected_requests():
     assert sanitize["endpoint"] == "/api/v1/security/sanitize-pdf"
 
 
+def test_operation_coverage_classifies_first_class_generic_and_client_only():
+    registry = StirlingMcpToolRegistry()
+
+    parsed = _json_payload(registry.call_tool("stirling_operation_coverage", {}))
+    operations = {item["operationId"]: item for item in parsed["operations"]}
+
+    assert parsed["count"] >= 30
+    assert operations["rotate"]["coverage"] == "firstClassWrapper"
+    assert operations["autoRename"]["coverage"] == "genericStaticEndpoint"
+    assert operations["removeAnnotations"]["coverage"] == "clientOnly"
+    assert "clientOnly" in parsed["counts"]
+
+
 def test_page_edit_wrappers_build_frontend_backend_contracts():
     class FakeExecutor:
         def call_endpoint(self, **kwargs):

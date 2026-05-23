@@ -72,6 +72,8 @@ hints without exposing provider keys.
   Lists the operations the engine can plan and describe.
 - `stirling_list_executable_operations`
   Lists operations that have first-class executable MCP wrappers and their backend endpoints.
+- `stirling_operation_coverage`
+  Classifies every known operation as first-class, generic static endpoint, client-only, dynamic endpoint, or not executable through MCP yet.
 - `stirling_cleanup_mcp_output`
   Deletes old MCP temp/output files. Defaults to dry-run.
 - `stirling_get_operation_details`

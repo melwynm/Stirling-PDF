@@ -232,6 +232,13 @@ class GetOperationDetailsArgs(McpArgsModel):
     operation_id: str = Field(description="Stirling operation id, for example 'rotate' or 'merge'.")
 
 
+class OperationCoverageArgs(McpArgsModel):
+    include_frontend_metadata: bool = Field(
+        default=False,
+        description="Include frontend hook metadata for each operation. This can make the response large.",
+    )
+
+
 class PlanEditRequestArgs(McpArgsModel):
     request: str = Field(description="Natural-language PDF edit request.")
     file_paths: list[str] = Field(
@@ -1780,6 +1787,11 @@ class StirlingMcpToolRegistry:
                 description="List operations with first-class executable MCP wrappers and their backend endpoints.",
                 input_model=NoArgs,
             ),
+            "stirling_operation_coverage": ToolDefinition(
+                name="stirling_operation_coverage",
+                description="Classify every known operation by MCP execution coverage and identify gaps.",
+                input_model=OperationCoverageArgs,
+            ),
             "stirling_cleanup_mcp_output": ToolDefinition(
                 name="stirling_cleanup_mcp_output",
                 description="Delete old MCP temp/output files using a retention policy.",
@@ -2033,6 +2045,9 @@ class StirlingMcpToolRegistry:
             elif name == "stirling_list_executable_operations":
                 NoArgs.model_validate(payload)
                 result = self._list_executable_operations()
+            elif name == "stirling_operation_coverage":
+                args = OperationCoverageArgs.model_validate(payload)
+                result = self._operation_coverage(args)
             elif name == "stirling_cleanup_mcp_output":
                 args = CleanupMcpOutputArgs.model_validate(payload)
                 result = self._cleanup_mcp_output(args)
@@ -2276,6 +2291,74 @@ Call `stirling_cleanup_mcp_output` with `dry_run=true` first, then repeat with `
                 }
                 for operation_id in operation_ids
             ],
+        }
+
+    def _operation_coverage(self, args: OperationCoverageArgs) -> dict[str, JsonValue]:
+        wrappers = self._executable_operation_map()
+        generic = self._generic_operation_endpoint_map()
+        operation_ids = sorted(str(operation_id) for operation_id in self.tool_catalog.get_catalog().operation_ids)
+        operations: JsonArray = []
+        counts: dict[str, int] = {}
+        for operation_id in operation_ids:
+            metadata = self.metadata_resolver.get(operation_id)
+            classification = self._operation_coverage_classification(operation_id, metadata, wrappers, generic)
+            coverage = classification["coverage"]
+            if not isinstance(coverage, str):
+                raise McpToolError(f"Invalid coverage classification for operation: {operation_id}")
+            counts[coverage] = counts.get(coverage, 0) + 1
+            item: JsonObject = {
+                "operationId": operation_id,
+                **classification,
+            }
+            if args.include_frontend_metadata:
+                item["frontendMetadata"] = metadata.to_dict() if metadata else None
+            operations.append(item)
+        return {
+            "count": len(operations),
+            "counts": _normalize_json_value(dict(sorted(counts.items()))),
+            "operations": operations,
+        }
+
+    def _operation_coverage_classification(
+        self,
+        operation_id: str,
+        metadata: OperationFrontendMetadata | None,
+        wrappers: dict[str, dict[str, str]],
+        generic: dict[str, str],
+    ) -> JsonObject:
+        if operation_id in wrappers:
+            return {
+                "coverage": "firstClassWrapper",
+                "toolName": wrappers[operation_id]["toolName"],
+                "endpoint": wrappers[operation_id]["endpoint"],
+                "notes": wrappers[operation_id].get("notes", ""),
+            }
+        if operation_id in generic:
+            return {
+                "coverage": "genericStaticEndpoint",
+                "toolName": "stirling_execute_operation",
+                "endpoint": generic[operation_id],
+                "notes": "Executable through stirling_execute_operation; add a typed wrapper for production ergonomics.",
+            }
+        if metadata and metadata.custom_processor_name:
+            return {
+                "coverage": "clientOnly",
+                "toolName": "",
+                "endpoint": "",
+                "notes": "Frontend uses a browser custom processor; no Java backend endpoint is exposed for MCP.",
+            }
+        if metadata and metadata.endpoint_expression:
+            return {
+                "coverage": "dynamicEndpoint",
+                "toolName": "stirling_execute_operation",
+                "endpoint": metadata.endpoint_expression,
+                "notes": "Endpoint is not a static string; use a typed wrapper or explicit endpoint override.",
+            }
+        return {
+            "coverage": "notExecutable",
+            "toolName": "",
+            "endpoint": "",
+            "notes": "No static backend endpoint or first-class wrapper is known.",
         }
 
     def _executable_operation_map(self) -> dict[str, dict[str, str]]:
