@@ -20,6 +20,16 @@ The launcher changes into `engine/`, sets `PYTHONUNBUFFERED=1`, defaults `UV_CAC
 and starts `src/mcp_server.py`. This keeps startup stable even when the MCP client launches from a different
 working directory.
 
+On Windows, generate ready-to-review Claude/Cursor snippets and check local prerequisites with:
+
+```powershell
+cd C:\Github\Stirling-PDF\engine
+uv run python scripts\mcp_windows_setup.py --backend-url http://localhost:8081
+```
+
+The helper writes snippets under `engine/output/mcp-client-config/`. It does not edit Claude Desktop, Cursor, or any
+other client configuration file.
+
 To check a local MCP process end to end after the Java backend is running:
 
 ```bash
@@ -160,6 +170,68 @@ The engine PDF editor workflow uses `pdftohtml`. Install Poppler and ensure `pdf
 - `stirling://operations/catalog`
 - `stirling://mcp/readme`
 - `stirling://mcp/workflows`
+
+## Production Readiness Backlog
+
+### Stable Install/Startup Path
+
+- Package the MCP server so Claude/Cursor config does not depend on repo layout, `uv`, or working directory quirks.
+- Add a one-command installer/checker for Windows. Initial non-invasive helper: `scripts/mcp_windows_setup.py`.
+
+### Auth/Security Hardening
+
+- Document clear API-key behavior for secured Stirling backends.
+- Use safer default allowed roots.
+- Add stronger confirmation gates for destructive tools.
+- Improve handling for sensitive outputs, certificate files, passwords, and temp cleanup.
+
+### Full Endpoint Coverage
+
+- Add more first-class wrappers for remaining backend tools.
+- Mark unsupported/client-only tools clearly, for example `removeAnnotations`.
+- Detect missing Java endpoints such as the current `removeImage` mismatch.
+
+### Contract Tests Against Backend
+
+- Add automated live tests for each wrapper against a running backend.
+- Validate multipart field names, output type, async behavior, and failure messages.
+- Run these in CI, not just local smoke tests.
+
+### Robust Job/Large-File Support
+
+- Prefer async mode for heavy operations.
+- Improve progress/status reporting.
+- Add resume/retry logic for long jobs.
+- Add large-file stress tests.
+
+### Error Experience
+
+- Convert backend errors into concise MCP-friendly messages.
+- Include suggested fixes for backend down, wrong port, unsupported dependency, missing Python/OpenCV/Ghostscript, and similar failures.
+
+### Observability
+
+- Add structured MCP logs.
+- Carry request IDs across MCP and Java backend calls.
+- Add a redacted diagnostics bundle for troubleshooting Claude disconnects.
+
+### Configuration UX
+
+- Add a diagnostics command that outputs exact recommended Claude JSON without secrets.
+- Add version/compatibility checks for Java backend, engine, Python, `uv`, and OS.
+
+### Output Management
+
+- Add naming collision handling.
+- Add a retention policy.
+- Support an optional user-selected output folder.
+- Add safer ZIP/result inspection.
+
+### Documentation
+
+- Write a production setup guide.
+- Add a tool matrix: wrapper name, backend endpoint, inputs, outputs, and risk level.
+- Add troubleshooting for Claude Desktop, Cursor, Windows, Docker, and port `8081`.
 
 ## Notes
 

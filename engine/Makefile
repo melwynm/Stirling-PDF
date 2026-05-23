@@ -1,4 +1,4 @@
-.PHONY: help install prep check fix lint lint-fix lint-fix-unsafe format format-check typecheck test run run-dev run-mcp smoke-mcp live-mcp clean tool-models docker-build docker-run
+.PHONY: help install prep check fix lint lint-fix lint-fix-unsafe format format-check typecheck test run run-dev run-mcp smoke-mcp live-mcp windows-mcp-setup clean tool-models docker-build docker-run
 
 REPO_ROOT_DIR = ..
 ROOT_DIR = .
@@ -32,6 +32,7 @@ help:
 	@echo "  make run-mcp      - Run the Stirling MCP server over stdio"
 	@echo "  make smoke-mcp    - Smoke-test MCP stdio, health, and rotate probe"
 	@echo "  make live-mcp     - Run live MCP wrapper contracts against STIRLING_JAVA_BACKEND_URL"
+	@echo "  make windows-mcp-setup - Check Windows MCP prerequisites and write client config snippets"
 	@echo "  make tool-models  - Generate src/models/tool_models_*.py from frontend TypeScript tool defs"
 	@echo "  make clean        - Clean up generated files"
 	@echo "  make docker-build - Build Docker image"
@@ -81,6 +82,9 @@ smoke-mcp: prep
 
 live-mcp: prep
 	PYTHONUNBUFFERED=1 uv run python scripts/mcp_live_integration.py
+
+windows-mcp-setup: install
+	uv run python scripts/mcp_windows_setup.py
 
 frontend-deps:
 	if [ ! -x "$(FRONTEND_TSX)" ]; then cd $(FRONTEND_DIR) && npm install; fi
