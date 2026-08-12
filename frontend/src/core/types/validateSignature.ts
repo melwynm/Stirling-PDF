@@ -8,6 +8,10 @@ export interface SignatureValidationBackendResult {
   revocationChecked?: boolean | null;
   revocationStatus?: string | null; // "not-checked" | "good" | "revoked" | "soft-fail" | "unknown"
   validationTimeSource?: string | null; // "current" | "signing-time" | "timestamp"
+  revisionNumber?: number | null;
+  revisionLength?: number | null;
+  coversWholeDocument?: boolean | null;
+  laterRevisionsPresent?: boolean | null;
   signerName?: string | null;
   signatureDate?: string | null;
   reason?: string | null;
@@ -36,6 +40,10 @@ export interface SignatureValidationSignature {
   revocationChecked?: boolean | null;
   revocationStatus?: string | null; // "not-checked" | "good" | "revoked" | "soft-fail" | "unknown"
   validationTimeSource?: string | null; // "current" | "signing-time" | "timestamp"
+  revisionNumber: number;
+  revisionLength: number;
+  coversWholeDocument: boolean;
+  laterRevisionsPresent: boolean;
   signerName: string;
   signatureDate: string;
   reason: string;

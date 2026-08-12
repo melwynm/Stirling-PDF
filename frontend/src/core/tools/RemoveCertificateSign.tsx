@@ -4,6 +4,7 @@ import { useRemoveCertificateSignParameters } from "@app/hooks/tools/removeCerti
 import { useRemoveCertificateSignOperation } from "@app/hooks/tools/removeCertificateSign/useRemoveCertificateSignOperation";
 import { useBaseTool } from "@app/hooks/tools/shared/useBaseTool";
 import { BaseToolProps, ToolComponent } from "@app/types/tool";
+import RemoveCertificateSignSettings from '@app/components/tools/removeCertificateSign/RemoveCertificateSignSettings';
 
 const RemoveCertificateSign = (props: BaseToolProps) => {
   const { t } = useTranslation();
@@ -20,9 +21,20 @@ const RemoveCertificateSign = (props: BaseToolProps) => {
       selectedFiles: base.selectedFiles,
       isCollapsed: base.hasResults,
     },
-    steps: [],
+    steps: [{
+      title: t('removeCertSign.settingsTitle', 'Signature handling'),
+      isCollapsed: base.settingsCollapsed,
+      onCollapsedClick: base.settingsCollapsed ? base.handleSettingsReset : undefined,
+      content: (
+        <RemoveCertificateSignSettings
+          parameters={base.params.parameters}
+          onParameterChange={base.params.updateParameter}
+          disabled={base.endpointLoading}
+        />
+      ),
+    }],
     executeButton: {
-      text: t("removeCertSign.submit", "Remove Signature"),
+      text: t("removeCertSign.submit", "Apply"),
       isVisible: !base.hasResults,
       loadingText: t("loading"),
       onClick: base.handleExecute,
@@ -31,7 +43,7 @@ const RemoveCertificateSign = (props: BaseToolProps) => {
     review: {
       isVisible: base.hasResults,
       operation: base.operation,
-      title: t("removeCertSign.results.title", "Certificate Removal Results"),
+      title: t("removeCertSign.results.title", "Signature Handling Results"),
       onFileClick: base.handleThumbnailClick,
       onUndo: base.handleUndo,
     },

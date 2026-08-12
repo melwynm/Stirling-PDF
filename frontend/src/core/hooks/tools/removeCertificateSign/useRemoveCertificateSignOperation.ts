@@ -4,9 +4,14 @@ import { createStandardErrorHandler } from '@app/utils/toolErrorHandler';
 import { RemoveCertificateSignParameters, defaultParameters } from '@app/hooks/tools/removeCertificateSign/useRemoveCertificateSignParameters';
 
 // Static function that can be used by both the hook and automation executor
-export const buildRemoveCertificateSignFormData = (_parameters: RemoveCertificateSignParameters, file: File): FormData => {
+export const buildRemoveCertificateSignFormData = (parameters: RemoveCertificateSignParameters, file: File): FormData => {
   const formData = new FormData();
   formData.append("fileInput", file);
+  formData.append('mode', parameters.mode);
+  formData.append('acknowledgeDestructive', parameters.acknowledgeDestructive.toString());
+  if (parameters.mode === 'EXTRACT_REVISION' && parameters.signatureIndex > 0) {
+    formData.append('signatureIndex', parameters.signatureIndex.toString());
+  }
   return formData;
 };
 

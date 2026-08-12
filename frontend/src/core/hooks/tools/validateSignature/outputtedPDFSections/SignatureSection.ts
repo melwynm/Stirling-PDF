@@ -64,6 +64,17 @@ export const drawSignatureSection = ({
     { label: t('validateSignature.date', 'Date'), value: formatDate(signature.signatureDate) },
     { label: t('validateSignature.reason', 'Reason'), value: signature.reason || '-' },
     { label: t('validateSignature.location', 'Location'), value: signature.location || '-' },
+    { label: t('validateSignature.revision', 'Signed revision'), value: String(signature.revisionNumber) },
+    {
+      label: t('validateSignature.revisionLength', 'Revision size'),
+      value: `${signature.revisionLength.toLocaleString()} ${t('validateSignature.bytes', 'bytes')}`,
+    },
+    {
+      label: t('validateSignature.documentCoverage', 'Document coverage'),
+      value: signature.coversWholeDocument
+        ? t('validateSignature.coversWholeDocument', 'Covers the current document')
+        : t('validateSignature.laterRevisionsPresent', 'Later revisions are present'),
+    },
   ];
 
   for (let i = 0; i < signatureFields.length; i += 2) {

@@ -79,6 +79,7 @@ public class ValidateSignatureController {
             @ModelAttribute SignatureValidationRequest request) throws IOException {
         List<SignatureValidationResult> results = new ArrayList<>();
         MultipartFile file = request.getFileInput();
+        byte[] pdfBytes = file.getBytes();
 
         // Load custom certificate if provided
         X509Certificate customCert = null;
@@ -97,15 +98,24 @@ public class ValidateSignatureController {
             }
         }
 
-        try (PDDocument document = pdfDocumentFactory.load(file.getInputStream())) {
+        try (PDDocument document = pdfDocumentFactory.load(new ByteArrayInputStream(pdfBytes))) {
             List<PDSignature> signatures = document.getSignatureDictionaries();
 
-            for (PDSignature sig : signatures) {
+            for (int signatureIndex = 0; signatureIndex < signatures.size(); signatureIndex++) {
+                PDSignature sig = signatures.get(signatureIndex);
                 SignatureValidationResult result = new SignatureValidationResult();
+                result.setRevisionNumber(signatureIndex + 1);
+                int[] byteRange = sig.getByteRange();
+                if (byteRange != null && byteRange.length == 4) {
+                    long revisionLength = (long) byteRange[2] + byteRange[3];
+                    result.setRevisionLength(revisionLength);
+                    result.setCoversWholeDocument(revisionLength == pdfBytes.length);
+                    result.setLaterRevisionsPresent(revisionLength < pdfBytes.length);
+                }
 
                 try {
-                    byte[] signedContent = sig.getSignedContent(file.getInputStream());
-                    byte[] signatureBytes = sig.getContents(file.getInputStream());
+                    byte[] signedContent = sig.getSignedContent(new ByteArrayInputStream(pdfBytes));
+                    byte[] signatureBytes = sig.getContents(new ByteArrayInputStream(pdfBytes));
 
                     CMSProcessable content = new CMSProcessableByteArray(signedContent);
                     CMSSignedData signedData = new CMSSignedData(content, signatureBytes);

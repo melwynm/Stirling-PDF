@@ -24,6 +24,11 @@ public class SignatureValidationResult {
 
     private String validationTimeSource; // "current", "signing-time", or "timestamp"
 
+    private int revisionNumber;
+    private long revisionLength;
+    private boolean coversWholeDocument;
+    private boolean laterRevisionsPresent;
+
     // Signature metadata
     private String signerName;
     private String signatureDate;

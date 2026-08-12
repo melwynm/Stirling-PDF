@@ -27,6 +27,17 @@ const SignatureSection = ({
     FieldBlock(t('validateSignature.date', 'Date'), formatDate(signature.signatureDate)),
     FieldBlock(t('validateSignature.reason', 'Reason'), signature.reason || '-'),
     FieldBlock(t('validateSignature.location', 'Location'), signature.location || '-'),
+    FieldBlock(t('validateSignature.revision', 'Signed revision'), String(signature.revisionNumber)),
+    FieldBlock(
+      t('validateSignature.revisionLength', 'Revision size'),
+      `${signature.revisionLength.toLocaleString()} ${t('validateSignature.bytes', 'bytes')}`
+    ),
+    FieldBlock(
+      t('validateSignature.documentCoverage', 'Document coverage'),
+      signature.coversWholeDocument
+        ? t('validateSignature.coversWholeDocument', 'Covers the current document')
+        : t('validateSignature.laterRevisionsPresent', 'Later revisions are present')
+    ),
   ];
 
   const certificateFields = [
