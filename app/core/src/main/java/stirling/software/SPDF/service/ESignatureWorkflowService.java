@@ -273,7 +273,9 @@ public class ESignatureWorkflowService {
             fallbackOrder++;
         }
         List<SigningField> requestedFields = new ArrayList<>(request.getFields());
-        requestedFields.addAll(anchorService.resolve(file.getBytes(), request.getAnchors()));
+        if (request.getAnchors() != null && !request.getAnchors().isEmpty()) {
+            requestedFields.addAll(anchorService.resolve(file.getBytes(), request.getAnchors()));
+        }
         workflow.setFields(prepareSigningFields(requestedFields, workflow.getRecipients()));
         validateSigningModel(workflow.getRecipients(), workflow.getFields());
 
@@ -329,7 +331,9 @@ public class ESignatureWorkflowService {
             recipients.add(recipient);
         }
         List<SigningField> requestedFields = new ArrayList<>(request.getFields());
-        requestedFields.addAll(anchorService.resolve(file.getBytes(), request.getAnchors()));
+        if (request.getAnchors() != null && !request.getAnchors().isEmpty()) {
+            requestedFields.addAll(anchorService.resolve(file.getBytes(), request.getAnchors()));
+        }
         validateSigningModel(recipients, prepareSigningFields(requestedFields, recipients));
     }
 

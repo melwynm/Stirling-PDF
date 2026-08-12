@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import stirling.software.SPDF.model.api.esign.ESignatureActionResponse;
@@ -508,6 +509,29 @@ class ESignatureWorkflowServiceTest {
                         .findFirst()
                         .orElseThrow()
                         .getType());
+    }
+
+    @Test
+    void requestCreationStreamsPdfWhenAnchorsAreNotUsed() throws Exception {
+        MockMultipartFile source = pdfFile();
+        MultipartFile streamingOnly =
+                new MockMultipartFile(
+                        source.getName(),
+                        source.getOriginalFilename(),
+                        source.getContentType(),
+                        source.getInputStream()) {
+                    @Override
+                    public byte[] getBytes() {
+                        throw new AssertionError(
+                                "Non-anchor workflow creation must not materialize the PDF");
+                    }
+                };
+
+        ESignatureRequestView created =
+                service.createRequest(streamingOnly, orderedCreateRequest(), actor);
+
+        assertNotNull(created.getId());
+        assertTrue(Files.exists(tempDir.resolve(created.getId()).resolve("document.pdf")));
     }
 
     private ESignatureCreateRequest orderedCreateRequest() {
