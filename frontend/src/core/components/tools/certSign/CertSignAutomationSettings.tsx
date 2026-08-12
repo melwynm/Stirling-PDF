@@ -22,7 +22,7 @@ interface CertSignAutomationSettingsProps {
 const CertSignAutomationSettings = ({ parameters, onParameterChange, disabled = false }: CertSignAutomationSettingsProps) => {
   return (
     <Stack gap="lg">
-      {/* Sign Mode Selection (Manual vs Auto) */}
+      {/* Sign Mode Selection */}
       <CertificateTypeSettings
         parameters={parameters}
         onParameterChange={onParameterChange}
@@ -38,8 +38,8 @@ const CertSignAutomationSettings = ({ parameters, onParameterChange, disabled = 
         />
       )}
 
-      {/* Certificate Files - only show for Manual mode */}
-      {parameters.signMode === 'MANUAL' && (
+      {/* Certificate Files - only show for modes that need uploaded certificate material */}
+      {(parameters.signMode === 'MANUAL' || parameters.signMode === 'KMS') && (
         <CertificateFilesSettings
           parameters={parameters}
           onParameterChange={onParameterChange}

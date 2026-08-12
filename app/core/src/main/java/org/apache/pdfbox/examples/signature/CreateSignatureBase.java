@@ -62,6 +62,18 @@ public abstract class CreateSignatureBase implements SignatureInterface {
      */
     @Setter @Getter private boolean externalSigning;
 
+    protected CreateSignatureBase(Certificate[] certificateChain)
+            throws CertificateException, IOException {
+        if (certificateChain == null || certificateChain.length == 0) {
+            throw new IOException("Could not find certificate");
+        }
+        Certificate cert = certificateChain[0];
+        if (cert instanceof X509Certificate) {
+            ((X509Certificate) cert).checkValidity();
+        }
+        this.certificateChain = certificateChain;
+    }
+
     /**
      * Initialize the signature creator with a keystore (pkcs12) and pin that should be used for the
      * signature.

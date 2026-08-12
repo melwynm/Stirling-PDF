@@ -6,7 +6,7 @@ import urllib.error
 from email.message import Message
 from io import BytesIO
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from pytest import MonkeyPatch
@@ -197,10 +197,27 @@ def test_get_operation_details_returns_schema_and_defaults():
 
     payload = registry.call_tool("stirling_get_operation_details", {"operation_id": "rotate"})
     parsed = _json_payload(payload)
+    cert_payload = registry.call_tool("stirling_get_operation_details", {"operation_id": "certSign"})
+    cert_parsed = _json_payload(cert_payload)
 
     assert parsed["operationId"] == "rotate"
     assert parsed["fieldDefaults"]["angle"] == 0
     assert "properties" in parsed["inputSchema"]
+    assert "KMS" in cert_parsed["inputSchema"]["properties"]["signMode"]["enum"]
+    assert cert_parsed["fieldDefaults"]["kmsSignatureAlgorithm"] == "SHA256_WITH_RSA"
+
+
+def test_cert_sign_tool_schema_advertises_kms_mode():
+    registry = StirlingMcpToolRegistry()
+
+    tools = {tool["name"]: tool for tool in registry.list_tools()}
+    cert_sign_tool = cast(dict[str, Any], tools["stirling_cert_sign_pdf"])
+    input_schema = cast(dict[str, Any], cert_sign_tool["inputSchema"])
+    cert_sign_schema = cast(dict[str, Any], input_schema["properties"])
+
+    assert "AWS KMS-compatible signer bridge" in cert_sign_tool["description"]
+    assert "KMS" in cast(dict[str, Any], cert_sign_schema["sign_mode"])["enum"]
+    assert "SHA256_WITH_ECDSA" in cast(dict[str, Any], cert_sign_schema["kms_signature_algorithm"])["enum"]
 
 
 def test_plan_edit_request_uses_catalog(monkeypatch: MonkeyPatch):
@@ -716,6 +733,19 @@ def test_signing_wrappers_build_expected_requests():
             },
         )
     )
+    kms_cert = _json_payload(
+        registry.call_tool(
+            "stirling_cert_sign_pdf",
+            {
+                "pdf_path": str(_FIXTURE_PDF),
+                "sign_mode": "KMS",
+                "kms_cert_path": str(_FIXTURE_PDF),
+                "kms_key_id": "alias/pdf-signing",
+                "kms_signature_algorithm": "SHA256_WITH_ECDSA",
+                "confirmed": True,
+            },
+        )
+    )
 
     assert visual["endpoint"] == "/api/v1/security/add-signature"
     assert visual["form_fields"] == {"signatureType": "text", "signerName": "Ada"}
@@ -723,6 +753,13 @@ def test_signing_wrappers_build_expected_requests():
     assert cert["extra_file_fields"] == {"privateKeyFile": str(_FIXTURE_PDF), "certFile": str(_FIXTURE_PDF)}
     assert cert["form_fields"]["certType"] == "PEM"
     assert cert["form_fields"]["showSignature"] is True
+    assert kms_cert["endpoint"] == "/api/v1/security/cert-sign"
+    assert kms_cert["extra_file_fields"] == {"certFile": str(_FIXTURE_PDF)}
+    assert kms_cert["form_fields"] == {
+        "certType": "KMS",
+        "kmsKeyId": "alias/pdf-signing",
+        "kmsSignatureAlgorithm": "SHA256_WITH_ECDSA",
+    }
 
 
 def test_metadata_permissions_and_unlock_wrappers_build_expected_requests():

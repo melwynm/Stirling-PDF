@@ -133,7 +133,9 @@ hints without exposing provider keys.
 - `stirling_reorganize_pages`, `stirling_overlay_pdfs`, `stirling_page_layout`, `stirling_booklet_pdf`
   Convenience wrappers for page ordering and page composition workflows.
 - `stirling_sign_pdf`, `stirling_cert_sign_pdf`
-  Visual and certificate signing wrappers. They require `confirmed=true`.
+  Visual and certificate signing wrappers. They require `confirmed=true`. Certificate signing supports
+  manual PEM/PKCS12/PFX/JKS material, server-certificate signing, and KMS-backed PAdES signing through
+  the configured AWS KMS-compatible signer bridge.
 - `stirling_change_metadata`, `stirling_change_permissions`
   Metadata and security-permission wrappers. Permission changes require `confirmed=true`.
 - `stirling_remove_certificate_signatures`, `stirling_unlock_pdf_forms`

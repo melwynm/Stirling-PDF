@@ -1,4 +1,4 @@
-import { Stack, Text, TextInput } from "@mantine/core";
+import { Select, Stack, Text, TextInput } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import { CertSignParameters } from "@app/hooks/tools/certSign/useCertSignParameters";
 import FileUploadButton from "@app/components/shared/FileUploadButton";
@@ -64,6 +64,39 @@ const CertificateFilesSettings = ({ parameters, onParameterChange, disabled = fa
         <Text c="dimmed" size="sm">
           {t('certSign.serverCertMessage', 'Using server certificate - no files or password required')}
         </Text>
+      )}
+
+      {parameters.signMode === 'KMS' && (
+        <Stack gap="sm">
+          <Text c="dimmed" size="sm">
+            {t('certSign.kmsCertMessage', 'Using configured KMS signer - upload the signer certificate chain only')}
+          </Text>
+          <FileUploadButton
+            file={parameters.certFile}
+            onChange={(file) => onParameterChange('certFile', file || undefined)}
+            accept=".pem,.der,.crt,.cer"
+            disabled={disabled}
+            placeholder={t('certSign.chooseKmsCertificate', 'Choose KMS Certificate Chain')}
+          />
+          <TextInput
+            label={t('certSign.kmsKeyId', 'KMS Key ID')}
+            placeholder={t('certSign.kmsKeyIdPlaceholder', 'Optional key alias or identifier')}
+            value={parameters.kmsKeyId}
+            onChange={(event) => onParameterChange('kmsKeyId', event.currentTarget.value)}
+            disabled={disabled}
+          />
+          <Select
+            label={t('certSign.kmsAlgorithm', 'KMS Signature Algorithm')}
+            value={parameters.kmsSignatureAlgorithm}
+            onChange={(value) => onParameterChange('kmsSignatureAlgorithm', value || 'SHA256_WITH_RSA')}
+            data={[
+              { value: 'SHA256_WITH_RSA', label: 'SHA256 with RSA' },
+              { value: 'SHA256_WITH_ECDSA', label: 'SHA256 with ECDSA' },
+            ]}
+            disabled={disabled}
+            allowDeselect={false}
+          />
+        </Stack>
       )}
 
       {/* Password - only show when files are uploaded */}

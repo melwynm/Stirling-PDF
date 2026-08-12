@@ -34,6 +34,10 @@ const CertSign = (props: BaseToolProps) => {
     if (params.signMode === 'AUTO') {
       return true;
     }
+
+    if (params.signMode === 'KMS') {
+      return !!params.certFile;
+    }
     
     // Manual mode - check for required files based on cert type
     switch (params.certType) {
@@ -82,7 +86,7 @@ const CertSign = (props: BaseToolProps) => {
           />
         ),
       }] : []),
-      ...(base.params.parameters.signMode === 'MANUAL' ? [{
+      ...(base.params.parameters.signMode === 'MANUAL' || base.params.parameters.signMode === 'KMS' ? [{
         title: t("certSign.certFiles.stepTitle", "Certificate Files"),
         isCollapsed: base.settingsCollapsed,
         onCollapsedClick: base.settingsCollapsed ? base.handleSettingsReset : undefined,

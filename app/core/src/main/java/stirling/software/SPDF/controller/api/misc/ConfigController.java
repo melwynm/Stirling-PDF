@@ -249,6 +249,12 @@ public class ConfigController {
             configData.put(
                     "serverCertificateEnabled",
                     serverCertificateService != null && serverCertificateService.isEnabled());
+            var kmsSigning = applicationProperties.getSecurity().getSigning().getKms();
+            configData.put(
+                    "kmsSigningEnabled",
+                    kmsSigning.isEnabled()
+                            && kmsSigning.getSignerUrl() != null
+                            && !kmsSigning.getSignerUrl().isBlank());
 
             // Legal settings
             configData.put(

@@ -31,9 +31,9 @@ export const useCertSignTooltips = (): TooltipContent => {
       },
       {
         title: t("certSign.tooltip.signing.title", "Adding Signatures"),
-        description: t("certSign.tooltip.signing.text", "To sign a PDF, you need a digital certificate (like PEM, PKCS12, or JKS). You can choose to make the signature visible on the document or keep it invisible for security only."),
+        description: t("certSign.tooltip.signing.text", "To sign a PDF, you need a digital certificate (like PEM, PKCS12, JKS, or a configured KMS signer). You can choose to make the signature visible on the document or keep it invisible for security only."),
         bullets: [
-          t("certSign.tooltip.signing.bullet1", "Supports PEM, PKCS12, JKS, and server certificate formats"),
+          t("certSign.tooltip.signing.bullet1", "Supports PEM, PKCS12, JKS, server certificate, and KMS signing modes"),
           t("certSign.tooltip.signing.bullet2", "Option to show or hide signature on the PDF"),
           t("certSign.tooltip.signing.bullet3", "Add reason, location, and signer name"),
           t("certSign.tooltip.signing.bullet4", "Choose which page to place visible signatures"),

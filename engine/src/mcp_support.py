@@ -681,13 +681,31 @@ class SignPdfArgs(McpArgsModel):
 
 class CertSignPdfArgs(McpArgsModel):
     pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
-    sign_mode: str = Field(default="MANUAL", description="MANUAL or AUTO server-certificate signing.")
-    cert_type: str = Field(default="", description="PEM, PKCS12, PFX, or JKS for manual signing.")
+    sign_mode: str = Field(
+        default="MANUAL",
+        description="MANUAL, AUTO server-certificate, or KMS signing.",
+        json_schema_extra={"enum": ["MANUAL", "AUTO", "KMS"]},
+    )
+    cert_type: str = Field(
+        default="",
+        description="PEM, PKCS12, PFX, or JKS for manual signing.",
+        json_schema_extra={"enum": ["", "PEM", "PKCS12", "PFX", "JKS"]},
+    )
     password: str = ""
     private_key_path: str | None = Field(default=None, description="PEM private key path.")
-    cert_path: str | None = Field(default=None, description="PEM certificate path.")
+    cert_path: str | None = Field(
+        default=None,
+        description="PEM certificate path, or signer certificate chain path for KMS signing.",
+    )
     p12_path: str | None = Field(default=None, description="PKCS12/PFX keystore path.")
     jks_path: str | None = Field(default=None, description="JKS keystore path.")
+    kms_cert_path: str | None = Field(default=None, description="Signer certificate chain path for KMS signing.")
+    kms_key_id: str = Field(default="", description="Optional configured KMS key alias or identifier.")
+    kms_signature_algorithm: str = Field(
+        default="SHA256_WITH_RSA",
+        description="SHA256_WITH_RSA or SHA256_WITH_ECDSA.",
+        json_schema_extra={"enum": ["SHA256_WITH_RSA", "SHA256_WITH_ECDSA"]},
+    )
     show_signature: bool = False
     reason: str = ""
     location: str = ""
@@ -2020,7 +2038,10 @@ class StirlingMcpToolRegistry:
             ),
             "stirling_cert_sign_pdf": ToolDefinition(
                 name="stirling_cert_sign_pdf",
-                description="Digitally sign a PDF with certificate material after explicit confirmation.",
+                description=(
+                    "Digitally sign a PDF with certificate material, a server certificate, "
+                    "or a configured AWS KMS-compatible signer bridge after explicit confirmation."
+                ),
                 input_model=CertSignPdfArgs,
             ),
             "stirling_change_metadata": ToolDefinition(
@@ -3212,6 +3233,17 @@ Call `stirling_cleanup_mcp_output` with `dry_run=true` first, then repeat with `
         form_fields: dict[str, JsonValue] = {}
         if sign_mode == "AUTO":
             form_fields["certType"] = "SERVER"
+        elif sign_mode == "KMS":
+            algorithm = args.kms_signature_algorithm.upper()
+            if algorithm not in {"SHA256_WITH_RSA", "SHA256_WITH_ECDSA"}:
+                raise McpToolError("kms_signature_algorithm must be SHA256_WITH_RSA or SHA256_WITH_ECDSA.")
+            certificate_path = args.kms_cert_path or args.cert_path
+            if not certificate_path:
+                raise McpToolError("kms_cert_path or cert_path is required for KMS certificate signing.")
+            form_fields.update({"certType": "KMS", "kmsSignatureAlgorithm": algorithm})
+            if args.kms_key_id:
+                form_fields["kmsKeyId"] = args.kms_key_id
+            extra_files["certFile"] = certificate_path
         elif sign_mode == "MANUAL":
             cert_type = args.cert_type.upper()
             form_fields.update({"certType": cert_type, "password": args.password})
@@ -3230,7 +3262,7 @@ Call `stirling_cleanup_mcp_output` with `dry_run=true` first, then repeat with `
             else:
                 raise McpToolError("cert_type must be PEM, PKCS12, PFX, or JKS for manual certificate signing.")
         else:
-            raise McpToolError("sign_mode must be MANUAL or AUTO.")
+            raise McpToolError("sign_mode must be MANUAL, AUTO, or KMS.")
         if args.show_signature:
             form_fields.update(
                 {

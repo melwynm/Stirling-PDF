@@ -9,7 +9,10 @@ import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Collection;
+import java.util.Hashtable;
 import java.util.List;
 
 import org.apache.commons.io.FileUtils;
@@ -36,11 +39,28 @@ import org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm;
 import org.apache.pdfbox.pdmodel.interactive.form.PDField;
 import org.apache.pdfbox.pdmodel.interactive.form.PDSignatureField;
 import org.apache.pdfbox.util.Matrix;
+import org.bouncycastle.asn1.ASN1ObjectIdentifier;
+import org.bouncycastle.asn1.DERSet;
+import org.bouncycastle.asn1.cms.Attribute;
+import org.bouncycastle.asn1.cms.AttributeTable;
+import org.bouncycastle.asn1.cms.CMSObjectIdentifiers;
+import org.bouncycastle.asn1.ess.ESSCertIDv2;
+import org.bouncycastle.asn1.ess.SigningCertificateV2;
+import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
 import org.bouncycastle.asn1.x500.RDN;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x500.style.BCStyle;
 import org.bouncycastle.asn1.x500.style.IETFUtils;
+import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
+import org.bouncycastle.cert.jcajce.JcaCertStore;
+import org.bouncycastle.cms.CMSAttributeTableGenerator;
+import org.bouncycastle.cms.CMSException;
+import org.bouncycastle.cms.CMSSignedData;
+import org.bouncycastle.cms.CMSSignedDataGenerator;
+import org.bouncycastle.cms.CMSTypedData;
+import org.bouncycastle.cms.DefaultSignedAttributeTableGenerator;
+import org.bouncycastle.cms.jcajce.JcaSignerInfoGeneratorBuilder;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.openssl.PEMDecryptorProvider;
 import org.bouncycastle.openssl.PEMEncryptedKeyPair;
@@ -49,8 +69,11 @@ import org.bouncycastle.openssl.PEMParser;
 import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
 import org.bouncycastle.openssl.jcajce.JceOpenSSLPKCS8DecryptorProviderBuilder;
 import org.bouncycastle.openssl.jcajce.JcePEMDecryptorProviderBuilder;
+import org.bouncycastle.operator.ContentSigner;
+import org.bouncycastle.operator.DefaultSignatureAlgorithmIdentifierFinder;
 import org.bouncycastle.operator.InputDecryptorProvider;
 import org.bouncycastle.operator.OperatorCreationException;
+import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 import org.bouncycastle.pkcs.PKCS8EncryptedPrivateKeyInfo;
 import org.bouncycastle.pkcs.PKCSException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -73,6 +96,9 @@ import lombok.extern.slf4j.Slf4j;
 
 import stirling.software.SPDF.config.swagger.StandardPdfResponse;
 import stirling.software.SPDF.model.api.security.SignPDFWithCertRequest;
+import stirling.software.SPDF.service.KmsSignatureService;
+import stirling.software.SPDF.service.KmsSignatureService.KmsSignatureAlgorithm;
+import stirling.software.SPDF.service.KmsSignatureService.KmsSigningRequest;
 import stirling.software.common.annotations.AutoJobPostMapping;
 import stirling.software.common.service.CustomPDFDocumentFactory;
 import stirling.software.common.service.ServerCertificateServiceInterface;
@@ -104,30 +130,35 @@ public class CertSignController {
 
     private final CustomPDFDocumentFactory pdfDocumentFactory;
     private final ServerCertificateServiceInterface serverCertificateService;
+    private final KmsSignatureService kmsSignatureService;
 
     public CertSignController(
             CustomPDFDocumentFactory pdfDocumentFactory,
-            @Autowired(required = false)
-                    ServerCertificateServiceInterface serverCertificateService) {
+            @Autowired(required = false) ServerCertificateServiceInterface serverCertificateService,
+            KmsSignatureService kmsSignatureService) {
         this.pdfDocumentFactory = pdfDocumentFactory;
         this.serverCertificateService = serverCertificateService;
+        this.kmsSignatureService = kmsSignatureService;
     }
 
     private static void sign(
             CustomPDFDocumentFactory pdfDocumentFactory,
             MultipartFile input,
             OutputStream output,
-            CreateSignature instance,
+            VisibleCreateSignature instance,
             Boolean showSignature,
             Integer pageNumber,
             String name,
             String location,
             String reason,
-            Boolean showLogo) {
+            Boolean showLogo,
+            org.apache.pdfbox.cos.COSName subFilter)
+            throws IOException {
         try (PDDocument doc = pdfDocumentFactory.load(input)) {
+            validateVisibleSignaturePage(showSignature, pageNumber, doc);
             PDSignature signature = new PDSignature();
             signature.setFilter(PDSignature.FILTER_ADOBE_PPKLITE);
-            signature.setSubFilter(PDSignature.SUBFILTER_ADBE_PKCS7_DETACHED);
+            signature.setSubFilter(subFilter);
             signature.setName(name);
             signature.setLocation(location);
             signature.setReason(reason);
@@ -147,6 +178,10 @@ public class CertSignController {
             }
         } catch (Exception e) {
             ExceptionUtils.logException("PDF signing", e);
+            if (e instanceof IOException ioException) {
+                throw ioException;
+            }
+            throw new IOException("PDF signing failed", e);
         }
     }
 
@@ -176,6 +211,7 @@ public class CertSignController {
         String reason = request.getReason();
         String location = request.getLocation();
         String name = request.getName();
+        String kmsKeyId = request.getKmsKeyId();
         // Convert 1-indexed page number (user input) to 0-indexed page number (API requirement)
         Integer pageNumber = request.getPageNumber() != null ? (request.getPageNumber() - 1) : null;
         Boolean showLogo = request.getShowLogo();
@@ -189,6 +225,8 @@ public class CertSignController {
 
         KeyStore ks = null;
         String keystorePassword = password;
+        Certificate[] kmsCertificateChain = null;
+        KmsSignatureAlgorithm kmsSignatureAlgorithm = null;
 
         switch (certType) {
             case "PEM":
@@ -238,6 +276,21 @@ public class CertSignController {
                 ks = serverCertificateService.getServerKeyStore();
                 keystorePassword = serverCertificateService.getServerCertificatePassword();
                 break;
+            case "KMS":
+                if (!kmsSignatureService.isEnabled()) {
+                    throw ExceptionUtils.createIllegalArgumentException(
+                            "error.kmsSigningDisabled", "KMS signing is not enabled");
+                }
+                certFile =
+                        validateFilePresent(
+                                certFile,
+                                "KMS certificate chain",
+                                "certificate chain file is required");
+                kmsSignatureAlgorithm =
+                        resolveKmsSignatureAlgorithm(request.getKmsSignatureAlgorithm());
+                kmsCertificateChain = getCertificatesFromPEM(certFile.getBytes());
+                validateKmsCertificate(kmsCertificateChain, kmsSignatureAlgorithm);
+                break;
             default:
                 throw ExceptionUtils.createIllegalArgumentException(
                         "error.invalidArgument",
@@ -245,7 +298,19 @@ public class CertSignController {
                         "certificate type: " + certType);
         }
 
-        CreateSignature createSignature = new CreateSignature(ks, keystorePassword.toCharArray());
+        VisibleCreateSignature createSignature;
+        org.apache.pdfbox.cos.COSName subFilter = PDSignature.SUBFILTER_ADBE_PKCS7_DETACHED;
+        if ("KMS".equals(certType)) {
+            createSignature =
+                    new KmsCreateSignature(
+                            kmsCertificateChain,
+                            kmsSignatureService,
+                            kmsKeyId,
+                            kmsSignatureAlgorithm);
+            subFilter = PDSignature.SUBFILTER_ETSI_CADES_DETACHED;
+        } else {
+            createSignature = new CreateSignature(ks, keystorePassword.toCharArray());
+        }
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         sign(
                 pdfDocumentFactory,
@@ -257,7 +322,8 @@ public class CertSignController {
                 name,
                 location,
                 reason,
-                showLogo);
+                showLogo,
+                subFilter);
         // Return the signed PDF
         return WebResponseUtils.bytesToWebResponse(
                 baos.toByteArray(),
@@ -273,6 +339,29 @@ public class CertSignController {
                     argumentName + " - " + errorDescription);
         }
         return file;
+    }
+
+    private static void validateVisibleSignaturePage(
+            Boolean showSignature, Integer pageNumber, PDDocument doc) throws IOException {
+        if (!Boolean.TRUE.equals(showSignature)) {
+            return;
+        }
+        if (pageNumber == null) {
+            throw new IOException("Visible signature page number is required");
+        }
+        if (pageNumber < 0 || pageNumber >= doc.getNumberOfPages()) {
+            throw new IOException(
+                    "Visible signature page number must reference an existing PDF page");
+        }
+    }
+
+    private KmsSignatureAlgorithm resolveKmsSignatureAlgorithm(String requestAlgorithm) {
+        try {
+            return kmsSignatureService.resolveAlgorithm(requestAlgorithm);
+        } catch (IllegalArgumentException e) {
+            throw ExceptionUtils.createIllegalArgumentException(
+                    "error.invalidArgument", "Invalid argument: {0}", e.getMessage());
+        }
     }
 
     private PrivateKey getPrivateKeyFromPEM(byte[] pemBytes, String password)
@@ -304,16 +393,58 @@ public class CertSignController {
         }
     }
 
-    class CreateSignature extends CreateSignatureBase {
+    private Certificate[] getCertificatesFromPEM(byte[] pemBytes)
+            throws IOException, CertificateException {
+        try (ByteArrayInputStream bis = new ByteArrayInputStream(pemBytes)) {
+            Collection<? extends Certificate> certificates =
+                    CertificateFactory.getInstance("X.509").generateCertificates(bis);
+            if (certificates.isEmpty()) {
+                throw new CertificateException("No certificates found in certificate chain file");
+            }
+            return certificates.toArray(Certificate[]::new);
+        }
+    }
+
+    private void validateKmsCertificate(
+            Certificate[] certificateChain, KmsSignatureAlgorithm signatureAlgorithm) {
+        if (!(certificateChain[0] instanceof X509Certificate signingCertificate)) {
+            throw ExceptionUtils.createIllegalArgumentException(
+                    "error.invalidArgument",
+                    "Invalid argument: {0}",
+                    "KMS certificate chain must start with an X.509 signing certificate");
+        }
+        String publicKeyAlgorithm = signingCertificate.getPublicKey().getAlgorithm();
+        if (!signatureAlgorithm.getCertificateKeyAlgorithm().equalsIgnoreCase(publicKeyAlgorithm)) {
+            throw ExceptionUtils.createIllegalArgumentException(
+                    "error.invalidArgument",
+                    "Invalid argument: {0}",
+                    "KMS signature algorithm "
+                            + signatureAlgorithm.name()
+                            + " does not match certificate public key algorithm "
+                            + publicKeyAlgorithm);
+        }
+    }
+
+    abstract class VisibleCreateSignature extends CreateSignatureBase {
         File logoFile;
 
-        public CreateSignature(KeyStore keystore, char[] pin)
+        public VisibleCreateSignature(KeyStore keystore, char[] pin)
                 throws KeyStoreException,
                         UnrecoverableKeyException,
                         NoSuchAlgorithmException,
                         IOException,
                         CertificateException {
             super(keystore, pin);
+            loadLogo();
+        }
+
+        public VisibleCreateSignature(Certificate[] certificateChain)
+                throws IOException, CertificateException {
+            super(certificateChain);
+            loadLogo();
+        }
+
+        private void loadLogo() throws IOException {
             ClassPathResource resource = new ClassPathResource("static/images/signature.png");
             try (InputStream is = resource.getInputStream()) {
                 logoFile = Files.createTempFile("signature", ".png").toFile();
@@ -389,14 +520,12 @@ public class CertSignController {
                     X509Certificate cert = (X509Certificate) getCertificateChain()[0];
 
                     // https://stackoverflow.com/questions/2914521/
-                    X500Name x500Name = new X500Name(cert.getSubjectX500Principal().getName());
-                    RDN cn = x500Name.getRDNs(BCStyle.CN)[0];
-                    String name = IETFUtils.valueToString(cn.getFirst().getValue());
+                    String signerName = getVisibleSignerName(cert, signature);
 
                     String date = signature.getSignDate().getTime().toString();
                     String reason = signature.getReason();
 
-                    cs.showText("Signed by " + name);
+                    cs.showText("Signed by " + signerName);
                     cs.newLine();
                     cs.showText(date);
                     cs.newLine();
@@ -409,6 +538,157 @@ public class CertSignController {
                 doc.save(baos);
                 return new ByteArrayInputStream(baos.toByteArray());
             }
+        }
+
+        private String getVisibleSignerName(X509Certificate cert, PDSignature signature) {
+            X500Name x500Name = new X500Name(cert.getSubjectX500Principal().getName());
+            RDN[] commonNames = x500Name.getRDNs(BCStyle.CN);
+            if (commonNames.length > 0) {
+                return IETFUtils.valueToString(commonNames[0].getFirst().getValue());
+            }
+            if (!StringUtils.isBlank(signature.getName())) {
+                return signature.getName();
+            }
+            String subject = cert.getSubjectX500Principal().getName();
+            return StringUtils.isBlank(subject) ? "Unknown signer" : subject;
+        }
+    }
+
+    class CreateSignature extends VisibleCreateSignature {
+
+        public CreateSignature(KeyStore keystore, char[] pin)
+                throws KeyStoreException,
+                        UnrecoverableKeyException,
+                        NoSuchAlgorithmException,
+                        IOException,
+                        CertificateException {
+            super(keystore, pin);
+        }
+    }
+
+    class KmsCreateSignature extends VisibleCreateSignature {
+        private final KmsSignatureService kmsSignatureService;
+        private final String keyId;
+        private final KmsSignatureAlgorithm signatureAlgorithm;
+
+        public KmsCreateSignature(
+                Certificate[] certificateChain,
+                KmsSignatureService kmsSignatureService,
+                String keyId,
+                KmsSignatureAlgorithm signatureAlgorithm)
+                throws IOException, CertificateException {
+            super(certificateChain);
+            this.kmsSignatureService = kmsSignatureService;
+            this.keyId = keyId;
+            this.signatureAlgorithm = signatureAlgorithm;
+        }
+
+        @Override
+        public byte[] sign(InputStream content) throws IOException {
+            try {
+                CMSSignedDataGenerator gen = new CMSSignedDataGenerator();
+                X509Certificate cert = (X509Certificate) getCertificateChain()[0];
+                ContentSigner signer =
+                        new DigestKmsContentSigner(kmsSignatureService, keyId, signatureAlgorithm);
+                JcaSignerInfoGeneratorBuilder signerInfoBuilder =
+                        new JcaSignerInfoGeneratorBuilder(
+                                new JcaDigestCalculatorProviderBuilder().build());
+                signerInfoBuilder.setSignedAttributeGenerator(
+                        createCadesSignedAttributeGenerator(cert));
+                gen.addSignerInfoGenerator(signerInfoBuilder.build(signer, cert));
+                gen.addCertificates(new JcaCertStore(Arrays.asList(getCertificateChain())));
+                CMSTypedData msg = new InputStreamCmsTypedData(content);
+                CMSSignedData signedData = gen.generate(msg, false);
+                return signedData.getEncoded();
+            } catch (GeneralSecurityException | CMSException | OperatorCreationException e) {
+                throw new IOException(e);
+            }
+        }
+
+        private CMSAttributeTableGenerator createCadesSignedAttributeGenerator(
+                X509Certificate signingCertificate) throws GeneralSecurityException {
+            byte[] certHash =
+                    MessageDigest.getInstance("SHA-256").digest(signingCertificate.getEncoded());
+            ESSCertIDv2 essCertId = new ESSCertIDv2(certHash);
+            SigningCertificateV2 signingCertificateV2 = new SigningCertificateV2(essCertId);
+            Attribute signingCertificateAttribute =
+                    new Attribute(
+                            PKCSObjectIdentifiers.id_aa_signingCertificateV2,
+                            new DERSet(signingCertificateV2));
+            Hashtable<ASN1ObjectIdentifier, Attribute> signedAttributes = new Hashtable<>();
+            signedAttributes.put(
+                    PKCSObjectIdentifiers.id_aa_signingCertificateV2, signingCertificateAttribute);
+            return new DefaultSignedAttributeTableGenerator(new AttributeTable(signedAttributes));
+        }
+    }
+
+    private static class DigestKmsContentSigner implements ContentSigner {
+        private final KmsSignatureService kmsSignatureService;
+        private final String keyId;
+        private final KmsSignatureAlgorithm signatureAlgorithm;
+        private final AlgorithmIdentifier algorithmIdentifier;
+        private final ByteArrayOutputStream contentToSign = new ByteArrayOutputStream();
+
+        private DigestKmsContentSigner(
+                KmsSignatureService kmsSignatureService,
+                String keyId,
+                KmsSignatureAlgorithm signatureAlgorithm) {
+            this.kmsSignatureService = kmsSignatureService;
+            this.keyId = keyId;
+            this.signatureAlgorithm = signatureAlgorithm;
+            this.algorithmIdentifier =
+                    new DefaultSignatureAlgorithmIdentifierFinder()
+                            .find(signatureAlgorithm.getCmsAlgorithmName());
+        }
+
+        @Override
+        public AlgorithmIdentifier getAlgorithmIdentifier() {
+            return algorithmIdentifier;
+        }
+
+        @Override
+        public OutputStream getOutputStream() {
+            return contentToSign;
+        }
+
+        @Override
+        public byte[] getSignature() {
+            try {
+                byte[] digest =
+                        MessageDigest.getInstance(signatureAlgorithm.getDigestAlgorithm())
+                                .digest(contentToSign.toByteArray());
+                return kmsSignatureService.signDigest(
+                        new KmsSigningRequest(keyId, signatureAlgorithm, digest));
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("Failed to sign digest with KMS", e);
+            } catch (GeneralSecurityException | IOException e) {
+                throw new IllegalStateException("Failed to sign digest with KMS", e);
+            }
+        }
+    }
+
+    private static class InputStreamCmsTypedData implements CMSTypedData {
+        private final InputStream inputStream;
+
+        private InputStreamCmsTypedData(InputStream inputStream) {
+            this.inputStream = inputStream;
+        }
+
+        @Override
+        public Object getContent() {
+            return inputStream;
+        }
+
+        @Override
+        public void write(OutputStream out) throws IOException, CMSException {
+            inputStream.transferTo(out);
+            inputStream.close();
+        }
+
+        @Override
+        public ASN1ObjectIdentifier getContentType() {
+            return CMSObjectIdentifiers.data;
         }
     }
 }

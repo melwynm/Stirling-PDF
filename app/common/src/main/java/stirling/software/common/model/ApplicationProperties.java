@@ -213,6 +213,7 @@ public class ApplicationProperties {
         private String customGlobalAPIKey;
         private Jwt jwt = new Jwt();
         private Validation validation = new Validation();
+        private Signing signing = new Signing();
         private String xFrameOptions = "DENY";
 
         public Boolean isAltLogin() {
@@ -494,6 +495,20 @@ public class ApplicationProperties {
                 // Total retention in minutes, convert to days (round up)
                 int totalMinutes = maxTokenExpiryMinutes + bufferMinutes;
                 return (int) Math.ceil(totalMinutes / (double) MINUTES_PER_DAY);
+            }
+        }
+
+        @Data
+        public static class Signing {
+            private Kms kms = new Kms();
+
+            @Data
+            public static class Kms {
+                private boolean enabled = false;
+                private String signerUrl = "";
+                @ToString.Exclude private String authorizationHeader = "";
+                private String signatureAlgorithm = "SHA256_WITH_RSA";
+                private int timeoutSeconds = 30;
             }
         }
 

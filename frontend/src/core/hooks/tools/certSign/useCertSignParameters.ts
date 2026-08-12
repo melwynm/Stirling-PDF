@@ -3,15 +3,17 @@ import { useBaseParameters, BaseParametersHook } from '@app/hooks/tools/shared/u
 
 export interface CertSignParameters extends BaseParameters {
   // Sign mode selection
-  signMode: 'MANUAL' | 'AUTO';
-  // Certificate signing options (only for manual mode)
+  signMode: 'MANUAL' | 'AUTO' | 'KMS';
+  // Certificate signing options. KMS uses certFile for the public signer certificate chain.
   certType: '' | 'PEM' | 'PKCS12' | 'PFX' | 'JKS';
   privateKeyFile?: File;
   certFile?: File;
   p12File?: File;
   jksFile?: File;
   password: string;
-  
+  kmsKeyId: string;
+  kmsSignatureAlgorithm: 'SHA256_WITH_RSA' | 'SHA256_WITH_ECDSA';
+
   // Signature appearance options
   showSignature: boolean;
   reason: string;
@@ -25,6 +27,8 @@ export const defaultParameters: CertSignParameters = {
   signMode: 'MANUAL',
   certType: '',
   password: '',
+  kmsKeyId: '',
+  kmsSignatureAlgorithm: 'SHA256_WITH_RSA',
   showSignature: false,
   reason: '',
   location: '',
@@ -44,12 +48,16 @@ export const useCertSignParameters = (): CertSignParametersHook => {
       if (params.signMode === 'AUTO') {
         return true;
       }
-      
+
+      if (params.signMode === 'KMS') {
+        return !!params.certFile;
+      }
+
       // Manual mode - requires certificate type and files
       if (!params.certType) {
         return false;
       }
-      
+
       // Check for required files based on cert type
       switch (params.certType) {
         case 'PEM':

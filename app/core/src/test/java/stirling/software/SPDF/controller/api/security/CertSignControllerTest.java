@@ -1,10 +1,12 @@
 package stirling.software.SPDF.controller.api.security;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
@@ -12,6 +14,7 @@ import java.io.InputStream;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,12 +28,18 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
 
 import stirling.software.SPDF.model.api.security.SignPDFWithCertRequest;
+import stirling.software.SPDF.service.KmsSignatureService;
+import stirling.software.SPDF.service.KmsSignatureService.KmsSignatureAlgorithm;
+import stirling.software.SPDF.service.KmsSignatureService.KmsSigningRequest;
 import stirling.software.common.service.CustomPDFDocumentFactory;
+import stirling.software.common.service.ServerCertificateServiceInterface;
 
 @ExtendWith(MockitoExtension.class)
 class CertSignControllerTest {
 
     @Mock private CustomPDFDocumentFactory pdfDocumentFactory;
+    @Mock private ServerCertificateServiceInterface serverCertificateService;
+    @Mock private KmsSignatureService kmsSignatureService;
 
     @InjectMocks private CertSignController certSignController;
 
@@ -250,6 +259,106 @@ class CertSignControllerTest {
 
         assertNotNull(response.getBody());
         assertTrue(response.getBody().length > 0);
+    }
+
+    @Test
+    void testSignPdfWithKmsUsesPadesSubfilter() throws Exception {
+        MockMultipartFile pdfFile =
+                new MockMultipartFile(
+                        "fileInput", "test.pdf", MediaType.APPLICATION_PDF_VALUE, pdfBytes);
+        MockMultipartFile certFile =
+                new MockMultipartFile(
+                        "certFile", "test-cert.pem", "application/x-pem-file", pemCertBytes);
+
+        when(kmsSignatureService.isEnabled()).thenReturn(true);
+        when(kmsSignatureService.resolveAlgorithm("SHA256_WITH_RSA"))
+                .thenReturn(KmsSignatureAlgorithm.SHA256_WITH_RSA);
+        when(kmsSignatureService.signDigest(any(KmsSigningRequest.class)))
+                .thenReturn(new byte[256]);
+
+        SignPDFWithCertRequest request = new SignPDFWithCertRequest();
+        request.setFileInput(pdfFile);
+        request.setCertType("KMS");
+        request.setCertFile(certFile);
+        request.setKmsKeyId("test-kms-key");
+        request.setKmsSignatureAlgorithm("SHA256_WITH_RSA");
+        request.setShowSignature(false);
+        request.setReason("test");
+        request.setLocation("test");
+        request.setName("tester");
+        request.setPageNumber(1);
+        request.setShowLogo(false);
+
+        ResponseEntity<byte[]> response = certSignController.signPDFWithCert(request);
+
+        assertNotNull(response.getBody());
+        assertTrue(response.getBody().length > 0);
+        try (PDDocument signedDocument = Loader.loadPDF(response.getBody())) {
+            assertEquals(1, signedDocument.getSignatureDictionaries().size());
+            assertEquals(
+                    PDSignature.SUBFILTER_ETSI_CADES_DETACHED.getName(),
+                    signedDocument.getSignatureDictionaries().get(0).getSubFilter());
+        }
+    }
+
+    @Test
+    void testSignPdfWithKmsInvalidAlgorithmThrowsError() {
+        MockMultipartFile pdfFile =
+                new MockMultipartFile(
+                        "fileInput", "test.pdf", MediaType.APPLICATION_PDF_VALUE, pdfBytes);
+        MockMultipartFile certFile =
+                new MockMultipartFile(
+                        "certFile", "test-cert.pem", "application/x-pem-file", pemCertBytes);
+
+        when(kmsSignatureService.isEnabled()).thenReturn(true);
+        when(kmsSignatureService.resolveAlgorithm("SHA256_WITH_DSA"))
+                .thenThrow(
+                        new IllegalArgumentException(
+                                "Unsupported KMS signature algorithm: SHA256_WITH_DSA"));
+
+        SignPDFWithCertRequest request = new SignPDFWithCertRequest();
+        request.setFileInput(pdfFile);
+        request.setCertType("KMS");
+        request.setCertFile(certFile);
+        request.setKmsSignatureAlgorithm("SHA256_WITH_DSA");
+        request.setShowSignature(false);
+
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> certSignController.signPDFWithCert(request));
+
+        assertTrue(exception.getMessage().contains("Unsupported KMS signature algorithm"));
+    }
+
+    @Test
+    void testVisibleSignatureRejectsMissingPage() {
+        MockMultipartFile pdfFile =
+                new MockMultipartFile(
+                        "fileInput", "test.pdf", MediaType.APPLICATION_PDF_VALUE, pdfBytes);
+        MockMultipartFile p12File =
+                new MockMultipartFile("p12File", "test-cert.p12", "application/x-pkcs12", p12Bytes);
+
+        SignPDFWithCertRequest request = new SignPDFWithCertRequest();
+        request.setFileInput(pdfFile);
+        request.setCertType("PKCS12");
+        request.setP12File(p12File);
+        request.setPassword("password");
+        request.setShowSignature(true);
+        request.setReason("test");
+        request.setLocation("test");
+        request.setName("tester");
+        request.setPageNumber(2);
+        request.setShowLogo(false);
+
+        Exception exception =
+                assertThrows(Exception.class, () -> certSignController.signPDFWithCert(request));
+
+        assertTrue(
+                exception
+                        .getMessage()
+                        .contains(
+                                "Visible signature page number must reference an existing PDF page"));
     }
 
     @Test

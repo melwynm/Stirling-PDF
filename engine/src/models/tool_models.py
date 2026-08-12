@@ -44,6 +44,8 @@ class CertSignParams(ApiModel):
     cert_file: dict[str, Any] | None = None
     cert_type: Literal["", "PEM", "PKCS12", "PFX", "JKS"] = ""
     jks_file: dict[str, Any] | None = None
+    kms_key_id: str = ""
+    kms_signature_algorithm: Literal["SHA256_WITH_RSA", "SHA256_WITH_ECDSA"] = "SHA256_WITH_RSA"
     location: str = ""
     name: str = ""
     p12_file: dict[str, Any] | None = None
@@ -53,7 +55,7 @@ class CertSignParams(ApiModel):
     reason: str = ""
     show_logo: bool = True
     show_signature: bool = False
-    sign_mode: Literal["MANUAL", "AUTO"] = "MANUAL"
+    sign_mode: Literal["MANUAL", "AUTO", "KMS"] = "MANUAL"
 
 
 class ChangeMetadataParams(ApiModel):

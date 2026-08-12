@@ -11,6 +11,13 @@ export const buildCertSignFormData = (parameters: CertSignParameters, file: File
   // Handle sign mode
   if (parameters.signMode === 'AUTO') {
     formData.append('certType', 'SERVER');
+  } else if (parameters.signMode === 'KMS') {
+    formData.append('certType', 'KMS');
+    formData.append('kmsKeyId', parameters.kmsKeyId);
+    formData.append('kmsSignatureAlgorithm', parameters.kmsSignatureAlgorithm);
+    if (parameters.certFile) {
+      formData.append('certFile', parameters.certFile);
+    }
   } else {
     formData.append('certType', parameters.certType);
     formData.append('password', parameters.password);

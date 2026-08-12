@@ -40,6 +40,7 @@ const BASE_NO_LOGIN_CONFIG: AppConfig = {
   enableAnalytics: true,
   appVersion: '2.7.3',
   serverCertificateEnabled: false,
+  kmsSigningEnabled: false,
   enableAlphaFunctionality: false,
   serverPort: 8080,
   premiumEnabled: false,
@@ -189,4 +190,3 @@ export function getSimulatedLicenseInfo(): LicenseInfo | null {
 }
 
 export const DEV_TESTING_ENABLED = DEV_TESTING_MODE;
-

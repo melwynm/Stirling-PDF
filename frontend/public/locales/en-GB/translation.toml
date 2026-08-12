@@ -2043,10 +2043,15 @@ progressions = "Progressions: 3n, 4n+1"
 [certSign]
 chooseCertificate = "Choose Certificate File"
 chooseJksFile = "Choose JKS File"
+chooseKmsCertificate = "Choose KMS Certificate Chain"
 chooseP12File = "Choose PKCS12 File"
 choosePfxFile = "Choose PFX File"
 choosePrivateKey = "Choose Private Key File"
 filenamePrefix = "signed"
+kmsAlgorithm = "KMS Signature Algorithm"
+kmsCertMessage = "Using configured KMS signer - upload the signer certificate chain only"
+kmsKeyId = "KMS Key ID"
+kmsKeyIdPlaceholder = "Optional key alias or identifier"
 location = "Location"
 logoTitle = "Logo"
 name = "Name"
@@ -2057,7 +2062,7 @@ passwordOptional = "Leave empty if no password"
 reason = "Reason"
 serverCertMessage = "Using server certificate - no files or password required"
 showLogo = "Show Logo"
-tags = "authenticate,PEM,P12,official,encrypt,sign,certificate,PKCS12,JKS,server,manual,auto"
+tags = "authenticate,PEM,P12,official,encrypt,sign,certificate,PKCS12,JKS,server,manual,auto,KMS,PAdES"
 title = "Certificate Signing"
 
 [certSign.appearance]
@@ -2129,6 +2134,11 @@ use = "Use when: you need speed and consistent internal identity across reviews 
 [certSign.signMode.tooltip.header]
 title = "About PDF Signatures"
 
+[certSign.signMode.tooltip.kms]
+text = "Creates an embedded PAdES signature using a configured remote signer, so the private key stays in KMS or an HSM."
+title = "KMS - Managed private key"
+use = "Use for: enterprise keys, cloud KMS, hardware-backed signing, and strict key custody."
+
 [certSign.signMode.tooltip.manual]
 text = "Use your own certificate files for brand-aligned identity. Can display <b>Trusted</b> when your CA/chain is recognised."
 title = "Manual - Bring your certificate"
@@ -2139,7 +2149,7 @@ text = "Both modes seal the document (any edits are flagged as tampering) and re
 title = "How signatures work"
 
 [certSign.signMode.tooltip.rule]
-text = "Need recipient <b>Trusted</b> status? <b>Manual</b>. Need a fast, tamper-evident seal and audit trail with no setup? <b>Auto</b>."
+text = "Need recipient <b>Trusted</b> status? <b>Manual</b>. Need a fast, tamper-evident seal and audit trail with no setup? <b>Auto</b>. Need private-key custody outside Stirling-PDF? <b>KMS</b>."
 title = "Rule of thumb"
 
 [certSign.tooltip.header]
@@ -2154,12 +2164,12 @@ text = "This tool lets you check if your PDFs are digitally signed and add new d
 title = "What can this tool do?"
 
 [certSign.tooltip.signing]
-bullet1 = "Supports PEM, PKCS12, JKS, and server certificate formats"
+bullet1 = "Supports PEM, PKCS12, JKS, server certificate, and KMS signing modes"
 bullet2 = "Option to show or hide signature on the PDF"
 bullet3 = "Add reason, location, and signer name"
 bullet4 = "Choose which page to place visible signatures"
 bullet5 = "Use server certificate for simple 'Sign with Stirling-PDF' option"
-text = "To sign a PDF, you need a digital certificate (like PEM, PKCS12, or JKS). You can choose to make the signature visible on the document or keep it invisible for security only."
+text = "To sign a PDF, you need a digital certificate (like PEM, PKCS12, JKS, or a configured KMS signer). You can choose to make the signature visible on the document or keep it invisible for security only."
 title = "Adding Signatures"
 
 [certSign.tooltip.validation]
@@ -3536,7 +3546,7 @@ title = "Booklet Imposition"
 
 [home.certSign]
 desc = "Signs a PDF with a Certificate/Key (PEM/P12)"
-tags = "authenticate,PEM,P12,official,encrypt,sign,certificate,PKCS12,JKS,server,manual,auto,digital certificate,certificate signature,PKI,cryptographic signature,trusted signature"
+tags = "authenticate,PEM,P12,official,encrypt,sign,certificate,PKCS12,JKS,server,manual,auto,KMS,PAdES,digital certificate,certificate signature,PKI,cryptographic signature,trusted signature"
 title = "Sign with Certificate"
 
 [home.changeMetadata]

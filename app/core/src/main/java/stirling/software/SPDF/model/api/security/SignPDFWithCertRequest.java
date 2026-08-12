@@ -15,7 +15,7 @@ public class SignPDFWithCertRequest extends PDFFile {
 
     @Schema(
             description = "The type of the digital certificate",
-            allowableValues = {"PEM", "PKCS12", "PFX", "JKS", "SERVER"},
+            allowableValues = {"PEM", "PKCS12", "PFX", "JKS", "SERVER", "KMS"},
             requiredMode = Schema.RequiredMode.REQUIRED)
     private String certType;
 
@@ -41,6 +41,15 @@ public class SignPDFWithCertRequest extends PDFFile {
 
     @Schema(description = "The password for the keystore or the private key", format = "password")
     private String password;
+
+    @Schema(description = "KMS key identifier to pass to the configured KMS signing bridge")
+    private String kmsKeyId;
+
+    @Schema(
+            description = "KMS signature algorithm",
+            allowableValues = {"SHA256_WITH_RSA", "SHA256_WITH_ECDSA"},
+            defaultValue = "SHA256_WITH_RSA")
+    private String kmsSignatureAlgorithm;
 
     @Schema(
             description = "Whether to visually show the signature in the PDF file",

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Stack, Button } from "@mantine/core";
 import { CertSignParameters } from "@app/hooks/tools/certSign/useCertSignParameters";
 import { useAppConfig } from "@app/contexts/AppConfigContext";
@@ -11,11 +12,17 @@ interface CertificateTypeSettingsProps {
 const CertificateTypeSettings = ({ parameters, onParameterChange, disabled = false }: CertificateTypeSettingsProps) => {
   const { config } = useAppConfig();
   const isServerCertificateEnabled = config?.serverCertificateEnabled ?? false;
+  const isKmsSigningEnabled = config?.kmsSigningEnabled ?? false;
 
-  // Reset to MANUAL if AUTO is selected but feature is disabled
-  if (parameters.signMode === 'AUTO' && !isServerCertificateEnabled) {
-    onParameterChange('signMode', 'MANUAL');
-  }
+  useEffect(() => {
+    if (parameters.signMode === 'AUTO' && !isServerCertificateEnabled) {
+      onParameterChange('signMode', 'MANUAL');
+      return;
+    }
+    if (parameters.signMode === 'KMS' && !isKmsSigningEnabled) {
+      onParameterChange('signMode', 'MANUAL');
+    }
+  }, [isKmsSigningEnabled, isServerCertificateEnabled, onParameterChange, parameters.signMode]);
 
   return (
     <Stack gap="md">
@@ -25,8 +32,8 @@ const CertificateTypeSettings = ({ parameters, onParameterChange, disabled = fal
           color={parameters.signMode === 'MANUAL' ? 'blue' : 'var(--text-muted)'}
           onClick={() => {
             onParameterChange('signMode', 'MANUAL');
-            // Reset cert type when switching to manual
-            if (parameters.signMode === 'AUTO') {
+            // Reset cert type when switching to manual from managed modes
+            if (parameters.signMode === 'AUTO' || parameters.signMode === 'KMS') {
               onParameterChange('certType', '');
             }
           }}
@@ -51,6 +58,22 @@ const CertificateTypeSettings = ({ parameters, onParameterChange, disabled = fal
           >
             <div style={{ textAlign: 'center', lineHeight: '1.1', fontSize: '11px' }}>
               Auto (server)
+            </div>
+          </Button>
+        )}
+        {isKmsSigningEnabled && (
+          <Button
+            variant={parameters.signMode === 'KMS' ? 'filled' : 'outline'}
+            color={parameters.signMode === 'KMS' ? 'teal' : 'var(--text-muted)'}
+            onClick={() => {
+              onParameterChange('signMode', 'KMS');
+              onParameterChange('certType', '');
+            }}
+            disabled={disabled}
+            style={{ flex: 1, height: 'auto', minHeight: '40px', fontSize: '11px' }}
+          >
+            <div style={{ textAlign: 'center', lineHeight: '1.1', fontSize: '11px' }}>
+              KMS
             </div>
           </Button>
         )}

@@ -28,8 +28,15 @@ export const useSignModeTips = (): TooltipContent => {
         ]
       },
       {
+        title: t("certSign.signMode.tooltip.kms.title", "KMS - Managed private key"),
+        description: t("certSign.signMode.tooltip.kms.text", "Creates an embedded PAdES signature using a configured remote signer, so the private key stays in KMS or an HSM."),
+        bullets: [
+          t("certSign.signMode.tooltip.kms.use", "Use for: enterprise keys, cloud KMS, hardware-backed signing, and strict key custody.")
+        ]
+      },
+      {
         title: t("certSign.signMode.tooltip.rule.title", "Rule of thumb"),
-        description: t("certSign.signMode.tooltip.rule.text", "Need recipient <b>Trusted</b> status? <b>Manual</b>. Need a fast, tamper-evident seal and audit trail with no setup? <b>Auto</b>.")
+        description: t("certSign.signMode.tooltip.rule.text", "Need recipient <b>Trusted</b> status? <b>Manual</b>. Need a fast, tamper-evident seal and audit trail with no setup? <b>Auto</b>. Need private-key custody outside Stirling-PDF? <b>KMS</b>.")
       }
     ]
   };
