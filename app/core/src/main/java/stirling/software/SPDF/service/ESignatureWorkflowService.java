@@ -102,6 +102,7 @@ public class ESignatureWorkflowService {
     private final ObjectMapper objectMapper;
     private final ESignaturePdfService pdfService;
     private final SigningAnchorService anchorService;
+    private final ESignatureWorkflowMigrationService migrationService;
     private final ESignatureWebhookService webhookService;
     private final Map<String, SigningNotificationProvider> notificationProviders;
     private final SecureRandom secureRandom = new SecureRandom();
@@ -121,6 +122,7 @@ public class ESignatureWorkflowService {
                         "requests"),
                 pdfService,
                 new SigningAnchorService(),
+                new ESignatureWorkflowMigrationService(),
                 webhookService,
                 notificationProviders);
     }
@@ -131,13 +133,21 @@ public class ESignatureWorkflowService {
                 requestsPath,
                 new ESignaturePdfService(),
                 new SigningAnchorService(),
+                new ESignatureWorkflowMigrationService(),
                 null,
                 List.of());
     }
 
     ESignatureWorkflowService(
             ObjectMapper objectMapper, Path requestsPath, ESignaturePdfService pdfService) {
-        this(objectMapper, requestsPath, pdfService, new SigningAnchorService(), null, List.of());
+        this(
+                objectMapper,
+                requestsPath,
+                pdfService,
+                new SigningAnchorService(),
+                new ESignatureWorkflowMigrationService(),
+                null,
+                List.of());
     }
 
     ESignatureWorkflowService(
@@ -150,6 +160,7 @@ public class ESignatureWorkflowService {
                 requestsPath,
                 pdfService,
                 new SigningAnchorService(),
+                new ESignatureWorkflowMigrationService(),
                 webhookService,
                 List.of());
     }
@@ -165,6 +176,7 @@ public class ESignatureWorkflowService {
                 requestsPath,
                 pdfService,
                 new SigningAnchorService(),
+                new ESignatureWorkflowMigrationService(),
                 webhookService,
                 notificationProviders);
     }
@@ -174,12 +186,14 @@ public class ESignatureWorkflowService {
             Path requestsPath,
             ESignaturePdfService pdfService,
             SigningAnchorService anchorService,
+            ESignatureWorkflowMigrationService migrationService,
             ESignatureWebhookService webhookService,
             List<SigningNotificationProvider> notificationProviders) {
         this.objectMapper = objectMapper;
         this.requestsPath = requestsPath;
         this.pdfService = pdfService;
         this.anchorService = anchorService;
+        this.migrationService = migrationService;
         this.webhookService = webhookService;
         this.notificationProviders =
                 notificationProviders.stream()
@@ -1026,29 +1040,8 @@ public class ESignatureWorkflowService {
     }
 
     private ESignatureWorkflow readWorkflow(Path metadataPath) throws IOException {
-        ESignatureWorkflow workflow =
-                objectMapper.readValue(metadataPath.toFile(), ESignatureWorkflow.class);
-        if (workflow.getModelVersion() < 1) {
-            workflow.setModelVersion(ESignatureWorkflow.CURRENT_MODEL_VERSION);
-        }
-        if (workflow.getRecipients() == null) {
-            workflow.setRecipients(new ArrayList<>());
-        }
-        for (SigningRecipient recipient : workflow.getRecipients()) {
-            if (recipient.getAuthentication() == null) {
-                recipient.setAuthentication(new Authentication());
-            }
-        }
-        if (workflow.getFields() == null) {
-            workflow.setFields(new ArrayList<>());
-        }
-        if (workflow.getAuditTrail() == null) {
-            workflow.setAuditTrail(new ArrayList<>());
-        }
-        if (workflow.getWebhookDeliveries() == null) {
-            workflow.setWebhookDeliveries(new ArrayList<>());
-        }
-        return workflow;
+        return migrationService.migrate(
+                objectMapper.readValue(metadataPath.toFile(), ESignatureWorkflow.class));
     }
 
     private void saveWorkflow(ESignatureWorkflow workflow) throws IOException {
