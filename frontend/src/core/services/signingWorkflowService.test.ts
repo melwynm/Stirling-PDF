@@ -18,6 +18,7 @@ describe('signingWorkflowService', () => {
           id: 'recipient-1',
           name: 'Ada Lovelace',
           email: 'ada@example.com',
+          deliveryChannel: 'email',
           role: 'signer',
           signingOrder: 1,
           authenticationMethod: 'accessCode',

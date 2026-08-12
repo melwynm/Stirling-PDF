@@ -63,9 +63,12 @@ import stirling.software.SPDF.model.signing.SigningModelValidator;
 import stirling.software.SPDF.model.signing.SigningModelValidator.ValidationIssue;
 import stirling.software.SPDF.model.signing.SigningRecipient;
 import stirling.software.SPDF.model.signing.SigningRecipient.Authentication;
+import stirling.software.SPDF.model.signing.SigningRecipient.DeliveryChannel;
 import stirling.software.SPDF.model.signing.SigningRecipient.Method;
 import stirling.software.SPDF.model.signing.SigningRecipient.Status;
 import stirling.software.common.configuration.InstallationPathConfig;
+import stirling.software.common.service.SigningNotificationProvider;
+import stirling.software.common.service.SigningNotificationProvider.SigningNotificationMessage;
 import stirling.software.common.util.RegexPatternUtils;
 
 import tools.jackson.databind.ObjectMapper;
@@ -82,12 +85,14 @@ public class ESignatureWorkflowService {
     private static final Duration DEFAULT_RETENTION_DURATION = Duration.ofDays(365);
     private static final Duration AUTHENTICATION_LOCK_DURATION = Duration.ofMinutes(15);
     private static final int MAX_WEBHOOK_ATTEMPTS = 8;
+    private static final int MAX_NOTIFICATION_ATTEMPTS = 3;
     private static final Pattern SAFE_ID_PATTERN = Pattern.compile("^[a-zA-Z0-9-]+$");
     private static final Pattern PDF_EXTENSION_PATTERN = Pattern.compile("(?i).*\\.pdf$");
 
     private final ObjectMapper objectMapper;
     private final ESignaturePdfService pdfService;
     private final ESignatureWebhookService webhookService;
+    private final Map<String, SigningNotificationProvider> notificationProviders;
     private final SecureRandom secureRandom = new SecureRandom();
     private final Path requestsPath;
 
@@ -95,7 +100,8 @@ public class ESignatureWorkflowService {
     public ESignatureWorkflowService(
             ObjectMapper objectMapper,
             ESignaturePdfService pdfService,
-            ESignatureWebhookService webhookService) {
+            ESignatureWebhookService webhookService,
+            List<SigningNotificationProvider> notificationProviders) {
         this(
                 objectMapper,
                 Paths.get(
@@ -103,16 +109,17 @@ public class ESignatureWorkflowService {
                         "e-signature-workflows",
                         "requests"),
                 pdfService,
-                webhookService);
+                webhookService,
+                notificationProviders);
     }
 
     ESignatureWorkflowService(ObjectMapper objectMapper, Path requestsPath) {
-        this(objectMapper, requestsPath, new ESignaturePdfService(), null);
+        this(objectMapper, requestsPath, new ESignaturePdfService(), null, List.of());
     }
 
     ESignatureWorkflowService(
             ObjectMapper objectMapper, Path requestsPath, ESignaturePdfService pdfService) {
-        this(objectMapper, requestsPath, pdfService, null);
+        this(objectMapper, requestsPath, pdfService, null, List.of());
     }
 
     ESignatureWorkflowService(
@@ -120,10 +127,26 @@ public class ESignatureWorkflowService {
             Path requestsPath,
             ESignaturePdfService pdfService,
             ESignatureWebhookService webhookService) {
+        this(objectMapper, requestsPath, pdfService, webhookService, List.of());
+    }
+
+    ESignatureWorkflowService(
+            ObjectMapper objectMapper,
+            Path requestsPath,
+            ESignaturePdfService pdfService,
+            ESignatureWebhookService webhookService,
+            List<SigningNotificationProvider> notificationProviders) {
         this.objectMapper = objectMapper;
         this.requestsPath = requestsPath;
         this.pdfService = pdfService;
         this.webhookService = webhookService;
+        this.notificationProviders =
+                notificationProviders.stream()
+                        .collect(
+                                java.util.stream.Collectors.toUnmodifiableMap(
+                                        provider -> provider.channel().toLowerCase(Locale.ROOT),
+                                        provider -> provider,
+                                        (first, ignored) -> first));
     }
 
     public ESignatureRequestView createRequest(
@@ -168,6 +191,11 @@ public class ESignatureWorkflowService {
             recipient.setId(requestedOrGeneratedId(recipientRequest.getId(), "recipient"));
             recipient.setName(recipientRequest.getName().trim());
             recipient.setEmail(recipientRequest.getEmail().trim().toLowerCase(Locale.ROOT));
+            recipient.setPhoneNumber(recipientRequest.getPhoneNumber());
+            recipient.setDeliveryChannel(
+                    recipientRequest.getDeliveryChannel() == null
+                            ? DeliveryChannel.EMAIL
+                            : recipientRequest.getDeliveryChannel());
             recipient.setRole(recipientRequest.getRole());
             recipient.setSigningOrder(
                     recipientRequest.getSigningOrder() == null
@@ -1032,6 +1060,8 @@ public class ESignatureWorkflowService {
         notification.setRecipientId(recipient.getId());
         notification.setRecipientName(recipient.getName());
         notification.setRecipientEmail(recipient.getEmail());
+        notification.setRecipientPhone(recipient.getPhoneNumber());
+        notification.setDeliveryChannel(recipient.getDeliveryChannel().value());
         notification.setSubject(
                 ("signature-reminder".equals(eventType) ? "Reminder: " : "")
                         + "Signature requested: "
@@ -1040,6 +1070,8 @@ public class ESignatureWorkflowService {
         notification.setSigningUrl(signingUrl);
         notification.setToken(signingToken);
         notification.setEventType(eventType);
+        dispatchNotification(notification);
+        auditNotificationDelivery(workflow, recipient.getId(), notification);
         return notification;
     }
 
@@ -1056,6 +1088,8 @@ public class ESignatureWorkflowService {
             requesterCopy.setDocumentUrl(
                     "/api/v1/security/e-sign/requests/" + workflow.getId() + "/download");
             requesterCopy.setEventType("signature-completed");
+            dispatchNotification(requesterCopy);
+            auditNotificationDelivery(workflow, null, requesterCopy);
             notifications.add(requesterCopy);
         }
         for (SigningRecipient recipient : workflow.getRecipients()) {
@@ -1072,6 +1106,8 @@ public class ESignatureWorkflowService {
             copy.setRecipientId(recipient.getId());
             copy.setRecipientName(recipient.getName());
             copy.setRecipientEmail(recipient.getEmail());
+            copy.setRecipientPhone(recipient.getPhoneNumber());
+            copy.setDeliveryChannel(recipient.getDeliveryChannel().value());
             copy.setSubject("Completed: " + workflow.getTitle());
             copy.setMessage("The completed document is ready.");
             copy.setDocumentUrl(
@@ -1080,9 +1116,93 @@ public class ESignatureWorkflowService {
                             : documentPath);
             copy.setToken(token);
             copy.setEventType("signature-completed");
+            dispatchNotification(copy);
+            auditNotificationDelivery(workflow, recipient.getId(), copy);
             notifications.add(copy);
         }
         return notifications;
+    }
+
+    private void dispatchNotification(ESignatureNotification notification) {
+        String channel = defaultIfBlank(notification.getDeliveryChannel(), "email");
+        SigningNotificationProvider provider =
+                notificationProviders.get(channel.toLowerCase(Locale.ROOT));
+        if (provider == null) {
+            notification.setDeliveryStatus("UNAVAILABLE");
+            notification.setDeliveryError("No " + channel + " notification provider is configured");
+            return;
+        }
+        String destination =
+                "sms".equalsIgnoreCase(channel)
+                        ? notification.getRecipientPhone()
+                        : notification.getRecipientEmail();
+        String actionUrl =
+                StringUtils.hasText(notification.getSigningUrl())
+                        ? notification.getSigningUrl()
+                        : notification.getDocumentUrl();
+        String body = defaultIfBlank(notification.getMessage(), "");
+        if (StringUtils.hasText(actionUrl)) {
+            body = body + System.lineSeparator() + System.lineSeparator() + actionUrl;
+        }
+        SigningNotificationMessage message =
+                new SigningNotificationMessage(
+                        destination,
+                        notification.getRecipientName(),
+                        notification.getSubject(),
+                        body);
+        for (int attempt = 1; attempt <= MAX_NOTIFICATION_ATTEMPTS; attempt++) {
+            notification.setDeliveryAttemptCount(attempt);
+            try {
+                provider.send(message);
+                notification.setDeliveryStatus("DELIVERED");
+                notification.setDeliveryError(null);
+                return;
+            } catch (Exception e) {
+                notification.setDeliveryStatus("FAILED");
+                notification.setDeliveryError(truncate(e.getMessage(), 500));
+                if (attempt == MAX_NOTIFICATION_ATTEMPTS) {
+                    log.warn(
+                            "Unable to deliver {} notification for signing request {} after {} attempts",
+                            channel,
+                            notification.getRequestId(),
+                            attempt,
+                            e);
+                }
+            }
+        }
+    }
+
+    private void auditNotificationDelivery(
+            ESignatureWorkflow workflow, String recipientId, ESignatureNotification notification) {
+        boolean delivered = "DELIVERED".equals(notification.getDeliveryStatus());
+        Map<String, String> details = new LinkedHashMap<>();
+        details.put("channel", defaultIfBlank(notification.getDeliveryChannel(), "email"));
+        details.put("eventType", defaultIfBlank(notification.getEventType(), "notification"));
+        details.put("status", defaultIfBlank(notification.getDeliveryStatus(), "UNKNOWN"));
+        details.put("attemptCount", String.valueOf(notification.getDeliveryAttemptCount()));
+        if (StringUtils.hasText(notification.getDeliveryError())) {
+            details.put("error", notification.getDeliveryError());
+        }
+        addAudit(
+                workflow,
+                delivered
+                        ? AuditEventType.NOTIFICATION_DELIVERED
+                        : AuditEventType.NOTIFICATION_DELIVERY_FAILED,
+                recipientId,
+                ActorContext.system(),
+                delivered ? "Signing notification delivered" : "Signing notification failed",
+                details);
+    }
+
+    @Scheduled(fixedDelay = 60_000, initialDelay = 60_000)
+    public void sendScheduledReminders() {
+        try {
+            ESignatureReminderRequest request = new ESignatureReminderRequest();
+            request.setOnlyDue(true);
+            sendDueReminders(request, ActorContext.system());
+        } catch (IOException | RuntimeException e) {
+            log.warn("Unable to process scheduled e-signature reminders", e);
+        }
     }
 
     private String generateToken() {
@@ -1159,6 +1279,8 @@ public class ESignatureWorkflowService {
         view.setId(recipient.getId());
         view.setName(recipient.getName());
         view.setEmail(recipient.getEmail());
+        view.setPhoneNumber(recipient.getPhoneNumber());
+        view.setDeliveryChannel(recipient.getDeliveryChannel());
         view.setRole(recipient.getRole());
         view.setSigningOrder(recipient.getSigningOrder());
         Authentication authentication = recipient.getAuthentication();
@@ -1380,6 +1502,19 @@ public class ESignatureWorkflowService {
                             .matches()) {
                 throw new ResponseStatusException(
                         HttpStatus.BAD_REQUEST, "Recipient email is invalid");
+            }
+            DeliveryChannel deliveryChannel =
+                    recipient.getDeliveryChannel() == null
+                            ? DeliveryChannel.EMAIL
+                            : recipient.getDeliveryChannel();
+            if (deliveryChannel == DeliveryChannel.SMS
+                    && (!StringUtils.hasText(recipient.getPhoneNumber())
+                            || !recipient
+                                    .getPhoneNumber()
+                                    .trim()
+                                    .matches("^\\+[1-9][0-9]{7,14}$"))) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "SMS recipient phone number must use E.164 format");
             }
             Method authenticationMethod =
                     recipient.getAuthenticationMethod() == null

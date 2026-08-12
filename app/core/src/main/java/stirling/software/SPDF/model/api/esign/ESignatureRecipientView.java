@@ -7,6 +7,7 @@ import java.util.Map;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import stirling.software.SPDF.model.signing.SigningRecipient.DeliveryChannel;
 import stirling.software.SPDF.model.signing.SigningRecipient.Method;
 import stirling.software.SPDF.model.signing.SigningRecipient.Role;
 import stirling.software.SPDF.model.signing.SigningRecipient.Status;
@@ -17,6 +18,8 @@ public class ESignatureRecipientView {
     private String id;
     private String name;
     private String email;
+    private String phoneNumber;
+    private DeliveryChannel deliveryChannel;
     private Role role;
     private int signingOrder;
     private Method authenticationMethod;

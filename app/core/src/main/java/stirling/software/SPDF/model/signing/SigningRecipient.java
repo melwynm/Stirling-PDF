@@ -18,6 +18,8 @@ public class SigningRecipient {
     private String id;
     private String name;
     private String email;
+    private String phoneNumber;
+    private DeliveryChannel deliveryChannel = DeliveryChannel.EMAIL;
     private Role role = Role.SIGNER;
     private int signingOrder = 1;
     private Authentication authentication = new Authentication();
@@ -79,6 +81,35 @@ public class SigningRecipient {
         SIGNED,
         DECLINED,
         EXPIRED
+    }
+
+    public enum DeliveryChannel {
+        EMAIL("email"),
+        SMS("sms");
+
+        private final String value;
+
+        DeliveryChannel(String value) {
+            this.value = value;
+        }
+
+        @JsonValue
+        public String value() {
+            return value;
+        }
+
+        @JsonCreator
+        public static DeliveryChannel fromValue(String value) {
+            if (value == null || value.isBlank()) {
+                return EMAIL;
+            }
+            for (DeliveryChannel channel : values()) {
+                if (channel.value.equalsIgnoreCase(value.trim())) {
+                    return channel;
+                }
+            }
+            throw new IllegalArgumentException("Unknown signing delivery channel: " + value);
+        }
     }
 
     @Data

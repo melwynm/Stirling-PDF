@@ -138,6 +138,13 @@ mail:
   sslTrust: "" # optional trusted host override, e.g. "smtp.example.com" or "*"; defaults to "*" (trust all) when empty
   sslCheckServerIdentity: false # enable hostname verification when using SSL/TLS
 
+signing:
+  notifications:
+    sms:
+      enabled: false # send signature request SMS messages through an HTTP gateway
+      endpoint: "" # HTTPS endpoint accepting JSON fields: to, recipientName, subject, and body
+      authorizationHeader: "" # optional complete Authorization header value
+
 telegram:
   enabled: false # set to 'true' to enable Telegram bot integration
   botToken: "" # Telegram bot token obtained from BotFather

@@ -2620,6 +2620,7 @@ update = "Update password"
 [config.account.upgrade]
 description = "Link your account to preserve your history and access more features!"
 email = "Email"
+deliveryChannel = "Delivery"
 emailPassword = "or enter your email & password"
 emailPlaceholder = "Enter your email"
 linkWith = "Link with"
@@ -6230,6 +6231,7 @@ fieldCount = "{{count}} fields"
 fieldRecipient = "Recipient"
 message = "Message"
 name = "Name"
+phoneNumber = "Phone number"
 order = "Routing order"
 recipient = "Recipient"
 reminderInterval = "Reminder interval"
@@ -6246,10 +6248,15 @@ unnamedRecipient = "Unnamed recipient"
 accessCode = "Access code"
 emailLink = "Email link"
 
+[requestSignatures.deliveryChannels]
+email = "Email"
+sms = "SMS"
+
 [requestSignatures.errors]
 accessCode = "Use at least 6 characters"
 create = "Unable to create the signature request"
 email = "Enter a valid email address"
+phone = "Enter a phone number in E.164 format"
 
 [requestSignatures.intervals]
 daily = "Every day"

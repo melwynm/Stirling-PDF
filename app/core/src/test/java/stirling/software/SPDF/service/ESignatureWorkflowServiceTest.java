@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 import java.io.ByteArrayOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -36,9 +37,12 @@ import stirling.software.SPDF.model.esign.ESignatureWorkflow.WebhookDeliveryStat
 import stirling.software.SPDF.model.esign.ESignatureWorkflow.WorkflowStatus;
 import stirling.software.SPDF.model.signing.SigningField;
 import stirling.software.SPDF.model.signing.SigningField.NormalizedBounds;
+import stirling.software.SPDF.model.signing.SigningRecipient.DeliveryChannel;
 import stirling.software.SPDF.model.signing.SigningRecipient.Method;
 import stirling.software.SPDF.model.signing.SigningRecipient.Status;
 import stirling.software.SPDF.service.ESignatureWorkflowService.ActorContext;
+import stirling.software.common.service.SigningNotificationProvider;
+import stirling.software.common.service.SigningNotificationProvider.SigningNotificationMessage;
 import stirling.software.common.service.SsrfProtectionService;
 
 import tools.jackson.databind.json.JsonMapper;
@@ -359,6 +363,57 @@ class ESignatureWorkflowServiceTest {
         assertEquals(1, processed.getFirst().getAttemptCount());
         assertNotNull(processed.getFirst().getNextAttemptAt());
         assertEquals(503, processed.getFirst().getLastStatusCode());
+    }
+
+    @Test
+    void deliversSigningLinksThroughTheSelectedProvider() throws Exception {
+        List<SigningNotificationMessage> sentMessages = new ArrayList<>();
+        SigningNotificationProvider smsProvider =
+                new SigningNotificationProvider() {
+                    @Override
+                    public String channel() {
+                        return "sms";
+                    }
+
+                    @Override
+                    public void send(SigningNotificationMessage message) {
+                        sentMessages.add(message);
+                    }
+                };
+        service =
+                new ESignatureWorkflowService(
+                        JsonMapper.builder().build(),
+                        tempDir,
+                        new ESignaturePdfService(),
+                        null,
+                        List.of(smsProvider));
+        ESignatureCreateRequest request = orderedCreateRequest();
+        ESignatureRecipientRequest first = request.getRecipients().getFirst();
+        first.setDeliveryChannel(DeliveryChannel.SMS);
+        first.setPhoneNumber("+23051234567");
+
+        ESignatureRequestView created = service.createRequest(pdfFile(), request, actor);
+        ESignatureActionResponse sent =
+                service.sendRequest(created.getId(), new ESignatureSendRequest(), actor);
+
+        assertEquals("DELIVERED", sent.getNotifications().getFirst().getDeliveryStatus());
+        assertEquals(1, sentMessages.size());
+        assertEquals("+23051234567", sentMessages.getFirst().destination());
+        assertTrue(sentMessages.getFirst().body().contains("/sign-request/"));
+    }
+
+    @Test
+    void rejectsInvalidSmsRecipientPhoneNumber() throws Exception {
+        ESignatureCreateRequest request = orderedCreateRequest();
+        request.getRecipients().getFirst().setDeliveryChannel(DeliveryChannel.SMS);
+        request.getRecipients().getFirst().setPhoneNumber("12345");
+
+        ResponseStatusException error =
+                assertThrows(
+                        ResponseStatusException.class,
+                        () -> service.createRequest(pdfFile(), request, actor));
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatusCode());
     }
 
     @Test

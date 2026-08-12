@@ -14,6 +14,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import stirling.software.common.model.ApplicationProperties;
+import stirling.software.common.service.SigningNotificationProvider;
+import stirling.software.common.service.SigningNotificationProvider.SigningNotificationMessage;
 import stirling.software.proprietary.security.model.api.Email;
 
 /**
@@ -25,10 +27,35 @@ import stirling.software.proprietary.security.model.api.Email;
 @Service
 @RequiredArgsConstructor
 @ConditionalOnProperty(value = "mail.enabled", havingValue = "true", matchIfMissing = false)
-public class EmailService {
+public class EmailService implements SigningNotificationProvider {
 
     private final JavaMailSender mailSender;
     private final ApplicationProperties applicationProperties;
+
+    @Override
+    public String channel() {
+        return "email";
+    }
+
+    @Override
+    public void send(SigningNotificationMessage notification) throws MessagingException {
+        sendSimpleMailNow(notification.destination(), notification.subject(), notification.body());
+    }
+
+    private void sendSimpleMailNow(String to, String subject, String body)
+            throws MessagingException {
+        if (to == null || to.trim().isEmpty()) {
+            throw new MessagingException("Invalid Addresses");
+        }
+        ApplicationProperties.Mail mailProperties = applicationProperties.getMail();
+        MimeMessage message = mailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(message, false);
+        helper.addTo(to);
+        helper.setSubject(subject);
+        helper.setText(body, false);
+        helper.setFrom(mailProperties.getFrom());
+        mailSender.send(message);
+    }
 
     /**
      * Sends an email with an attachment asynchronously. This method is annotated with @Async, which

@@ -1,6 +1,7 @@
 import apiClient from '@app/services/apiClient';
 import type {
   SigningAuthenticationMethod,
+  SigningDeliveryChannel,
   SigningField,
   SigningRecipient,
   SigningRecipientRole,
@@ -19,6 +20,8 @@ export interface SignatureRequestRecipientInput {
   id: string;
   name: string;
   email: string;
+  phoneNumber?: string;
+  deliveryChannel: SigningDeliveryChannel;
   role: SigningRecipientRole;
   signingOrder: number;
   authenticationMethod: SigningAuthenticationMethod;

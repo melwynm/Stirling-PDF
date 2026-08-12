@@ -64,6 +64,7 @@ public class ApplicationProperties {
     private AutomaticallyGenerated automaticallyGenerated = new AutomaticallyGenerated();
 
     private Mail mail = new Mail();
+    private Signing signing = new Signing();
     private Telegram telegram = new Telegram();
 
     private Premium premium = new Premium();
@@ -822,6 +823,23 @@ public class ApplicationProperties {
         private String sslTrust;
         // Enables hostname verification for TLS connections
         private Boolean sslCheckServerIdentity;
+    }
+
+    @Data
+    public static class Signing {
+        private Notifications notifications = new Notifications();
+
+        @Data
+        public static class Notifications {
+            private Sms sms = new Sms();
+
+            @Data
+            public static class Sms {
+                private boolean enabled;
+                private String endpoint;
+                @ToString.Exclude private String authorizationHeader;
+            }
+        }
     }
 
     /**

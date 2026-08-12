@@ -56,6 +56,8 @@ const newRecipient = (signingOrder: number): SignatureRequestRecipientInput => (
   id: createRecipientId(),
   name: '',
   email: '',
+  phoneNumber: '',
+  deliveryChannel: 'email',
   role: 'signer',
   signingOrder,
   authenticationMethod: 'emailLink',
@@ -153,6 +155,10 @@ const RequestSignatures = ({ onError }: BaseToolProps) => {
       recipient.authenticationMethod === 'accessCode'
       && (recipient.accessCode?.length ?? 0) < 6
     ));
+    const hasInvalidPhone = recipients.some(recipient => (
+      recipient.deliveryChannel === 'sms'
+      && !/^\+[1-9][0-9]{7,14}$/.test(recipient.phoneNumber?.trim() ?? '')
+    ));
     const hasInvalidRequesterEmail = Boolean(
       requesterEmail.trim()
       && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(requesterEmail.trim()),
@@ -161,6 +167,7 @@ const RequestSignatures = ({ onError }: BaseToolProps) => {
       modelIssues,
       hasInvalidEmail,
       hasInvalidAccessCode,
+      hasInvalidPhone,
       hasInvalidRequesterEmail,
     };
   }, [fields, recipients, requesterEmail]);
@@ -173,6 +180,7 @@ const RequestSignatures = ({ onError }: BaseToolProps) => {
     && validationIssues.modelIssues.length === 0
     && !validationIssues.hasInvalidEmail
     && !validationIssues.hasInvalidAccessCode
+    && !validationIssues.hasInvalidPhone
     && !validationIssues.hasInvalidRequesterEmail,
   );
 
@@ -261,6 +269,31 @@ const RequestSignatures = ({ onError }: BaseToolProps) => {
                 : undefined}
               required
             />
+            <Select
+              label={t('requestSignatures.deliveryChannel', 'Delivery')}
+              value={recipient.deliveryChannel}
+              data={[
+                { value: 'email', label: t('requestSignatures.deliveryChannels.email', 'Email') },
+                { value: 'sms', label: t('requestSignatures.deliveryChannels.sms', 'SMS') },
+              ]}
+              onChange={value => updateRecipient(index, {
+                deliveryChannel: (value ?? 'email') as SignatureRequestRecipientInput['deliveryChannel'],
+              })}
+              allowDeselect={false}
+            />
+            {recipient.deliveryChannel === 'sms' && (
+              <TextInput
+                type="tel"
+                label={t('requestSignatures.phoneNumber', 'Phone number')}
+                placeholder="+23051234567"
+                value={recipient.phoneNumber ?? ''}
+                onChange={event => updateRecipient(index, { phoneNumber: event.currentTarget.value })}
+                error={recipient.phoneNumber && !/^\+[1-9][0-9]{7,14}$/.test(recipient.phoneNumber.trim())
+                  ? t('requestSignatures.errors.phone', 'Enter a phone number in E.164 format')
+                  : undefined}
+                required
+              />
+            )}
             <Select
               label={t('requestSignatures.role', 'Role')}
               value={recipient.role}

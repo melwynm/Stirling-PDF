@@ -2,6 +2,7 @@ export const SIGNING_MODEL_VERSION = 1 as const;
 
 export type SigningRecipientRole = 'signer' | 'approver' | 'cc';
 export type SigningAuthenticationMethod = 'emailLink' | 'accessCode';
+export type SigningDeliveryChannel = 'email' | 'sms';
 export type SigningRecipientStatus =
   | 'PENDING'
   | 'SENT'
@@ -14,6 +15,8 @@ export interface SigningRecipient {
   id: string;
   name: string;
   email: string;
+  phoneNumber?: string;
+  deliveryChannel: SigningDeliveryChannel;
   role: SigningRecipientRole;
   signingOrder: number;
   authenticationMethod: SigningAuthenticationMethod;
