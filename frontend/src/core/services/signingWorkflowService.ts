@@ -43,6 +43,22 @@ export interface CreateSignatureRequestInput {
   fields: SigningField[];
 }
 
+export interface SignatureTemplateView {
+  id: string;
+  name: string;
+  description?: string;
+  originalFilename: string;
+  createdAt: string;
+  updatedAt: string;
+  defaults: CreateSignatureRequestInput;
+}
+
+export interface CreateSignatureTemplateInput {
+  name: string;
+  description?: string;
+  defaults: CreateSignatureRequestInput;
+}
+
 export interface SignatureRequestView {
   modelVersion: number;
   id: string;
@@ -83,6 +99,40 @@ export const createSignatureRequest = async (
     { headers: { 'Content-Type': 'multipart/form-data' } },
   );
   return response.data;
+};
+
+export const createSignatureTemplate = async (
+  file: File,
+  template: CreateSignatureTemplateInput,
+): Promise<SignatureTemplateView> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('template', JSON.stringify(template));
+  const response = await apiClient.post<SignatureTemplateView>(
+    '/api/v1/security/e-sign/templates',
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  );
+  return response.data;
+};
+
+export const listSignatureTemplates = async (): Promise<SignatureTemplateView[]> => {
+  const response = await apiClient.get<SignatureTemplateView[]>('/api/v1/security/e-sign/templates');
+  return response.data;
+};
+
+export const instantiateSignatureTemplate = async (
+  templateId: string,
+): Promise<SignatureRequestView> => {
+  const response = await apiClient.post<SignatureRequestView>(
+    `/api/v1/security/e-sign/templates/${templateId}/requests`,
+    {},
+  );
+  return response.data;
+};
+
+export const deleteSignatureTemplate = async (templateId: string): Promise<void> => {
+  await apiClient.delete(`/api/v1/security/e-sign/templates/${templateId}`);
 };
 
 export interface SignatureAuditEvent {

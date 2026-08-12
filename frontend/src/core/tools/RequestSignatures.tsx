@@ -6,6 +6,7 @@ import {
   Box,
   Button,
   Group,
+  Modal,
   NumberInput,
   PasswordInput,
   SegmentedControl,
@@ -32,6 +33,7 @@ import ShortTextRoundedIcon from '@mui/icons-material/ShortTextRounded';
 import { createToolSteps, ToolStepProvider } from '@app/components/tools/shared/ToolStep';
 import { Tooltip } from '@app/components/shared/Tooltip';
 import { SigningWorkflowDashboard } from '@app/components/signing/SigningWorkflowDashboard';
+import { SigningTemplateDashboard } from '@app/components/signing/SigningTemplateDashboard';
 import { useFileSelection } from '@app/contexts/FileContext';
 import {
   SIGNING_FIELD_DRAG_TYPE,
@@ -41,6 +43,8 @@ import { useEndpointEnabled } from '@app/hooks/useEndpointConfig';
 import { useNavigationActions } from '@app/contexts/NavigationContext';
 import {
   createSignatureRequest,
+  createSignatureTemplate,
+  type CreateSignatureRequestInput,
   type SignatureRequestRecipientInput,
   type SignatureRequestView,
 } from '@app/services/signingWorkflowService';
@@ -100,6 +104,8 @@ const RequestSignatures = ({ onError }: BaseToolProps) => {
   const [createdRequest, setCreatedRequest] = useState<SignatureRequestView | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [view, setView] = useState<string | null>('create');
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+  const [templateName, setTemplateName] = useState('');
 
   useEffect(() => {
     if (!selectedFile) return;
@@ -186,6 +192,29 @@ const RequestSignatures = ({ onError }: BaseToolProps) => {
     && !validationIssues.hasInvalidPhone
     && !validationIssues.hasInvalidRequesterEmail,
   );
+  const canSaveTemplate = canSubmit && recipients.every(recipient => recipient.authenticationMethod !== 'accessCode');
+
+  const buildRequest = (includeExpiry = true): CreateSignatureRequestInput => {
+    const expiresAt = includeExpiry && expiryEnabled
+      ? new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000).toISOString()
+      : undefined;
+    return {
+      title: title.trim(),
+      message: message.trim() || undefined,
+      requesterName: requesterName.trim() || undefined,
+      requesterEmail: requesterEmail.trim() || undefined,
+      expiresAt,
+      signingOrder: sequential,
+      remindersEnabled,
+      reminderIntervalHours,
+      recipients: recipients.map((recipient, index) => ({
+        ...recipient,
+        signingOrder: sequential ? recipient.signingOrder : index + 1,
+        accessCode: recipient.authenticationMethod === 'accessCode' ? recipient.accessCode : undefined,
+      })),
+      fields,
+    };
+  };
 
   const handleCreate = async () => {
     if (!selectedFile || !canSubmit) return;
@@ -193,33 +222,34 @@ const RequestSignatures = ({ onError }: BaseToolProps) => {
     setCreatedRequest(null);
     setSubmitError(null);
     try {
-      const expiresAt = expiryEnabled
-        ? new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000).toISOString()
-        : undefined;
-      const result = await createSignatureRequest(selectedFile, {
-        title: title.trim(),
-        message: message.trim() || undefined,
-        requesterName: requesterName.trim() || undefined,
-        requesterEmail: requesterEmail.trim() || undefined,
-        expiresAt,
-        signingOrder: sequential,
-        remindersEnabled,
-        reminderIntervalHours,
-        recipients: recipients.map((recipient, index) => ({
-          ...recipient,
-          signingOrder: sequential ? recipient.signingOrder : index + 1,
-          accessCode: recipient.authenticationMethod === 'accessCode'
-            ? recipient.accessCode
-            : undefined,
-        })),
-        fields,
-      });
+      const result = await createSignatureRequest(selectedFile, buildRequest());
       setCreatedRequest(result);
       markSaved();
     } catch (error) {
       const messageText = error instanceof Error
         ? error.message
         : t('requestSignatures.errors.create', 'Unable to create the signature request');
+      setSubmitError(messageText);
+      onError?.(messageText);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSaveTemplate = async () => {
+    if (!selectedFile || !canSubmit || !templateName.trim()) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await createSignatureTemplate(selectedFile, {
+        name: templateName.trim(),
+        defaults: buildRequest(false),
+      });
+      setTemplateDialogOpen(false);
+      setTemplateName('');
+      setView('templates');
+    } catch (error) {
+      const messageText = error instanceof Error ? error.message : t('requestSignatures.errors.template', 'Unable to save the template');
       setSubmitError(messageText);
       onError?.(messageText);
     } finally {
@@ -570,6 +600,7 @@ const RequestSignatures = ({ onError }: BaseToolProps) => {
         <Tabs.List grow>
           <Tabs.Tab value="create">{t('requestSignatures.views.create', 'Create')}</Tabs.Tab>
           <Tabs.Tab value="manage">{t('requestSignatures.views.manage', 'Manage')}</Tabs.Tab>
+          <Tabs.Tab value="templates">{t('requestSignatures.views.templates', 'Templates')}</Tabs.Tab>
         </Tabs.List>
         <Tabs.Panel value="create" pt="sm">
           <Stack gap="sm">
@@ -594,21 +625,34 @@ const RequestSignatures = ({ onError }: BaseToolProps) => {
               </Alert>
             )}
 
-            <Button
-              fullWidth
-              leftSection={<SaveOutlinedIcon fontSize="small" />}
-              loading={submitting}
-              disabled={!canSubmit}
-              onClick={handleCreate}
-            >
-              {t('requestSignatures.createDraft', 'Create draft')}
-            </Button>
+            {!canSaveTemplate && recipients.some(recipient => recipient.authenticationMethod === 'accessCode') && (
+              <Alert color="blue">{t('requestSignatures.templates.accessCodeHint', 'Templates cannot store access codes. Use email-link authentication or supply recipients through the API when creating a request from the template.')}</Alert>
+            )}
+
+            <Group grow>
+              <Button variant="default" disabled={!canSaveTemplate} onClick={() => {
+                setTemplateName(title.trim());
+                setTemplateDialogOpen(true);
+              }}>{t('requestSignatures.saveTemplate', 'Save as template')}</Button>
+              <Button leftSection={<SaveOutlinedIcon fontSize="small" />} loading={submitting} disabled={!canSubmit} onClick={handleCreate}>
+                {t('requestSignatures.createDraft', 'Create draft')}
+              </Button>
+            </Group>
           </Stack>
         </Tabs.Panel>
         <Tabs.Panel value="manage" pt="sm">
           <SigningWorkflowDashboard />
         </Tabs.Panel>
+        <Tabs.Panel value="templates" pt="sm">
+          <SigningTemplateDashboard />
+        </Tabs.Panel>
       </Tabs>
+      <Modal opened={templateDialogOpen} onClose={() => setTemplateDialogOpen(false)} title={t('requestSignatures.templates.save', 'Save template')}>
+        <Stack>
+          <TextInput label={t('requestSignatures.templates.name', 'Template name')} value={templateName} onChange={event => setTemplateName(event.currentTarget.value)} autoFocus />
+          <Button loading={submitting} disabled={!templateName.trim()} onClick={() => void handleSaveTemplate()}>{t('requestSignatures.templates.save', 'Save template')}</Button>
+        </Stack>
+      </Modal>
     </Stack>
   );
 };

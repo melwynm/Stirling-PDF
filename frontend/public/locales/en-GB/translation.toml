@@ -6289,6 +6289,7 @@ removeRecipient = "Remove recipient"
 requesterEmail = "Sender email"
 requesterName = "Sender name"
 role = "Role"
+saveTemplate = "Save as template"
 title = "Request title"
 unnamedRecipient = "Unnamed recipient"
 
@@ -6303,6 +6304,21 @@ sms = "SMS"
 [requestSignatures.views]
 create = "Create"
 manage = "Manage"
+templates = "Templates"
+
+[requestSignatures.templates]
+accessCodeHint = "Templates cannot store access codes. Use email-link authentication or supply recipients through the API when creating a request from the template."
+actions = "Actions"
+confirmDelete = "Delete this template?"
+createDraft = "Create draft"
+delete = "Delete template"
+empty = "No templates found"
+name = "Template name"
+recipients = "Recipients"
+refresh = "Refresh"
+save = "Save template"
+template = "Template"
+updated = "Updated"
 
 [requestSignatures.dashboard]
 actions = "Actions"
@@ -6330,6 +6346,7 @@ accessCode = "Use at least 6 characters"
 create = "Unable to create the signature request"
 email = "Enter a valid email address"
 phone = "Enter a phone number in E.164 format"
+template = "Unable to save the template"
 
 [requestSignatures.intervals]
 daily = "Every day"
