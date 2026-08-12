@@ -215,7 +215,7 @@ def test_cert_sign_tool_schema_advertises_kms_mode():
     input_schema = cast(dict[str, Any], cert_sign_tool["inputSchema"])
     cert_sign_schema = cast(dict[str, Any], input_schema["properties"])
 
-    assert "AWS KMS-compatible signer bridge" in cert_sign_tool["description"]
+    assert "KMS/HSM signer bridge" in cert_sign_tool["description"]
     assert "KMS" in cast(dict[str, Any], cert_sign_schema["sign_mode"])["enum"]
     assert "SHA256_WITH_ECDSA" in cast(dict[str, Any], cert_sign_schema["kms_signature_algorithm"])["enum"]
 

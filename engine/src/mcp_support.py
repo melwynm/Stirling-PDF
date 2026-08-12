@@ -2040,7 +2040,7 @@ class StirlingMcpToolRegistry:
                 name="stirling_cert_sign_pdf",
                 description=(
                     "Digitally sign a PDF with certificate material, a server certificate, "
-                    "or a configured AWS KMS-compatible signer bridge after explicit confirmation."
+                    "or a configured KMS/HSM signer bridge after explicit confirmation."
                 ),
                 input_model=CertSignPdfArgs,
             ),

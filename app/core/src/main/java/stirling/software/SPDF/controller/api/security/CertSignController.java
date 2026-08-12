@@ -3,7 +3,6 @@ package stirling.software.SPDF.controller.api.security;
 import java.awt.*;
 import java.beans.PropertyEditorSupport;
 import java.io.*;
-import java.nio.file.Files;
 import java.security.*;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
@@ -15,7 +14,6 @@ import java.util.Collection;
 import java.util.Hashtable;
 import java.util.List;
 
-import org.apache.commons.io.FileUtils;
 import org.apache.pdfbox.examples.signature.CreateSignatureBase;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
@@ -426,8 +424,6 @@ public class CertSignController {
     }
 
     abstract class VisibleCreateSignature extends CreateSignatureBase {
-        File logoFile;
-
         public VisibleCreateSignature(KeyStore keystore, char[] pin)
                 throws KeyStoreException,
                         UnrecoverableKeyException,
@@ -435,20 +431,17 @@ public class CertSignController {
                         IOException,
                         CertificateException {
             super(keystore, pin);
-            loadLogo();
         }
 
         public VisibleCreateSignature(Certificate[] certificateChain)
                 throws IOException, CertificateException {
             super(certificateChain);
-            loadLogo();
         }
 
-        private void loadLogo() throws IOException {
+        private byte[] loadLogo() throws IOException {
             ClassPathResource resource = new ClassPathResource("static/images/signature.png");
             try (InputStream is = resource.getInputStream()) {
-                logoFile = Files.createTempFile("signature", ".png").toFile();
-                FileUtils.copyInputStreamToFile(is, logoFile);
+                return is.readAllBytes();
             } catch (IOException e) {
                 log.error("Failed to load image signature file");
                 throw e;
@@ -503,7 +496,8 @@ public class CertSignController {
                         cs.setGraphicsStateParameters(extState);
                         cs.transform(Matrix.getScaleInstance(0.08f, 0.08f));
                         PDImageXObject img =
-                                PDImageXObject.createFromFileByExtension(logoFile, doc);
+                                PDImageXObject.createFromByteArray(
+                                        doc, loadLogo(), "signature.png");
                         cs.drawImage(img, 100, 0);
                         cs.restoreGraphicsState();
                     }

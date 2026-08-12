@@ -8,13 +8,27 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.security.KeyStore;
+import java.security.PrivateKey;
+import java.security.Signature;
+import java.security.cert.X509Certificate;
 
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
+import org.bouncycastle.asn1.DERNull;
+import org.bouncycastle.asn1.nist.NISTObjectIdentifiers;
+import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
+import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
+import org.bouncycastle.asn1.x509.DigestInfo;
+import org.bouncycastle.cms.CMSProcessableByteArray;
+import org.bouncycastle.cms.CMSSignedData;
+import org.bouncycastle.cms.SignerInformation;
+import org.bouncycastle.cms.jcajce.JcaSimpleSignerInfoVerifierBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -53,6 +67,8 @@ class CertSignControllerTest {
     private byte[] crtCertBytes;
     private byte[] cerCertBytes;
     private byte[] derCertBytes;
+    private PrivateKey kmsPrivateKey;
+    private X509Certificate kmsCertificate;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -74,6 +90,11 @@ class CertSignControllerTest {
             is.transferTo(baos);
             p12Bytes = baos.toByteArray();
         }
+        KeyStore kmsKeyStore = KeyStore.getInstance("PKCS12");
+        kmsKeyStore.load(new ByteArrayInputStream(p12Bytes), "password".toCharArray());
+        String kmsAlias = kmsKeyStore.aliases().nextElement();
+        kmsPrivateKey = (PrivateKey) kmsKeyStore.getKey(kmsAlias, "password".toCharArray());
+        kmsCertificate = (X509Certificate) kmsKeyStore.getCertificate(kmsAlias);
         ClassPathResource jksResource = new ClassPathResource("certs/test-cert.jks");
         try (InputStream is = jksResource.getInputStream();
                 ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
@@ -268,13 +289,16 @@ class CertSignControllerTest {
                         "fileInput", "test.pdf", MediaType.APPLICATION_PDF_VALUE, pdfBytes);
         MockMultipartFile certFile =
                 new MockMultipartFile(
-                        "certFile", "test-cert.pem", "application/x-pem-file", pemCertBytes);
+                        "certFile",
+                        "test-cert.der",
+                        "application/x-x509-ca-cert",
+                        kmsCertificate.getEncoded());
 
         when(kmsSignatureService.isEnabled()).thenReturn(true);
         when(kmsSignatureService.resolveAlgorithm("SHA256_WITH_RSA"))
                 .thenReturn(KmsSignatureAlgorithm.SHA256_WITH_RSA);
         when(kmsSignatureService.signDigest(any(KmsSigningRequest.class)))
-                .thenReturn(new byte[256]);
+                .thenAnswer(invocation -> signSha256RsaDigest(invocation.getArgument(0)));
 
         SignPDFWithCertRequest request = new SignPDFWithCertRequest();
         request.setFileInput(pdfFile);
@@ -295,10 +319,40 @@ class CertSignControllerTest {
         assertTrue(response.getBody().length > 0);
         try (PDDocument signedDocument = Loader.loadPDF(response.getBody())) {
             assertEquals(1, signedDocument.getSignatureDictionaries().size());
+            PDSignature pdfSignature = signedDocument.getSignatureDictionaries().get(0);
             assertEquals(
                     PDSignature.SUBFILTER_ETSI_CADES_DETACHED.getName(),
-                    signedDocument.getSignatureDictionaries().get(0).getSubFilter());
+                    pdfSignature.getSubFilter());
+
+            byte[] signedContent =
+                    pdfSignature.getSignedContent(new ByteArrayInputStream(response.getBody()));
+            byte[] cmsBytes =
+                    pdfSignature.getContents(new ByteArrayInputStream(response.getBody()));
+            CMSSignedData cms =
+                    new CMSSignedData(new CMSProcessableByteArray(signedContent), cmsBytes);
+            SignerInformation signerInformation =
+                    cms.getSignerInfos().getSigners().iterator().next();
+
+            assertTrue(
+                    signerInformation.verify(
+                            new JcaSimpleSignerInfoVerifierBuilder().build(kmsCertificate)));
+            assertNotNull(
+                    signerInformation
+                            .getSignedAttributes()
+                            .get(PKCSObjectIdentifiers.id_aa_signingCertificateV2));
         }
+    }
+
+    private byte[] signSha256RsaDigest(KmsSigningRequest request) throws Exception {
+        assertEquals(KmsSignatureAlgorithm.SHA256_WITH_RSA, request.algorithm());
+        DigestInfo digestInfo =
+                new DigestInfo(
+                        new AlgorithmIdentifier(NISTObjectIdentifiers.id_sha256, DERNull.INSTANCE),
+                        request.digest());
+        Signature signature = Signature.getInstance("NONEwithRSA");
+        signature.initSign(kmsPrivateKey);
+        signature.update(digestInfo.getEncoded());
+        return signature.sign();
     }
 
     @Test
