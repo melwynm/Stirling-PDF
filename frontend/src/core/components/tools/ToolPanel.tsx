@@ -5,6 +5,7 @@ import { usePreferences } from '@app/contexts/PreferencesContext';
 import ToolPicker from '@app/components/tools/ToolPicker';
 import SearchResults from '@app/components/tools/SearchResults';
 import ToolRenderer from '@app/components/tools/ToolRenderer';
+import ToolWorkspaceSwitcher from '@app/components/tools/workspace/ToolWorkspaceSwitcher';
 import ToolSearch from '@app/components/tools/toolPicker/ToolSearch';
 import { useSidebarContext } from "@app/contexts/SidebarContext";
 import rainbowStyles from '@app/styles/rainbow.module.css';
@@ -179,6 +180,7 @@ export default function ToolPanel() {
                   </div>
           ) : (
             <div className="flex-1 flex flex-col overflow-hidden">
+              <ToolWorkspaceSwitcher />
               <div className="flex-1 min-h-0 overflow-hidden">
                 <ScrollArea h="100%">
                   {selectedToolKey ? (

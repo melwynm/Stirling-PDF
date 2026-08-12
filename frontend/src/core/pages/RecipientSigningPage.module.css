@@ -1,0 +1,75 @@
+.page {
+  min-height: 100dvh;
+  background: var(--mantine-color-gray-0);
+  color: var(--mantine-color-text);
+}
+
+.header {
+  min-height: 3.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem clamp(1rem, 3vw, 2rem);
+  border-bottom: 1px solid var(--mantine-color-default-border);
+  background: var(--mantine-color-body);
+}
+
+.main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(19rem, 25rem);
+  min-height: calc(100dvh - 3.75rem);
+}
+
+.document {
+  min-width: 0;
+  padding: 1rem;
+  background: var(--mantine-color-gray-2);
+}
+
+.documentFrame {
+  width: 100%;
+  height: calc(100dvh - 5.75rem);
+  min-height: 30rem;
+  border: 1px solid var(--mantine-color-default-border);
+  background: white;
+}
+
+.form {
+  min-width: 0;
+  padding: 1rem;
+  overflow-y: auto;
+  border-left: 1px solid var(--mantine-color-default-border);
+  background: var(--mantine-color-body);
+}
+
+.gate {
+  width: min(28rem, calc(100% - 2rem));
+  margin: clamp(3rem, 12vh, 8rem) auto;
+}
+
+@media (max-width: 56rem) {
+  .header {
+    align-items: flex-start;
+  }
+
+  .main {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .document {
+    padding: 0.5rem;
+  }
+
+  .documentFrame {
+    height: 44dvh;
+    min-height: 18rem;
+  }
+
+  .form {
+    overflow: visible;
+    border-top: 1px solid var(--mantine-color-default-border);
+    border-left: 0;
+  }
+}

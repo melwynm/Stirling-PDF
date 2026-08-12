@@ -3769,6 +3769,10 @@ desc = "Adds signature to PDF by drawing, text or image"
 tags = "signature,autograph,e-sign,electronic signature,digital signature,sign document,approval,signoff,authorize,endorse,ink signature,handwriting"
 title = "Sign"
 
+[home.requestSignatures]
+desc = "Prepare and route a PDF for signatures"
+title = "Request Signatures"
+
 [home.split]
 desc = "Split PDFs into multiple documents"
 tags = "divide,separate,break,split,extract pages,separate pages,divide document,break apart,separate files,unbind,split by page,divide by chapter"
@@ -6200,6 +6204,106 @@ title = "Sign"
 undo = "Undo"
 updateAndPlace = "Update and Place"
 upload = "Upload Image"
+
+[signingWorkspace]
+modeLabel = "Signing mode"
+
+[signingWorkspace.modes]
+certificate = "Certificate"
+fillAndSign = "Sign"
+request = "Request"
+remove = "Remove"
+validate = "Validate"
+
+[requestSignatures]
+accessCode = "Access code"
+addRecipient = "Add recipient"
+authentication = "Authentication"
+clearFields = "Clear"
+createDraft = "Create draft"
+created = "Draft created"
+email = "Email"
+expiry = "Set expiry"
+expiryDays = "Expires after days"
+fieldCanvas = "Signature field canvas"
+fieldCount = "{{count}} fields"
+fieldRecipient = "Recipient"
+message = "Message"
+name = "Name"
+order = "Routing order"
+recipient = "Recipient"
+reminderInterval = "Reminder interval"
+reminders = "Send reminders"
+removeField = "Remove field"
+removeRecipient = "Remove recipient"
+requesterEmail = "Sender email"
+requesterName = "Sender name"
+role = "Role"
+title = "Request title"
+unnamedRecipient = "Unnamed recipient"
+
+[requestSignatures.authenticationMethods]
+accessCode = "Access code"
+emailLink = "Email link"
+
+[requestSignatures.errors]
+accessCode = "Use at least 6 characters"
+create = "Unable to create the signature request"
+email = "Enter a valid email address"
+
+[requestSignatures.intervals]
+daily = "Every day"
+threeDays = "Every 3 days"
+twoDays = "Every 2 days"
+weekly = "Every week"
+
+[requestSignatures.fieldTypes]
+checkbox = "Checkbox"
+dateSigned = "Date signed"
+email = "Email"
+initials = "Initials"
+name = "Name"
+signature = "Signature"
+text = "Text"
+
+[requestSignatures.roles]
+approver = "Approver"
+cc = "Receives a copy"
+signer = "Signer"
+
+[requestSignatures.routing]
+label = "Routing"
+parallel = "Parallel"
+sequential = "Sequential"
+
+[requestSignatures.steps]
+details = "Request details"
+fields = "Fields"
+recipients = "Recipients"
+routing = "Routing and timing"
+
+[recipientSigning]
+accessCode = "Access code"
+completed = "Completed"
+completedBody = "Your response has been recorded."
+confirmDecline = "Decline"
+consent = "I agree to sign this document electronically."
+decline = "Decline"
+declineReason = "Reason"
+document = "Document"
+documentPreview = "Document preview"
+download = "Download"
+fields = "Signing fields"
+open = "Open document"
+sign = "Sign"
+signerName = "Signer name"
+
+[recipientSigning.errors]
+authentication = "The access code is incorrect"
+decline = "Unable to decline the request"
+document = "Unable to open the document"
+load = "This signing request is unavailable"
+sign = "Unable to complete the signature"
 
 [sign.canvas]
 clear = "Clear canvas"

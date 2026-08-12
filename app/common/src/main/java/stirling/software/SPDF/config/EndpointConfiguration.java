@@ -360,6 +360,7 @@ public class EndpointConfiguration {
         addEndpointToGroup("Security", "validate-signature");
         addEndpointToGroup("Security", "add-stamp");
         addEndpointToGroup("Security", "unlock-pdf-forms");
+        addEndpointToGroup("Security", "e-sign");
         // Backend-only endpoints (not in frontend tool registry endpoints)
         addEndpointToGroup("Security", "redact");
         addEndpointToGroup("Security", "verify-pdf");
@@ -499,6 +500,7 @@ public class EndpointConfiguration {
         addEndpointToGroup("Java", "flatten");
         addEndpointToGroup("Java", "unlock-pdf-forms");
         addEndpointToGroup("Java", "validate-signature");
+        addEndpointToGroup("Java", "e-sign");
         addEndpointToGroup("Java", "text-editor-pdf");
         addEndpointToGroup("Java", "edit-table-of-contents");
         addEndpointToGroup("Java", "pdf-to-epub");

@@ -50,6 +50,7 @@ import PdfTextEditor from "@app/tools/pdfTextEditor/PdfTextEditor";
 import ChangeMetadata from "@app/tools/ChangeMetadata";
 import Crop from "@app/tools/Crop";
 import Sign from "@app/tools/Sign";
+import RequestSignatures from "@app/tools/RequestSignatures";
 import AddText from "@app/tools/AddText";
 import AddImage from "@app/tools/AddImage";
 import Annotate from "@app/tools/Annotate";
@@ -212,6 +213,12 @@ export function useTranslatedToolCatalog(): TranslatedToolCatalog {
         endpoints: ["cert-sign"],
         operationConfig: certSignOperationConfig,
         automationSettings: CertSignAutomationSettings,
+        workspace: {
+          id: 'signing',
+          mode: 'certificate',
+          label: t('signingWorkspace.modes.certificate', 'Certificate'),
+          order: 20,
+        },
       },
       sign: {
         icon: <LocalIcon icon="signature-rounded" width="1.5rem" height="1.5rem" />,
@@ -225,6 +232,34 @@ export function useTranslatedToolCatalog(): TranslatedToolCatalog {
         automationSettings: SignSettings, // TODO:: not all settings shown, suggested next tools shown
         synonyms: getSynonyms(t, "sign"),
         supportsAutomate: false, //TODO make support Sign
+        workspace: {
+          id: 'signing',
+          mode: 'fillAndSign',
+          label: t('signingWorkspace.modes.fillAndSign', 'Sign'),
+          order: 10,
+        },
+      },
+      requestSignatures: {
+        icon: <LocalIcon icon="send-rounded" width="1.5rem" height="1.5rem" />,
+        name: t('home.requestSignatures.title', 'Request Signatures'),
+        component: RequestSignatures,
+        description: t(
+          'home.requestSignatures.desc',
+          'Prepare and route a PDF for signatures',
+        ),
+        categoryId: ToolCategoryId.STANDARD_TOOLS,
+        subcategoryId: SubcategoryId.SIGNING,
+        maxFiles: 1,
+        supportedFormats: ['pdf'],
+        endpoints: ['e-sign'],
+        automationSettings: null,
+        supportsAutomate: false,
+        workspace: {
+          id: 'signing',
+          mode: 'request',
+          label: t('signingWorkspace.modes.request', 'Request'),
+          order: 30,
+        },
       },
       addText: {
         icon: <LocalIcon icon="text-fields-rounded" width="1.5rem" height="1.5rem" />,
@@ -396,7 +431,13 @@ export function useTranslatedToolCatalog(): TranslatedToolCatalog {
         maxFiles: -1,
         endpoints: ["validate-signature"],
         synonyms: getSynonyms(t, "validateSignature"),
-        automationSettings: null
+        automationSettings: null,
+        workspace: {
+          id: 'signing',
+          mode: 'validate',
+          label: t('signingWorkspace.modes.validate', 'Validate'),
+          order: 40,
+        },
       },
 
       // Document Review
@@ -687,6 +728,12 @@ export function useTranslatedToolCatalog(): TranslatedToolCatalog {
         operationConfig: removeCertificateSignOperationConfig,
         synonyms: getSynonyms(t, "removeCertSign"),
         automationSettings: null,
+        workspace: {
+          id: 'signing',
+          mode: 'remove',
+          label: t('signingWorkspace.modes.remove', 'Remove'),
+          order: 60,
+        },
       },
 
       // Automation

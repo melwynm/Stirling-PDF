@@ -37,6 +37,23 @@ export enum ToolCategoryId {
   RECOMMENDED_TOOLS = 'recommendedTools'
 }
 
+export type ToolWorkspaceId = 'signing';
+
+export type SigningWorkspaceMode =
+  | 'fillAndSign'
+  | 'certificate'
+  | 'request'
+  | 'validate'
+  | 'manageCertificates'
+  | 'remove';
+
+export type ToolWorkspaceMetadata = {
+  id: ToolWorkspaceId;
+  mode: SigningWorkspaceMode;
+  label: string;
+  order: number;
+};
+
 export type ToolRegistryEntry = {
 	icon: React.ReactNode;
 	name: string;
@@ -63,6 +80,8 @@ export type ToolRegistryEntry = {
 	versionStatus?: "alpha" | "beta";
 	// Whether this tool requires premium access
 	requiresPremium?: boolean;
+	// Groups related tools into a persistent workspace mode switcher.
+	workspace?: ToolWorkspaceMetadata;
 }
 
 export type RegularToolRegistry = Record<RegularToolId, ToolRegistryEntry>;

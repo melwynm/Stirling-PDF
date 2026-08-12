@@ -7,6 +7,7 @@ import { RainbowThemeProvider } from "@app/components/shared/RainbowThemeProvide
 import { PreferencesProvider } from "@app/contexts/PreferencesContext";
 import HomePage from "@app/pages/HomePage";
 import MobileScannerPage from "@app/pages/MobileScannerPage";
+import RecipientSigningPage from "@app/pages/RecipientSigningPage";
 import Onboarding from "@app/components/onboarding/Onboarding";
 
 // Import global styles
@@ -32,6 +33,14 @@ export default function App() {
   return (
     <Suspense fallback={<LoadingFallback />}>
       <Routes>
+        <Route
+          path="/sign-request/:token"
+          element={
+            <MobileScannerProviders>
+              <RecipientSigningPage />
+            </MobileScannerProviders>
+          }
+        />
         {/* Mobile scanner route - no backend needed, pure P2P WebRTC */}
         <Route
           path="/mobile-scanner"

@@ -61,6 +61,7 @@ import { DocumentReadyWrapper } from '@app/components/viewer/DocumentReadyWrappe
 import { ActiveDocumentProvider } from '@app/components/viewer/ActiveDocumentContext';
 import { absoluteWithBasePath } from '@app/constants/app';
 import { FormFieldOverlay } from '@app/tools/formFill/FormFieldOverlay';
+import { SigningFieldPageOverlay } from '@app/components/viewer/SigningFieldPageOverlay';
 
 interface LocalEmbedPDFProps {
   file?: File | Blob;
@@ -760,6 +761,12 @@ export function LocalEmbedPDF({ file, url, fileName, enableAnnotations = false, 
                               fileId={fileId}
                             />
                           )}
+
+                          <SigningFieldPageOverlay
+                            pageIndex={pageIndex}
+                            pageWidth={width}
+                            pageHeight={height}
+                          />
 
                           {/* AnnotationLayer for annotation editing and annotation-based redactions */}
                           {(enableAnnotations || enableRedaction) && (

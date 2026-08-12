@@ -181,6 +181,8 @@ public class RequestUriUtils {
                 || trimmedUri.startsWith("/readiness")
                 || trimmedUri.startsWith(
                         "/api/v1/mobile-scanner/") // Mobile scanner endpoints (no auth)
+                || trimmedUri.startsWith(
+                        "/api/v1/security/e-sign/recipients/") // Token-scoped signer endpoints
                 || trimmedUri.startsWith("/v1/api-docs");
     }
 

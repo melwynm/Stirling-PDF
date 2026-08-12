@@ -40,6 +40,8 @@ export const URL_TO_TOOL_MAP: Record<string, ToolId> = {
   '/change-permissions': 'changePermissions',
   '/cert-sign': 'certSign',
   '/manage-signatures': 'certSign',
+  '/signing': 'sign',
+  '/request-signatures': 'requestSignatures',
   '/remove-certificate-sign': 'removeCertSign',
   '/remove-cert-sign': 'removeCertSign',
   '/unlock-pdf-forms': 'unlockPDFForms',
