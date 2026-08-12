@@ -27,17 +27,17 @@ const SignatureAppearanceSettings = ({ parameters, onParameterChange, disabled =
         disabled={disabled}
       />
       {(parameters.padesProfile === 'B_LT' || parameters.padesProfile === 'B_LTA') && (
-        <Alert color="yellow">
-          {t('certSign.padesLongTermUnavailable', 'Long-term validation data augmentation is not yet available.')}
+        <Alert color="blue">
+          {t('certSign.padesLongTermInfo', 'Certificate and revocation evidence will be embedded for long-term validation.')}
         </Alert>
       )}
-      {parameters.padesProfile === 'B_T' && (
+      {parameters.padesProfile !== 'B_B' && (
         <TextInput
           type="url"
           label={t('certSign.tsaUrl', 'Timestamp authority URL')}
           value={parameters.tsaUrl}
           onChange={(event) => onParameterChange('tsaUrl', event.currentTarget.value)}
-          required={parameters.padesProfile === 'B_T'}
+          required
           disabled={disabled}
         />
       )}

@@ -53,10 +53,7 @@ export const useCertSignParameters = (): CertSignParametersHook => {
     defaultParameters,
     endpointName: 'cert-sign',
     validateFn: (params) => {
-      if (params.padesProfile === 'B_T' && !params.tsaUrl.trim()) {
-        return false;
-      }
-      if (params.padesProfile === 'B_LT' || params.padesProfile === 'B_LTA') {
+      if (params.padesProfile !== 'B_B' && !params.tsaUrl.trim()) {
         return false;
       }
       // Auto mode (server certificate) - no additional validation needed

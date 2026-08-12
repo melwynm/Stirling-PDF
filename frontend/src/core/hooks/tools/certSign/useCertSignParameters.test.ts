@@ -50,7 +50,7 @@ describe('useCertSignParameters', () => {
     expect(result.current.validateParameters()).toBe(true);
   });
 
-  test('requires a TSA for B-T and disables unimplemented long-term profiles', () => {
+  test('requires a TSA for timestamped and long-term profiles', () => {
     const { result } = renderHook(() => useCertSignParameters());
 
     act(() => {
@@ -67,6 +67,6 @@ describe('useCertSignParameters', () => {
     act(() => {
       result.current.updateParameter('padesProfile', 'B_LTA');
     });
-    expect(result.current.validateParameters()).toBe(false);
+    expect(result.current.validateParameters()).toBe(true);
   });
 });

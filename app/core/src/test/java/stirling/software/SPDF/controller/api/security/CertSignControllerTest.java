@@ -48,6 +48,7 @@ import stirling.software.SPDF.model.api.security.SignPDFWithCertRequest;
 import stirling.software.SPDF.service.KmsSignatureService;
 import stirling.software.SPDF.service.KmsSignatureService.KmsSignatureAlgorithm;
 import stirling.software.SPDF.service.KmsSignatureService.KmsSigningRequest;
+import stirling.software.SPDF.service.PadesLtvService;
 import stirling.software.common.service.CustomPDFDocumentFactory;
 import stirling.software.common.service.ServerCertificateServiceInterface;
 
@@ -57,6 +58,7 @@ class CertSignControllerTest {
     @Mock private CustomPDFDocumentFactory pdfDocumentFactory;
     @Mock private ServerCertificateServiceInterface serverCertificateService;
     @Mock private KmsSignatureService kmsSignatureService;
+    @Mock private PadesLtvService padesLtvService;
 
     @InjectMocks private CertSignController certSignController;
 
@@ -284,7 +286,7 @@ class CertSignControllerTest {
     }
 
     @Test
-    void testLongTermPadesProfilesAreNotFalselyProduced() {
+    void testLongTermPadesProfilesRequireTimestampAuthority() {
         SignPDFWithCertRequest request = createPkcs12Request(pdfBytes);
         request.setPadesProfile("B_LTA");
 
@@ -293,7 +295,7 @@ class CertSignControllerTest {
                         IllegalArgumentException.class,
                         () -> certSignController.signPDFWithCert(request));
 
-        assertTrue(exception.getMessage().contains("requires validation-data augmentation"));
+        assertTrue(exception.getMessage().contains("TSA URL is required"));
     }
 
     @Test

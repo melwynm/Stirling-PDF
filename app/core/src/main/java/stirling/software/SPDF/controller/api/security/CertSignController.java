@@ -89,6 +89,7 @@ import stirling.software.SPDF.model.api.security.SignPDFWithCertRequest;
 import stirling.software.SPDF.service.KmsSignatureService;
 import stirling.software.SPDF.service.KmsSignatureService.KmsSignatureAlgorithm;
 import stirling.software.SPDF.service.KmsSignatureService.KmsSigningRequest;
+import stirling.software.SPDF.service.PadesLtvService;
 import stirling.software.common.annotations.AutoJobPostMapping;
 import stirling.software.common.service.CustomPDFDocumentFactory;
 import stirling.software.common.service.ServerCertificateServiceInterface;
@@ -121,14 +122,17 @@ public class CertSignController {
     private final CustomPDFDocumentFactory pdfDocumentFactory;
     private final ServerCertificateServiceInterface serverCertificateService;
     private final KmsSignatureService kmsSignatureService;
+    private final PadesLtvService padesLtvService;
 
     public CertSignController(
             CustomPDFDocumentFactory pdfDocumentFactory,
             @Autowired(required = false) ServerCertificateServiceInterface serverCertificateService,
-            KmsSignatureService kmsSignatureService) {
+            KmsSignatureService kmsSignatureService,
+            PadesLtvService padesLtvService) {
         this.pdfDocumentFactory = pdfDocumentFactory;
         this.serverCertificateService = serverCertificateService;
         this.kmsSignatureService = kmsSignatureService;
+        this.padesLtvService = padesLtvService;
     }
 
     private static void sign(
@@ -237,19 +241,14 @@ public class CertSignController {
             throw ExceptionUtils.createIllegalArgumentException(
                     "error.invalidArgument", "Invalid argument: {0}", "unknown PAdES profile");
         }
-        if (List.of("B_LT", "B_LTA").contains(padesProfile)) {
+        if (!"B_B".equals(padesProfile) && StringUtils.isBlank(request.getTsaUrl())) {
             throw ExceptionUtils.createIllegalArgumentException(
                     "error.invalidArgument",
                     "Invalid argument: {0}",
-                    "PAdES "
-                            + padesProfile.replace('_', '-')
-                            + " requires validation-data augmentation");
+                    "TSA URL is required for PAdES " + padesProfile.replace('_', '-'));
         }
-        if ("B_T".equals(padesProfile) && StringUtils.isBlank(request.getTsaUrl())) {
-            throw ExceptionUtils.createIllegalArgumentException(
-                    "error.invalidArgument",
-                    "Invalid argument: {0}",
-                    "TSA URL is required for PAdES B-T");
+        if (!"B_B".equals(padesProfile)) {
+            padesLtvService.validateTimestampUrl(request.getTsaUrl());
         }
 
         if (StringUtils.isBlank(certType)) {
@@ -346,7 +345,7 @@ public class CertSignController {
         } else {
             createSignature = new CreateSignature(ks, keystorePassword.toCharArray());
         }
-        if ("B_T".equals(padesProfile)) {
+        if (!"B_B".equals(padesProfile)) {
             createSignature.setTsaUrl(request.getTsaUrl());
         }
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -365,10 +364,18 @@ public class CertSignController {
                 request.getSignatureText(),
                 request.getSignatureFieldName(),
                 subFilter);
+        byte[] signedPdf = baos.toByteArray();
+        if (List.of("B_LT", "B_LTA").contains(padesProfile)) {
+            signedPdf =
+                    padesLtvService.addValidationData(
+                            signedPdf,
+                            createSignature.getCertificateChain(),
+                            "B_LTA".equals(padesProfile),
+                            request.getTsaUrl());
+        }
         // Return the signed PDF
         return WebResponseUtils.bytesToWebResponse(
-                baos.toByteArray(),
-                GeneralUtils.generateFilename(pdf.getOriginalFilename(), "_signed.pdf"));
+                signedPdf, GeneralUtils.generateFilename(pdf.getOriginalFilename(), "_signed.pdf"));
     }
 
     private MultipartFile validateFilePresent(

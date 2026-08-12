@@ -22,6 +22,7 @@ import java.io.OutputStream;
 import java.math.BigInteger;
 import java.net.URL;
 import java.net.URLConnection;
+import java.net.HttpURLConnection;
 import java.nio.charset.StandardCharsets;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
@@ -53,6 +54,9 @@ public class TSAClient {
             new DefaultDigestAlgorithmIdentifierFinder();
     // SecureRandom.getInstanceStrong() would be better, but sometimes blocks on Linux
     private static final Random RANDOM = new SecureRandom();
+    private static final int CONNECT_TIMEOUT_MILLIS = 10_000;
+    private static final int READ_TIMEOUT_MILLIS = 30_000;
+    private static final int MAX_RESPONSE_BYTES = 10 * 1024 * 1024;
     private final URL url;
     private final String username;
     private final String password;
@@ -128,9 +132,15 @@ public class TSAClient {
 
         // todo: support proxy servers
         URLConnection connection = url.openConnection();
+        connection.setConnectTimeout(CONNECT_TIMEOUT_MILLIS);
+        connection.setReadTimeout(READ_TIMEOUT_MILLIS);
         connection.setDoOutput(true);
         connection.setDoInput(true);
         connection.setRequestProperty("Content-Type", "application/timestamp-query");
+        connection.setRequestProperty("Accept", "application/timestamp-reply");
+        if (connection instanceof HttpURLConnection httpConnection) {
+            httpConnection.setInstanceFollowRedirects(false);
+        }
 
         LOG.debug("Established connection to TSA server");
 
@@ -161,7 +171,10 @@ public class TSAClient {
 
         byte[] response;
         try (InputStream input = connection.getInputStream()) {
-            response = input.readAllBytes();
+            response = input.readNBytes(MAX_RESPONSE_BYTES + 1);
+            if (response.length > MAX_RESPONSE_BYTES) {
+                throw new IOException("TSA response exceeds 10 MB");
+            }
         } catch (IOException ex) {
             LOG.error("Exception when reading from {}", this.url, ex);
             throw ex;
