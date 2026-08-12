@@ -49,7 +49,10 @@ class CertificateValidationServiceTest {
         when(revocation.getMode()).thenReturn("none");
         when(revocation.isHardFail()).thenReturn(false);
 
-        validationService = new CertificateValidationService(null, applicationProperties);
+        SigningTrustStoreService trustStoreService = mock(SigningTrustStoreService.class);
+        when(trustStoreService.loadCertificates()).thenReturn(java.util.List.of());
+        validationService =
+                new CertificateValidationService(null, applicationProperties, trustStoreService);
 
         // Create mock certificates
         validCertificate = mock(X509Certificate.class);

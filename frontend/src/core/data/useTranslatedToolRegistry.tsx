@@ -51,6 +51,7 @@ import ChangeMetadata from "@app/tools/ChangeMetadata";
 import Crop from "@app/tools/Crop";
 import Sign from "@app/tools/Sign";
 import RequestSignatures from "@app/tools/RequestSignatures";
+import ManageCertificates from "@app/tools/ManageCertificates";
 import AddText from "@app/tools/AddText";
 import AddImage from "@app/tools/AddImage";
 import Annotate from "@app/tools/Annotate";
@@ -259,6 +260,26 @@ export function useTranslatedToolCatalog(): TranslatedToolCatalog {
           mode: 'request',
           label: t('signingWorkspace.modes.request', 'Request'),
           order: 30,
+        },
+      },
+      manageCertificates: {
+        icon: <LocalIcon icon="workspace-premium-rounded" width="1.5rem" height="1.5rem" />,
+        name: t('home.manageCertificates.title', 'Manage Certificates'),
+        component: ManageCertificates,
+        description: t(
+          'home.manageCertificates.desc',
+          'Import, export, or delete digital certificate files used for signing PDFs.',
+        ),
+        categoryId: ToolCategoryId.STANDARD_TOOLS,
+        subcategoryId: SubcategoryId.SIGNING,
+        endpoints: ['signing-trust'],
+        automationSettings: null,
+        supportsAutomate: false,
+        workspace: {
+          id: 'signing',
+          mode: 'manageCertificates',
+          label: t('signingWorkspace.modes.manageCertificates', 'Certificates'),
+          order: 50,
         },
       },
       addText: {

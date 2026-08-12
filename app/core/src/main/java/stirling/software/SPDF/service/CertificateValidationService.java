@@ -67,6 +67,7 @@ public class CertificateValidationService {
     private KeyStore signingTrustAnchors; // AATL/EUTL + server cert for PDF signing
     private final ServerCertificateServiceInterface serverCertificateService;
     private final ApplicationProperties applicationProperties;
+    private final SigningTrustStoreService signingTrustStoreService;
 
     // EUTL (EU Trusted List) constants
     private static final String NS_TSL = "http://uri.etsi.org/02231/v2#";
@@ -94,9 +95,11 @@ public class CertificateValidationService {
 
     public CertificateValidationService(
             @Autowired(required = false) ServerCertificateServiceInterface serverCertificateService,
-            ApplicationProperties applicationProperties) {
+            ApplicationProperties applicationProperties,
+            SigningTrustStoreService signingTrustStoreService) {
         this.serverCertificateService = serverCertificateService;
         this.applicationProperties = applicationProperties;
+        this.signingTrustStoreService = signingTrustStoreService;
     }
 
     @PostConstruct
@@ -121,6 +124,36 @@ public class CertificateValidationService {
         if (validation.getTrust().isUseMozillaBundle()) loadBundledMozillaCACerts();
         if (validation.getTrust().isUseAATL()) loadAATLCertificates();
         if (validation.getTrust().isUseEUTL()) loadEUTLCertificates();
+        loadManagedTrustCertificates();
+    }
+
+    public synchronized void reloadManagedTrustCertificates() throws Exception {
+        List<String> managedAliases = new ArrayList<>();
+        Enumeration<String> aliases = signingTrustAnchors.aliases();
+        while (aliases.hasMoreElements()) {
+            String alias = aliases.nextElement();
+            if (alias.startsWith("managed-")) {
+                managedAliases.add(alias);
+            }
+        }
+        for (String alias : managedAliases) {
+            signingTrustAnchors.deleteEntry(alias);
+        }
+        loadManagedTrustCertificates();
+    }
+
+    private void loadManagedTrustCertificates() {
+        try {
+            int loaded = 0;
+            for (X509Certificate certificate : signingTrustStoreService.loadCertificates()) {
+                String fingerprint = sha256Fingerprint(certificate);
+                signingTrustAnchors.setCertificateEntry("managed-" + fingerprint, certificate);
+                loaded++;
+            }
+            log.info("Loaded {} managed PDF signing trust certificates", loaded);
+        } catch (Exception e) {
+            log.error("Failed to load managed PDF signing trust certificates", e);
+        }
     }
 
     /**

@@ -3636,6 +3636,25 @@ desc = "Import, export, or delete digital certificate files used for signing PDF
 tags = "certificates,import,export,manage certificates,digital certificates,certificate management,PFX,P12,keystore,import certificate,export certificate,certificate store,PKI"
 title = "Manage Certificates"
 
+[manageCertificates]
+actions = "Actions"
+ca = "Certificate authority"
+chooseFile = "Choose PEM or DER certificate"
+confirmDelete = "Delete this trust certificate?"
+delete = "Delete"
+empty = "No managed trust certificates"
+expired = "Expired"
+export = "Export"
+import = "Import trust certificate"
+importAction = "Import"
+issuer = "Issuer"
+refresh = "Refresh"
+signer = "Signer"
+subject = "Subject"
+type = "Type"
+unavailable = "Certificate management unavailable"
+validUntil = "Valid until"
+
 [home.merge]
 desc = "Easily merge multiple PDFs into one."
 tags = "combine,join,unite,merge,merge PDFs,combine PDFs,join PDFs,concatenate,append,stitch,combine files,join files,merge documents"
@@ -6218,6 +6237,7 @@ modeLabel = "Signing mode"
 [signingWorkspace.modes]
 certificate = "Certificate"
 fillAndSign = "Sign"
+manageCertificates = "Certificates"
 request = "Request"
 remove = "Remove"
 validate = "Validate"

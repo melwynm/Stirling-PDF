@@ -10,6 +10,8 @@ export const CORE_REGULAR_TOOL_IDS = [
   'certSign',
   'sign',
   'requestSignatures',
+  'manageCertificates',
+  'manageCertificates',
   'addText',
   'addPassword',
   'removePassword',

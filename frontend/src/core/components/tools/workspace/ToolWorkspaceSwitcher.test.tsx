@@ -17,6 +17,7 @@ describe('getWorkspaceToolOptions', () => {
     sign: entry('Sign', 'fillAndSign', 10),
     certSign: entry('Certificate', 'certificate', 20),
     validateSignature: entry('Validate', 'validate', 40),
+    manageCertificates: entry('Certificates', 'manageCertificates', 50),
     removeCertSign: entry('Remove', 'remove', 60),
   } as Partial<ToolRegistry>;
 
@@ -27,6 +28,7 @@ describe('getWorkspaceToolOptions', () => {
       'sign',
       'certSign',
       'validateSignature',
+      'manageCertificates',
       'removeCertSign',
     ]);
   });
