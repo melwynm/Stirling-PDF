@@ -679,6 +679,53 @@ class SignPdfArgs(McpArgsModel):
     poll_timeout_seconds: float = Field(default=120.0, ge=1.0, le=3600.0)
 
 
+class ESignCreateRequestArgs(McpArgsModel):
+    pdf_path: str = Field(description="Local source PDF for the signature request.")
+    request: JsonObject = Field(description="E-sign request JSON including recipients, fields, or anchors.")
+    confirmed: bool = Field(default=False, description="Must be true because this creates a legal signing workflow.")
+
+
+class ESignListRequestsArgs(McpArgsModel):
+    status: str | None = Field(default=None, description="Optional workflow status filter.")
+
+
+class ESignSendRequestArgs(McpArgsModel):
+    request_id: str
+    public_base_url: str | None = None
+    confirmed: bool = Field(default=False, description="Must be true because this issues recipient signing links.")
+
+
+class ESignCreateTemplateArgs(McpArgsModel):
+    pdf_path: str = Field(description="Local source PDF stored with the reusable template.")
+    template: JsonObject = Field(description="Template JSON containing name, description, and workflow defaults.")
+    confirmed: bool = Field(default=False, description="Must be true because the template persists a document.")
+
+
+class ESignListTemplatesArgs(McpArgsModel):
+    pass
+
+
+class ESignInstantiateTemplateArgs(McpArgsModel):
+    template_id: str
+    request: JsonObject = Field(default_factory=dict, description="Instantiation overrides and optional routing flags.")
+    confirmed: bool = Field(default=False, description="Must be true because this creates a signing workflow.")
+
+
+class ESignBulkTemplateArgs(McpArgsModel):
+    template_id: str
+    items: list[JsonObject] = Field(min_length=1, max_length=500)
+    send_immediately: bool = False
+    public_base_url: str | None = None
+    confirmed: bool = Field(
+        default=False, description="Must be true because this creates one or more signing workflows."
+    )
+
+
+class ESignEventsArgs(McpArgsModel):
+    since: str | None = Field(default=None, description="Optional ISO-8601 timestamp.")
+    event_type: str | None = Field(default=None, description="Optional audit event type.")
+
+
 class CertSignPdfArgs(McpArgsModel):
     pdf_path: str = Field(description="Absolute or workspace-relative path to a local PDF.")
     sign_mode: str = Field(
@@ -1189,6 +1236,31 @@ class MultipartEndpointExecutor:
     def get_job_status(self, job_id: str) -> dict[str, JsonValue]:
         response = self._get_json(f"/api/v1/general/job/{urllib.parse.quote(job_id)}")
         return {"jobId": job_id, "status": response}
+
+    def request_json(
+        self,
+        endpoint: str,
+        method: str = "GET",
+        payload: JsonObject | None = None,
+    ) -> JsonValue:
+        if not endpoint.startswith("/api/v1/"):
+            raise McpToolError("endpoint must start with /api/v1/.")
+        request_id = f"mcp-{uuid.uuid4().hex}"
+        headers = _java_backend_headers()
+        headers["X-Stirling-MCP-Request-ID"] = request_id
+        body = None
+        if payload is not None:
+            body = json.dumps(payload, ensure_ascii=True).encode("utf-8")
+            headers["Content-Type"] = "application/json"
+        request = urllib.request.Request(_java_backend_url(endpoint), data=body, headers=headers, method=method)
+        try:
+            with urllib.request.urlopen(request, timeout=_java_request_timeout_seconds()) as response:
+                raw = self._read_limited_json_response(response)
+                return _normalize_json_value(json.loads(raw.decode("utf-8"))) if raw else {}
+        except urllib.error.HTTPError as exc:
+            raise self._backend_http_error(exc, endpoint, request_id) from exc
+        except urllib.error.URLError as exc:
+            raise self._backend_url_error(exc) from exc
 
     def get_job_result(self, job_id: str, output_path: str | None) -> dict[str, JsonValue]:
         endpoint = f"/api/v1/general/job/{urllib.parse.quote(job_id)}/result"
@@ -2044,6 +2116,46 @@ class StirlingMcpToolRegistry:
                 ),
                 input_model=CertSignPdfArgs,
             ),
+            "stirling_esign_create_request": ToolDefinition(
+                name="stirling_esign_create_request",
+                description="Create an e-signature workflow from a local PDF, recipients, fields, and optional anchors.",
+                input_model=ESignCreateRequestArgs,
+            ),
+            "stirling_esign_list_requests": ToolDefinition(
+                name="stirling_esign_list_requests",
+                description="List e-signature workflows, optionally filtered by status.",
+                input_model=ESignListRequestsArgs,
+            ),
+            "stirling_esign_send_request": ToolDefinition(
+                name="stirling_esign_send_request",
+                description="Issue signing links and dispatch a draft e-signature request.",
+                input_model=ESignSendRequestArgs,
+            ),
+            "stirling_esign_create_template": ToolDefinition(
+                name="stirling_esign_create_template",
+                description="Persist a reusable e-signature template with a local source PDF.",
+                input_model=ESignCreateTemplateArgs,
+            ),
+            "stirling_esign_list_templates": ToolDefinition(
+                name="stirling_esign_list_templates",
+                description="List reusable e-signature templates owned by the current backend principal.",
+                input_model=ESignListTemplatesArgs,
+            ),
+            "stirling_esign_instantiate_template": ToolDefinition(
+                name="stirling_esign_instantiate_template",
+                description="Create an e-signature draft from a reusable template and optional overrides.",
+                input_model=ESignInstantiateTemplateArgs,
+            ),
+            "stirling_esign_bulk_template": ToolDefinition(
+                name="stirling_esign_bulk_template",
+                description="Create or immediately dispatch up to 500 e-signature requests from a template.",
+                input_model=ESignBulkTemplateArgs,
+            ),
+            "stirling_esign_events": ToolDefinition(
+                name="stirling_esign_events",
+                description="Poll e-signature audit events for automation and workflow monitoring.",
+                input_model=ESignEventsArgs,
+            ),
             "stirling_change_metadata": ToolDefinition(
                 name="stirling_change_metadata",
                 description="Update PDF metadata through the Stirling backend.",
@@ -2234,6 +2346,30 @@ class StirlingMcpToolRegistry:
             elif name == "stirling_cert_sign_pdf":
                 args = CertSignPdfArgs.model_validate(payload)
                 result = self._cert_sign_pdf(args)
+            elif name == "stirling_esign_create_request":
+                args = ESignCreateRequestArgs.model_validate(payload)
+                result = self._esign_create_request(args)
+            elif name == "stirling_esign_list_requests":
+                args = ESignListRequestsArgs.model_validate(payload)
+                result = self._esign_list_requests(args)
+            elif name == "stirling_esign_send_request":
+                args = ESignSendRequestArgs.model_validate(payload)
+                result = self._esign_send_request(args)
+            elif name == "stirling_esign_create_template":
+                args = ESignCreateTemplateArgs.model_validate(payload)
+                result = self._esign_create_template(args)
+            elif name == "stirling_esign_list_templates":
+                args = ESignListTemplatesArgs.model_validate(payload)
+                result = self._esign_list_templates(args)
+            elif name == "stirling_esign_instantiate_template":
+                args = ESignInstantiateTemplateArgs.model_validate(payload)
+                result = self._esign_instantiate_template(args)
+            elif name == "stirling_esign_bulk_template":
+                args = ESignBulkTemplateArgs.model_validate(payload)
+                result = self._esign_bulk_template(args)
+            elif name == "stirling_esign_events":
+                args = ESignEventsArgs.model_validate(payload)
+                result = self._esign_events(args)
             elif name == "stirling_change_metadata":
                 args = ChangeMetadataPdfArgs.model_validate(payload)
                 result = self._change_metadata(args)
@@ -3286,6 +3422,86 @@ Call `stirling_cleanup_mcp_output` with `dry_run=true` first, then repeat with `
             poll_interval_seconds=args.poll_interval_seconds,
             poll_timeout_seconds=args.poll_timeout_seconds,
         )
+
+    def _esign_create_request(self, args: ESignCreateRequestArgs) -> dict[str, JsonValue]:
+        if not args.confirmed:
+            raise McpToolError("E-signature request creation requires confirmed=true.")
+        return self.endpoint_executor.call_endpoint(
+            endpoint="/api/v1/security/e-sign/requests",
+            file_paths=[args.pdf_path],
+            file_field_name="file",
+            extra_file_fields={},
+            form_fields={"request": json.dumps(args.request, ensure_ascii=True)},
+            output_path=None,
+        )
+
+    def _esign_list_requests(self, args: ESignListRequestsArgs) -> JsonValue:
+        endpoint = "/api/v1/security/e-sign/requests"
+        if args.status:
+            endpoint += "?status=" + urllib.parse.quote(args.status)
+        return self.endpoint_executor.request_json(endpoint)
+
+    def _esign_send_request(self, args: ESignSendRequestArgs) -> JsonValue:
+        if not args.confirmed:
+            raise McpToolError("E-signature dispatch requires confirmed=true.")
+        payload: JsonObject = {}
+        if args.public_base_url:
+            payload["publicBaseUrl"] = args.public_base_url
+        return self.endpoint_executor.request_json(
+            f"/api/v1/security/e-sign/requests/{urllib.parse.quote(args.request_id)}/send",
+            method="POST",
+            payload=payload,
+        )
+
+    def _esign_create_template(self, args: ESignCreateTemplateArgs) -> dict[str, JsonValue]:
+        if not args.confirmed:
+            raise McpToolError("E-signature template creation requires confirmed=true.")
+        return self.endpoint_executor.call_endpoint(
+            endpoint="/api/v1/security/e-sign/templates",
+            file_paths=[args.pdf_path],
+            file_field_name="file",
+            extra_file_fields={},
+            form_fields={"template": json.dumps(args.template, ensure_ascii=True)},
+            output_path=None,
+        )
+
+    def _esign_list_templates(self, args: ESignListTemplatesArgs) -> JsonValue:
+        return self.endpoint_executor.request_json("/api/v1/security/e-sign/templates")
+
+    def _esign_instantiate_template(self, args: ESignInstantiateTemplateArgs) -> JsonValue:
+        if not args.confirmed:
+            raise McpToolError("E-signature template instantiation requires confirmed=true.")
+        return self.endpoint_executor.request_json(
+            f"/api/v1/security/e-sign/templates/{urllib.parse.quote(args.template_id)}/requests",
+            method="POST",
+            payload=args.request,
+        )
+
+    def _esign_bulk_template(self, args: ESignBulkTemplateArgs) -> JsonValue:
+        if not args.confirmed:
+            raise McpToolError("Bulk e-signature creation requires confirmed=true.")
+        payload: JsonObject = {
+            "items": [_normalize_json_value(item) for item in args.items],
+            "sendImmediately": args.send_immediately,
+        }
+        if args.public_base_url:
+            payload["publicBaseUrl"] = args.public_base_url
+        return self.endpoint_executor.request_json(
+            f"/api/v1/security/e-sign/templates/{urllib.parse.quote(args.template_id)}/bulk-requests",
+            method="POST",
+            payload=payload,
+        )
+
+    def _esign_events(self, args: ESignEventsArgs) -> JsonValue:
+        parameters: dict[str, str] = {}
+        if args.since:
+            parameters["since"] = args.since
+        if args.event_type:
+            parameters["type"] = args.event_type
+        endpoint = "/api/v1/security/e-sign/events"
+        if parameters:
+            endpoint += "?" + urllib.parse.urlencode(parameters)
+        return self.endpoint_executor.request_json(endpoint)
 
     def _change_metadata(self, args: ChangeMetadataPdfArgs) -> dict[str, JsonValue]:
         form_fields: dict[str, JsonValue] = {

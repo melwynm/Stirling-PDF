@@ -1,0 +1,60 @@
+{
+  "name": "Stirling PDF - Bulk e-signature template dispatch",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { items: [{ overrides: { title: 'Agreement for Ada', recipients: [{ id: 'candidate', name: 'Ada Lovelace', email: 'ada@example.com', deliveryChannel: 'email', role: 'signer', signingOrder: 1, authenticationMethod: 'emailLink' }] } }], sendImmediately: true } }];"
+      },
+      "id": "prepare-rows",
+      "name": "Prepare rows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.STIRLING_JAVA_BACKEND_URL + '/api/v1/security/e-sign/templates/' + $env.STIRLING_ESIGN_TEMPLATE_ID + '/bulk-requests' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "={{ $env.STIRLING_JAVA_BACKEND_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "dispatch",
+      "name": "Create and send requests",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [700, 300]
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [[{"node": "Prepare rows", "type": "main", "index": 0}]]
+    },
+    "Prepare rows": {
+      "main": [[{"node": "Create and send requests", "type": "main", "index": 0}]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "stirling-esign-bulk-template-v1"
+}

@@ -220,6 +220,71 @@ def test_cert_sign_tool_schema_advertises_kms_mode():
     assert "SHA256_WITH_ECDSA" in cast(dict[str, Any], cert_sign_schema["kms_signature_algorithm"])["enum"]
 
 
+def test_esign_tools_are_first_class_and_require_confirmation():
+    registry = StirlingMcpToolRegistry()
+    tools = {str(tool["name"]) for tool in registry.list_tools()}
+
+    assert {
+        "stirling_esign_create_request",
+        "stirling_esign_list_requests",
+        "stirling_esign_send_request",
+        "stirling_esign_create_template",
+        "stirling_esign_list_templates",
+        "stirling_esign_instantiate_template",
+        "stirling_esign_bulk_template",
+        "stirling_esign_events",
+    }.issubset(tools)
+
+    with pytest.raises(Exception, match="confirmed=true"):
+        registry.call_tool(
+            "stirling_esign_send_request",
+            {"request_id": "request-1", "confirmed": False},
+        )
+
+
+def test_esign_json_tools_use_expected_endpoints():
+    class FakeExecutor:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, str, dict[str, Any] | None]] = []
+
+        def request_json(self, endpoint: str, method: str = "GET", payload: dict[str, Any] | None = None):
+            self.calls.append((endpoint, method, payload))
+            return {"ok": True}
+
+    executor = FakeExecutor()
+    registry = StirlingMcpToolRegistry(endpoint_executor=executor)  # type: ignore[arg-type]
+
+    registry.call_tool("stirling_esign_list_requests", {"status": "IN PROGRESS"})
+    registry.call_tool(
+        "stirling_esign_bulk_template",
+        {
+            "template_id": "template-1",
+            "items": [{"overrides": {"title": "Ada"}}],
+            "send_immediately": True,
+            "public_base_url": "https://sign.example",
+            "confirmed": True,
+        },
+    )
+    registry.call_tool(
+        "stirling_esign_events",
+        {"since": "2026-08-12T10:00:00Z", "event_type": "REQUEST_COMPLETED"},
+    )
+
+    assert executor.calls[0] == (
+        "/api/v1/security/e-sign/requests?status=IN%20PROGRESS",
+        "GET",
+        None,
+    )
+    assert executor.calls[1][0] == "/api/v1/security/e-sign/templates/template-1/bulk-requests"
+    assert executor.calls[1][1] == "POST"
+    assert executor.calls[1][2] == {
+        "items": [{"overrides": {"title": "Ada"}}],
+        "sendImmediately": True,
+        "publicBaseUrl": "https://sign.example",
+    }
+    assert executor.calls[2][0].endswith("since=2026-08-12T10%3A00%3A00Z&type=REQUEST_COMPLETED")
+
+
 def test_plan_edit_request_uses_catalog(monkeypatch: MonkeyPatch):
     class FakeCatalog:
         def get_catalog(self):

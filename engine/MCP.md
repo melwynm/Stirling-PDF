@@ -136,6 +136,14 @@ hints without exposing provider keys.
   Visual and certificate signing wrappers. They require `confirmed=true`. Certificate signing supports
   manual PEM/PKCS12/PFX/JKS material, server-certificate signing, and KMS-backed PAdES signing through
   the configured KMS/HSM signer bridge.
+- `stirling_esign_create_request`, `stirling_esign_list_requests`, `stirling_esign_send_request`
+  Create, inspect, and dispatch recipient signing workflows. Creation and dispatch require `confirmed=true`.
+- `stirling_esign_create_template`, `stirling_esign_list_templates`, `stirling_esign_instantiate_template`
+  Manage reusable, owner-scoped signing templates and create fresh drafts from template overrides.
+- `stirling_esign_bulk_template`
+  Create or dispatch up to 500 template-derived requests with one result per input row.
+- `stirling_esign_events`
+  Poll workflow audit events by timestamp and event type for automation triggers.
 - `stirling_change_metadata`, `stirling_change_permissions`
   Metadata and security-permission wrappers. Permission changes require `confirmed=true`.
 - `stirling_remove_certificate_signatures`, `stirling_unlock_pdf_forms`
@@ -161,6 +169,13 @@ remove-pages, extract-pages, table-of-contents editing, attachments, color repla
 
 `stirling_call_endpoint` and the typed endpoint wrappers support `async_job=true`. Add `wait_for_job=true` to poll
 until completion and fetch the final result, or call `stirling_get_job_status` later with the returned job id.
+
+## n8n E-Sign Automation
+
+An importable example is available at `engine/examples/n8n-esign-bulk-template.json`. Configure
+`STIRLING_JAVA_BACKEND_URL`, `STIRLING_JAVA_BACKEND_API_KEY`, and `STIRLING_ESIGN_TEMPLATE_ID` in n8n,
+then replace the sample rows with spreadsheet, CRM, or webhook data. The workflow creates template-derived requests,
+dispatches them immediately, and returns row-level success or failure results.
 
 ## External PDF Tooling
 
