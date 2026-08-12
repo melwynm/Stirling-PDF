@@ -266,6 +266,28 @@ public class ESignatureWorkflowService {
         return toView(workflow);
     }
 
+    void validateDraft(MultipartFile file, ESignatureCreateRequest request) throws IOException {
+        validatePdfFile(file);
+        validateCreateRequest(request);
+        List<SigningRecipient> recipients = new ArrayList<>();
+        int order = 1;
+        for (ESignatureRecipientRequest source : request.getRecipients()) {
+            SigningRecipient recipient = new SigningRecipient();
+            recipient.setId(requestedOrGeneratedId(source.getId(), "recipient"));
+            recipient.setName(source.getName());
+            recipient.setEmail(source.getEmail());
+            recipient.setRole(source.getRole());
+            recipient.setSigningOrder(
+                    source.getSigningOrder() == null ? order++ : source.getSigningOrder());
+            recipients.add(recipient);
+        }
+        validateSigningModel(recipients, prepareSigningFields(request.getFields(), recipients));
+    }
+
+    String sanitizeWorkflowFilename(String filename) {
+        return sanitizeOriginalFilename(filename);
+    }
+
     public List<ESignatureRequestView> listRequests(String status) throws IOException {
         return listRequests(status, null);
     }

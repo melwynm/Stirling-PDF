@@ -43,8 +43,12 @@ import stirling.software.SPDF.model.api.esign.ESignatureReminderRequest;
 import stirling.software.SPDF.model.api.esign.ESignatureRequestView;
 import stirling.software.SPDF.model.api.esign.ESignatureSendRequest;
 import stirling.software.SPDF.model.api.esign.ESignatureSignRequest;
+import stirling.software.SPDF.model.api.esign.ESignatureTemplateCreateRequest;
+import stirling.software.SPDF.model.api.esign.ESignatureTemplateInstantiateRequest;
 import stirling.software.SPDF.model.api.esign.ESignatureTokenContext;
+import stirling.software.SPDF.model.esign.ESignatureTemplate;
 import stirling.software.SPDF.model.esign.ESignatureWorkflow.WebhookDelivery;
+import stirling.software.SPDF.service.ESignatureTemplateService;
 import stirling.software.SPDF.service.ESignatureWorkflowService;
 import stirling.software.SPDF.service.ESignatureWorkflowService.ActorContext;
 import stirling.software.common.annotations.api.SecurityApi;
@@ -60,7 +64,66 @@ public class ESignatureWorkflowController {
             new TypeReference<>() {};
 
     private final ESignatureWorkflowService workflowService;
+    private final ESignatureTemplateService templateService;
     private final ObjectMapper objectMapper;
+
+    @PostMapping(value = "/e-sign/templates", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(
+            summary = "Create a reusable e-signature template",
+            description =
+                    "Stores a validated source PDF together with recipient, field, routing, and"
+                            + " reminder defaults. Suitable for API, n8n, and MCP clients.")
+    public ResponseEntity<ESignatureTemplate> createTemplate(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("template") String templateJson,
+            HttpServletRequest servletRequest)
+            throws IOException {
+        ESignatureTemplateCreateRequest request =
+                objectMapper.readValue(templateJson, ESignatureTemplateCreateRequest.class);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(templateService.create(file, request, actor(servletRequest, null, null)));
+    }
+
+    @GetMapping("/e-sign/templates")
+    @Operation(summary = "List reusable e-signature templates")
+    public ResponseEntity<List<ESignatureTemplate>> listTemplates(HttpServletRequest servletRequest)
+            throws IOException {
+        return ResponseEntity.ok(templateService.list(actor(servletRequest, null, null)));
+    }
+
+    @GetMapping("/e-sign/templates/{templateId}")
+    @Operation(summary = "Get a reusable e-signature template")
+    public ResponseEntity<ESignatureTemplate> getTemplate(
+            @PathVariable String templateId, HttpServletRequest servletRequest) throws IOException {
+        return ResponseEntity.ok(
+                templateService.get(templateId, actor(servletRequest, null, null)));
+    }
+
+    @PostMapping("/e-sign/templates/{templateId}/requests")
+    @Operation(
+            summary = "Create an e-signature draft from a template",
+            description =
+                    "Creates a fresh draft using the stored PDF and defaults. Optional request"
+                            + " overrides can replace recipients, fields, expiry, callback, and"
+                            + " message values for bulk and automation workflows.")
+    public ResponseEntity<ESignatureRequestView> instantiateTemplate(
+            @PathVariable String templateId,
+            @RequestBody(required = false) ESignatureTemplateInstantiateRequest request,
+            HttpServletRequest servletRequest)
+            throws IOException {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(
+                        templateService.instantiate(
+                                templateId, request, actor(servletRequest, null, null)));
+    }
+
+    @DeleteMapping("/e-sign/templates/{templateId}")
+    @Operation(summary = "Delete an e-signature template")
+    public ResponseEntity<Void> deleteTemplate(
+            @PathVariable String templateId, HttpServletRequest servletRequest) throws IOException {
+        templateService.delete(templateId, actor(servletRequest, null, null));
+        return ResponseEntity.noContent().build();
+    }
 
     @PostMapping(value = "/e-sign/requests", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(
