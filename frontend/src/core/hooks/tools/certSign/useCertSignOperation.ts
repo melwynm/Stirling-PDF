@@ -54,7 +54,15 @@ export const buildCertSignFormData = (parameters: CertSignParameters, file: File
     formData.append('name', parameters.name);
     formData.append('pageNumber', parameters.pageNumber.toString());
     formData.append('showLogo', parameters.showLogo.toString());
+    formData.append('signatureText', parameters.signatureText);
+    if (parameters.signatureImage) {
+      formData.append('signatureImage', parameters.signatureImage);
+    }
   }
+
+  formData.append('signatureFieldName', parameters.signatureFieldName);
+  formData.append('padesProfile', parameters.padesProfile);
+  formData.append('tsaUrl', parameters.tsaUrl);
 
   return formData;
 };

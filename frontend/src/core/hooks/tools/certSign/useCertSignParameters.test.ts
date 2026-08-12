@@ -49,4 +49,24 @@ describe('useCertSignParameters', () => {
     });
     expect(result.current.validateParameters()).toBe(true);
   });
+
+  test('requires a TSA for B-T and disables unimplemented long-term profiles', () => {
+    const { result } = renderHook(() => useCertSignParameters());
+
+    act(() => {
+      result.current.updateParameter('signMode', 'AUTO');
+      result.current.updateParameter('padesProfile', 'B_T');
+    });
+    expect(result.current.validateParameters()).toBe(false);
+
+    act(() => {
+      result.current.updateParameter('tsaUrl', 'https://tsa.example.test');
+    });
+    expect(result.current.validateParameters()).toBe(true);
+
+    act(() => {
+      result.current.updateParameter('padesProfile', 'B_LTA');
+    });
+    expect(result.current.validateParameters()).toBe(false);
+  });
 });

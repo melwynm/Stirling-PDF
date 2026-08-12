@@ -62,7 +62,10 @@ describe('buildCertSignFormData', () => {
   test('includes visible-signature appearance fields only when enabled', () => {
     const hidden = build({ signMode: 'AUTO', showSignature: false });
     expect(hidden.get('showSignature')).toBeNull();
+    expect(hidden.get('padesProfile')).toBe('B_B');
+    expect(hidden.get('signatureFieldName')).toBe('');
 
+    const signatureImage = new File(['image'], 'signature.png', { type: 'image/png' });
     const visible = build({
       signMode: 'AUTO',
       showSignature: true,
@@ -71,6 +74,11 @@ describe('buildCertSignFormData', () => {
       name: 'Ada Lovelace',
       pageNumber: 3,
       showLogo: false,
+      signatureText: 'Approved electronically',
+      signatureImage,
+      signatureFieldName: 'approval',
+      padesProfile: 'B_T',
+      tsaUrl: 'https://tsa.example.test',
     });
 
     expect(visible.get('showSignature')).toBe('true');
@@ -79,5 +87,10 @@ describe('buildCertSignFormData', () => {
     expect(visible.get('name')).toBe('Ada Lovelace');
     expect(visible.get('pageNumber')).toBe('3');
     expect(visible.get('showLogo')).toBe('false');
+    expect(visible.get('signatureText')).toBe('Approved electronically');
+    expect(visible.get('signatureImage')).toBe(signatureImage);
+    expect(visible.get('signatureFieldName')).toBe('approval');
+    expect(visible.get('padesProfile')).toBe('B_T');
+    expect(visible.get('tsaUrl')).toBe('https://tsa.example.test');
   });
 });

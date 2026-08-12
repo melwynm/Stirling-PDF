@@ -21,6 +21,11 @@ export interface CertSignParameters extends BaseParameters {
   name: string;
   pageNumber: number;
   showLogo: boolean;
+  signatureImage?: File;
+  signatureText: string;
+  signatureFieldName: string;
+  padesProfile: 'B_B' | 'B_T' | 'B_LT' | 'B_LTA';
+  tsaUrl: string;
 }
 
 export const defaultParameters: CertSignParameters = {
@@ -35,6 +40,10 @@ export const defaultParameters: CertSignParameters = {
   name: '',
   pageNumber: 1,
   showLogo: true,
+  signatureText: '',
+  signatureFieldName: '',
+  padesProfile: 'B_B',
+  tsaUrl: '',
 };
 
 export type CertSignParametersHook = BaseParametersHook<CertSignParameters>;
@@ -44,6 +53,12 @@ export const useCertSignParameters = (): CertSignParametersHook => {
     defaultParameters,
     endpointName: 'cert-sign',
     validateFn: (params) => {
+      if (params.padesProfile === 'B_T' && !params.tsaUrl.trim()) {
+        return false;
+      }
+      if (params.padesProfile === 'B_LT' || params.padesProfile === 'B_LTA') {
+        return false;
+      }
       // Auto mode (server certificate) - no additional validation needed
       if (params.signMode === 'AUTO') {
         return true;

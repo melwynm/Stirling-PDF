@@ -22,6 +22,7 @@ import java.net.URISyntaxException;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.UnrecoverableKeyException;
@@ -30,12 +31,22 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.Enumeration;
+import java.util.Hashtable;
 
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.SignatureInterface;
+import org.bouncycastle.asn1.ASN1ObjectIdentifier;
+import org.bouncycastle.asn1.DERSet;
+import org.bouncycastle.asn1.cms.Attribute;
+import org.bouncycastle.asn1.cms.AttributeTable;
+import org.bouncycastle.asn1.ess.ESSCertIDv2;
+import org.bouncycastle.asn1.ess.SigningCertificateV2;
+import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.cert.jcajce.JcaCertStore;
+import org.bouncycastle.cms.CMSAttributeTableGenerator;
 import org.bouncycastle.cms.CMSException;
 import org.bouncycastle.cms.CMSSignedData;
 import org.bouncycastle.cms.CMSSignedDataGenerator;
+import org.bouncycastle.cms.DefaultSignedAttributeTableGenerator;
 import org.bouncycastle.cms.jcajce.JcaSignerInfoGeneratorBuilder;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.OperatorCreationException;
@@ -148,19 +159,19 @@ public abstract class CreateSignatureBase implements SignatureInterface {
         try {
             CMSSignedDataGenerator gen = new CMSSignedDataGenerator();
             X509Certificate cert = (X509Certificate) certificateChain[0];
-            ContentSigner sha1Signer =
-                    new JcaContentSignerBuilder("SHA256WithRSA").build(privateKey);
-            gen.addSignerInfoGenerator(
+            ContentSigner signer =
+                    new JcaContentSignerBuilder(resolveSignatureAlgorithm(privateKey))
+                            .build(privateKey);
+            JcaSignerInfoGeneratorBuilder signerInfoBuilder =
                     new JcaSignerInfoGeneratorBuilder(
-                                    new JcaDigestCalculatorProviderBuilder().build())
-                            .build(sha1Signer, cert));
+                            new JcaDigestCalculatorProviderBuilder().build());
+            signerInfoBuilder.setSignedAttributeGenerator(
+                    createCadesSignedAttributeGenerator(cert));
+            gen.addSignerInfoGenerator(signerInfoBuilder.build(signer, cert));
             gen.addCertificates(new JcaCertStore(Arrays.asList(certificateChain)));
             CMSProcessableInputStream msg = new CMSProcessableInputStream(content);
             CMSSignedData signedData = gen.generate(msg, false);
-            if (tsaUrl != null && !tsaUrl.isEmpty()) {
-                ValidationTimeStamp validation = new ValidationTimeStamp(tsaUrl);
-                signedData = validation.addSignedTimeStamp(signedData);
-            }
+            signedData = addTimestampIfConfigured(signedData);
             return signedData.getEncoded();
         } catch (GeneralSecurityException
                 | CMSException
@@ -168,5 +179,42 @@ public abstract class CreateSignatureBase implements SignatureInterface {
                 | URISyntaxException e) {
             throw new IOException(e);
         }
+    }
+
+    protected final CMSSignedData addTimestampIfConfigured(CMSSignedData signedData)
+            throws IOException, URISyntaxException {
+        if (tsaUrl == null || tsaUrl.isBlank()) {
+            return signedData;
+        }
+        try {
+            return new ValidationTimeStamp(tsaUrl).addSignedTimeStamp(signedData);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IOException("Unable to initialise timestamp request", e);
+        }
+    }
+
+    protected final CMSAttributeTableGenerator createCadesSignedAttributeGenerator(
+            X509Certificate signingCertificate) throws GeneralSecurityException {
+        byte[] certHash =
+                MessageDigest.getInstance("SHA-256").digest(signingCertificate.getEncoded());
+        ESSCertIDv2 essCertId = new ESSCertIDv2(certHash);
+        SigningCertificateV2 signingCertificateV2 = new SigningCertificateV2(essCertId);
+        Attribute signingCertificateAttribute =
+                new Attribute(
+                        PKCSObjectIdentifiers.id_aa_signingCertificateV2,
+                        new DERSet(signingCertificateV2));
+        Hashtable<ASN1ObjectIdentifier, Attribute> signedAttributes = new Hashtable<>();
+        signedAttributes.put(
+                PKCSObjectIdentifiers.id_aa_signingCertificateV2, signingCertificateAttribute);
+        return new DefaultSignedAttributeTableGenerator(new AttributeTable(signedAttributes));
+    }
+
+    private String resolveSignatureAlgorithm(PrivateKey key) throws NoSuchAlgorithmException {
+        return switch (key.getAlgorithm().toUpperCase()) {
+            case "RSA" -> "SHA256WithRSA";
+            case "EC", "ECDSA" -> "SHA256WithECDSA";
+            default -> throw new NoSuchAlgorithmException(
+                    "Unsupported private key algorithm: " + key.getAlgorithm());
+        };
     }
 }

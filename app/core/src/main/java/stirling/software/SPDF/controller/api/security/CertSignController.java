@@ -11,8 +11,8 @@ import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collection;
-import java.util.Hashtable;
 import java.util.List;
+import java.util.Locale;
 
 import org.apache.pdfbox.examples.signature.CreateSignatureBase;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -38,13 +38,7 @@ import org.apache.pdfbox.pdmodel.interactive.form.PDField;
 import org.apache.pdfbox.pdmodel.interactive.form.PDSignatureField;
 import org.apache.pdfbox.util.Matrix;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
-import org.bouncycastle.asn1.DERSet;
-import org.bouncycastle.asn1.cms.Attribute;
-import org.bouncycastle.asn1.cms.AttributeTable;
 import org.bouncycastle.asn1.cms.CMSObjectIdentifiers;
-import org.bouncycastle.asn1.ess.ESSCertIDv2;
-import org.bouncycastle.asn1.ess.SigningCertificateV2;
-import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
 import org.bouncycastle.asn1.x500.RDN;
 import org.bouncycastle.asn1.x500.X500Name;
@@ -52,12 +46,10 @@ import org.bouncycastle.asn1.x500.style.BCStyle;
 import org.bouncycastle.asn1.x500.style.IETFUtils;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.cert.jcajce.JcaCertStore;
-import org.bouncycastle.cms.CMSAttributeTableGenerator;
 import org.bouncycastle.cms.CMSException;
 import org.bouncycastle.cms.CMSSignedData;
 import org.bouncycastle.cms.CMSSignedDataGenerator;
 import org.bouncycastle.cms.CMSTypedData;
-import org.bouncycastle.cms.DefaultSignedAttributeTableGenerator;
 import org.bouncycastle.cms.jcajce.JcaSignerInfoGeneratorBuilder;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.openssl.PEMDecryptorProvider;
@@ -150,10 +142,12 @@ public class CertSignController {
             String location,
             String reason,
             Boolean showLogo,
+            byte[] signatureImage,
+            String signatureText,
+            String signatureFieldName,
             org.apache.pdfbox.cos.COSName subFilter)
             throws IOException {
         try (PDDocument doc = pdfDocumentFactory.load(input)) {
-            validateVisibleSignaturePage(showSignature, pageNumber, doc);
             PDSignature signature = new PDSignature();
             signature.setFilter(PDSignature.FILTER_ADOBE_PPKLITE);
             signature.setSubFilter(subFilter);
@@ -161,10 +155,23 @@ public class CertSignController {
             signature.setLocation(location);
             signature.setReason(reason);
             signature.setSignDate(Calendar.getInstance()); // PDFBox requires Calendar
+            PDSignatureField targetField = findTargetSignatureField(doc, signatureFieldName);
+            if (targetField != null) {
+                targetField.setValue(signature);
+                pageNumber = findFieldPage(doc, targetField);
+            }
+            validateVisibleSignaturePage(showSignature, pageNumber, doc);
             if (Boolean.TRUE.equals(showSignature)) {
                 try (SignatureOptions signatureOptions = new SignatureOptions()) {
                     signatureOptions.setVisualSignature(
-                            instance.createVisibleSignature(doc, signature, pageNumber, showLogo));
+                            instance.createVisibleSignature(
+                                    doc,
+                                    signature,
+                                    pageNumber,
+                                    showLogo,
+                                    signatureImage,
+                                    signatureText,
+                                    targetField));
                     signatureOptions.setPage(pageNumber);
 
                     doc.addSignature(signature, instance, signatureOptions);
@@ -213,6 +220,37 @@ public class CertSignController {
         // Convert 1-indexed page number (user input) to 0-indexed page number (API requirement)
         Integer pageNumber = request.getPageNumber() != null ? (request.getPageNumber() - 1) : null;
         Boolean showLogo = request.getShowLogo();
+        byte[] signatureImage =
+                request.getSignatureImage() == null || request.getSignatureImage().isEmpty()
+                        ? null
+                        : request.getSignatureImage().getBytes();
+        if (signatureImage != null && signatureImage.length > 5 * 1024 * 1024) {
+            throw ExceptionUtils.createIllegalArgumentException(
+                    "error.invalidArgument",
+                    "Invalid argument: {0}",
+                    "signature image exceeds 5 MB");
+        }
+        String padesProfile =
+                (StringUtils.isBlank(request.getPadesProfile()) ? "B_B" : request.getPadesProfile())
+                        .toUpperCase(Locale.ROOT);
+        if (!List.of("B_B", "B_T", "B_LT", "B_LTA").contains(padesProfile)) {
+            throw ExceptionUtils.createIllegalArgumentException(
+                    "error.invalidArgument", "Invalid argument: {0}", "unknown PAdES profile");
+        }
+        if (List.of("B_LT", "B_LTA").contains(padesProfile)) {
+            throw ExceptionUtils.createIllegalArgumentException(
+                    "error.invalidArgument",
+                    "Invalid argument: {0}",
+                    "PAdES "
+                            + padesProfile.replace('_', '-')
+                            + " requires validation-data augmentation");
+        }
+        if ("B_T".equals(padesProfile) && StringUtils.isBlank(request.getTsaUrl())) {
+            throw ExceptionUtils.createIllegalArgumentException(
+                    "error.invalidArgument",
+                    "Invalid argument: {0}",
+                    "TSA URL is required for PAdES B-T");
+        }
 
         if (StringUtils.isBlank(certType)) {
             throw ExceptionUtils.createIllegalArgumentException(
@@ -297,7 +335,7 @@ public class CertSignController {
         }
 
         VisibleCreateSignature createSignature;
-        org.apache.pdfbox.cos.COSName subFilter = PDSignature.SUBFILTER_ADBE_PKCS7_DETACHED;
+        org.apache.pdfbox.cos.COSName subFilter = PDSignature.SUBFILTER_ETSI_CADES_DETACHED;
         if ("KMS".equals(certType)) {
             createSignature =
                     new KmsCreateSignature(
@@ -305,9 +343,11 @@ public class CertSignController {
                             kmsSignatureService,
                             kmsKeyId,
                             kmsSignatureAlgorithm);
-            subFilter = PDSignature.SUBFILTER_ETSI_CADES_DETACHED;
         } else {
             createSignature = new CreateSignature(ks, keystorePassword.toCharArray());
+        }
+        if ("B_T".equals(padesProfile)) {
+            createSignature.setTsaUrl(request.getTsaUrl());
         }
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         sign(
@@ -321,6 +361,9 @@ public class CertSignController {
                 location,
                 reason,
                 showLogo,
+                signatureImage,
+                request.getSignatureText(),
+                request.getSignatureFieldName(),
                 subFilter);
         // Return the signed PDF
         return WebResponseUtils.bytesToWebResponse(
@@ -351,6 +394,33 @@ public class CertSignController {
             throw new IOException(
                     "Visible signature page number must reference an existing PDF page");
         }
+    }
+
+    private static PDSignatureField findTargetSignatureField(PDDocument document, String fieldName)
+            throws IOException {
+        if (StringUtils.isBlank(fieldName)) {
+            return null;
+        }
+        PDAcroForm acroForm = document.getDocumentCatalog().getAcroForm();
+        PDField field = acroForm == null ? null : acroForm.getField(fieldName);
+        if (!(field instanceof PDSignatureField signatureField)) {
+            throw new IOException("Signature field does not exist: " + fieldName);
+        }
+        if (signatureField.getSignature() != null) {
+            throw new IOException("Signature field is already signed: " + fieldName);
+        }
+        return signatureField;
+    }
+
+    private static int findFieldPage(PDDocument document, PDSignatureField signatureField)
+            throws IOException {
+        PDAnnotationWidget widget = signatureField.getWidgets().getFirst();
+        for (int pageIndex = 0; pageIndex < document.getNumberOfPages(); pageIndex++) {
+            if (document.getPage(pageIndex).getAnnotations().contains(widget)) {
+                return pageIndex;
+            }
+        }
+        throw new IOException("Signature field is not attached to a PDF page");
     }
 
     private KmsSignatureAlgorithm resolveKmsSignatureAlgorithm(String requestAlgorithm) {
@@ -449,7 +519,13 @@ public class CertSignController {
         }
 
         public InputStream createVisibleSignature(
-                PDDocument srcDoc, PDSignature signature, Integer pageNumber, Boolean showLogo)
+                PDDocument srcDoc,
+                PDSignature signature,
+                Integer pageNumber,
+                Boolean showLogo,
+                byte[] customImage,
+                String customText,
+                PDSignatureField targetField)
                 throws IOException {
             // modified from org.apache.pdfbox.examples.signature.CreateVisibleSignature2
             try (PDDocument doc = new PDDocument()) {
@@ -465,7 +541,18 @@ public class CertSignController {
                 acroForm.getCOSObject().setDirect(true);
                 acroFormFields.add(signatureField);
 
-                PDRectangle rect = new PDRectangle(0, 0, 200, 50);
+                PDRectangle targetRectangle =
+                        targetField == null
+                                ? null
+                                : targetField.getWidgets().getFirst().getRectangle();
+                PDRectangle rect =
+                        targetRectangle == null
+                                ? new PDRectangle(0, 0, 200, 50)
+                                : new PDRectangle(
+                                        0,
+                                        0,
+                                        targetRectangle.getWidth(),
+                                        targetRectangle.getHeight());
 
                 widget.setRectangle(rect);
 
@@ -488,7 +575,7 @@ public class CertSignController {
                 widget.setAppearance(appearance);
 
                 try (PDPageContentStream cs = new PDPageContentStream(doc, appearanceStream)) {
-                    if (Boolean.TRUE.equals(showLogo)) {
+                    if (Boolean.TRUE.equals(showLogo) || customImage != null) {
                         cs.saveGraphicsState();
                         PDExtendedGraphicsState extState = new PDExtendedGraphicsState();
                         extState.setBlendMode(BlendMode.MULTIPLY);
@@ -497,7 +584,9 @@ public class CertSignController {
                         cs.transform(Matrix.getScaleInstance(0.08f, 0.08f));
                         PDImageXObject img =
                                 PDImageXObject.createFromByteArray(
-                                        doc, loadLogo(), "signature.png");
+                                        doc,
+                                        customImage == null ? loadLogo() : customImage,
+                                        "signature-appearance");
                         cs.drawImage(img, 100, 0);
                         cs.restoreGraphicsState();
                     }
@@ -519,7 +608,10 @@ public class CertSignController {
                     String date = signature.getSignDate().getTime().toString();
                     String reason = signature.getReason();
 
-                    cs.showText("Signed by " + signerName);
+                    cs.showText(
+                            StringUtils.isBlank(customText)
+                                    ? "Signed by " + signerName
+                                    : customText);
                     cs.newLine();
                     cs.showText(date);
                     cs.newLine();
@@ -593,26 +685,13 @@ public class CertSignController {
                 gen.addCertificates(new JcaCertStore(Arrays.asList(getCertificateChain())));
                 CMSTypedData msg = new InputStreamCmsTypedData(content);
                 CMSSignedData signedData = gen.generate(msg, false);
-                return signedData.getEncoded();
-            } catch (GeneralSecurityException | CMSException | OperatorCreationException e) {
+                return addTimestampIfConfigured(signedData).getEncoded();
+            } catch (GeneralSecurityException
+                    | CMSException
+                    | OperatorCreationException
+                    | java.net.URISyntaxException e) {
                 throw new IOException(e);
             }
-        }
-
-        private CMSAttributeTableGenerator createCadesSignedAttributeGenerator(
-                X509Certificate signingCertificate) throws GeneralSecurityException {
-            byte[] certHash =
-                    MessageDigest.getInstance("SHA-256").digest(signingCertificate.getEncoded());
-            ESSCertIDv2 essCertId = new ESSCertIDv2(certHash);
-            SigningCertificateV2 signingCertificateV2 = new SigningCertificateV2(essCertId);
-            Attribute signingCertificateAttribute =
-                    new Attribute(
-                            PKCSObjectIdentifiers.id_aa_signingCertificateV2,
-                            new DERSet(signingCertificateV2));
-            Hashtable<ASN1ObjectIdentifier, Attribute> signedAttributes = new Hashtable<>();
-            signedAttributes.put(
-                    PKCSObjectIdentifiers.id_aa_signingCertificateV2, signingCertificateAttribute);
-            return new DefaultSignedAttributeTableGenerator(new AttributeTable(signedAttributes));
         }
     }
 

@@ -1,6 +1,6 @@
-import { Stack, Text, Button, TextInput, NumberInput } from "@mantine/core";
-import { useTranslation } from "react-i18next";
-import { CertSignParameters } from "@app/hooks/tools/certSign/useCertSignParameters";
+import { Stack, Text, Button, TextInput, NumberInput, FileInput, Select, Alert } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
+import { CertSignParameters } from '@app/hooks/tools/certSign/useCertSignParameters';
 
 interface SignatureAppearanceSettingsProps {
   parameters: CertSignParameters;
@@ -13,7 +13,40 @@ const SignatureAppearanceSettings = ({ parameters, onParameterChange, disabled =
 
   return (
     <Stack gap="md">
-      {/* Signature Visibility */}
+      <Select
+        label={t('certSign.padesProfile', 'PAdES profile')}
+        value={parameters.padesProfile}
+        data={[
+          { value: 'B_B', label: 'PAdES B-B' },
+          { value: 'B_T', label: 'PAdES B-T' },
+          { value: 'B_LT', label: 'PAdES B-LT' },
+          { value: 'B_LTA', label: 'PAdES B-LTA' },
+        ]}
+        onChange={(value) => onParameterChange('padesProfile', value ?? 'B_B')}
+        allowDeselect={false}
+        disabled={disabled}
+      />
+      {(parameters.padesProfile === 'B_LT' || parameters.padesProfile === 'B_LTA') && (
+        <Alert color="yellow">
+          {t('certSign.padesLongTermUnavailable', 'Long-term validation data augmentation is not yet available.')}
+        </Alert>
+      )}
+      {parameters.padesProfile === 'B_T' && (
+        <TextInput
+          type="url"
+          label={t('certSign.tsaUrl', 'Timestamp authority URL')}
+          value={parameters.tsaUrl}
+          onChange={(event) => onParameterChange('tsaUrl', event.currentTarget.value)}
+          required={parameters.padesProfile === 'B_T'}
+          disabled={disabled}
+        />
+      )}
+      <TextInput
+        label={t('certSign.signatureFieldName', 'Existing signature field')}
+        value={parameters.signatureFieldName}
+        onChange={(event) => onParameterChange('signatureFieldName', event.currentTarget.value)}
+        disabled={disabled}
+      />
       <Stack gap="sm">
         <div style={{ display: 'flex', gap: '4px' }}>
           <Button
@@ -63,6 +96,20 @@ const SignatureAppearanceSettings = ({ parameters, onParameterChange, disabled =
             label={t('certSign.name', 'Name')}
             value={parameters.name}
             onChange={(event) => onParameterChange('name', event.currentTarget.value)}
+            disabled={disabled}
+          />
+          <TextInput
+            label={t('certSign.signatureText', 'Appearance text')}
+            value={parameters.signatureText}
+            onChange={(event) => onParameterChange('signatureText', event.currentTarget.value)}
+            disabled={disabled}
+          />
+          <FileInput
+            label={t('certSign.signatureImage', 'Appearance image')}
+            accept="image/png,image/jpeg"
+            value={parameters.signatureImage}
+            onChange={(file) => onParameterChange('signatureImage', file ?? undefined)}
+            clearable
             disabled={disabled}
           />
           <NumberInput

@@ -78,4 +78,22 @@ public class SignPDFWithCertRequest extends PDFFile {
             defaultValue = "true",
             requiredMode = Schema.RequiredMode.REQUIRED)
     private Boolean showLogo;
+
+    @Schema(description = "Optional custom PNG or JPEG for the visible signature appearance")
+    private MultipartFile signatureImage;
+
+    @Schema(description = "Optional custom text shown in the visible signature appearance")
+    private String signatureText;
+
+    @Schema(description = "Name of an existing unsigned PDF signature field to target")
+    private String signatureFieldName;
+
+    @Schema(
+            description = "PAdES baseline profile",
+            allowableValues = {"B_B", "B_T", "B_LT", "B_LTA"},
+            defaultValue = "B_B")
+    private String padesProfile = "B_B";
+
+    @Schema(description = "RFC 3161 timestamp authority URL, required for B-T and above")
+    private String tsaUrl;
 }

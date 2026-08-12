@@ -19,7 +19,10 @@ import java.security.cert.X509Certificate;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
+import org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm;
+import org.apache.pdfbox.pdmodel.interactive.form.PDSignatureField;
 import org.bouncycastle.asn1.DERNull;
 import org.bouncycastle.asn1.nist.NISTObjectIdentifiers;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
@@ -200,6 +203,100 @@ class CertSignControllerTest {
     }
 
     @Test
+    void testLocalSignatureUsesPadesBaselineAttributes() throws Exception {
+        ResponseEntity<byte[]> response = signWithPkcs12(pdfBytes, null);
+
+        try (PDDocument signedDocument = Loader.loadPDF(response.getBody())) {
+            PDSignature pdfSignature = signedDocument.getSignatureDictionaries().getFirst();
+            assertEquals(
+                    PDSignature.SUBFILTER_ETSI_CADES_DETACHED.getName(),
+                    pdfSignature.getSubFilter());
+
+            SignerInformation signerInformation = readSigner(response.getBody(), pdfSignature);
+            assertTrue(
+                    signerInformation.verify(
+                            new JcaSimpleSignerInfoVerifierBuilder().build(kmsCertificate)));
+            assertNotNull(
+                    signerInformation
+                            .getSignedAttributes()
+                            .get(PKCSObjectIdentifiers.id_aa_signingCertificateV2));
+        }
+    }
+
+    @Test
+    void testTargetsExistingUnsignedSignatureField() throws Exception {
+        byte[] fieldPdf;
+        try (PDDocument document = new PDDocument()) {
+            PDPage page = new PDPage();
+            document.addPage(page);
+            PDAcroForm acroForm = new PDAcroForm(document);
+            document.getDocumentCatalog().setAcroForm(acroForm);
+            PDSignatureField field = new PDSignatureField(acroForm);
+            field.setPartialName("approverSignature");
+            field.getWidgets().getFirst().setRectangle(new PDRectangle(72, 72, 220, 60));
+            field.getWidgets().getFirst().setPage(page);
+            page.getAnnotations().add(field.getWidgets().getFirst());
+            acroForm.getFields().add(field);
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            document.save(output);
+            fieldPdf = output.toByteArray();
+        }
+
+        ResponseEntity<byte[]> response = signWithPkcs12(fieldPdf, "approverSignature");
+
+        try (PDDocument signedDocument = Loader.loadPDF(response.getBody())) {
+            PDAcroForm acroForm = signedDocument.getDocumentCatalog().getAcroForm();
+            assertEquals(1, acroForm.getFields().size());
+            PDSignatureField field = (PDSignatureField) acroForm.getField("approverSignature");
+            assertNotNull(field.getSignature());
+            assertEquals(1, signedDocument.getSignatureDictionaries().size());
+        }
+    }
+
+    @Test
+    void testAddsMultipleSignaturesIncrementally() throws Exception {
+        byte[] firstRevision = signWithPkcs12(pdfBytes, null).getBody();
+        byte[] secondRevision = signWithPkcs12(firstRevision, null).getBody();
+
+        try (PDDocument signedDocument = Loader.loadPDF(secondRevision)) {
+            assertEquals(2, signedDocument.getSignatureDictionaries().size());
+            for (PDSignature signature : signedDocument.getSignatureDictionaries()) {
+                assertTrue(
+                        readSigner(secondRevision, signature)
+                                .verify(
+                                        new JcaSimpleSignerInfoVerifierBuilder()
+                                                .build(kmsCertificate)));
+            }
+        }
+    }
+
+    @Test
+    void testPadesTimestampRequiresTsaUrl() {
+        SignPDFWithCertRequest request = createPkcs12Request(pdfBytes);
+        request.setPadesProfile("B_T");
+
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> certSignController.signPDFWithCert(request));
+
+        assertTrue(exception.getMessage().contains("TSA URL is required"));
+    }
+
+    @Test
+    void testLongTermPadesProfilesAreNotFalselyProduced() {
+        SignPDFWithCertRequest request = createPkcs12Request(pdfBytes);
+        request.setPadesProfile("B_LTA");
+
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> certSignController.signPDFWithCert(request));
+
+        assertTrue(exception.getMessage().contains("requires validation-data augmentation"));
+    }
+
+    @Test
     void testSignPdfWithMissingPkcs12FileThrowsError() {
         MockMultipartFile pdfFile =
                 new MockMultipartFile(
@@ -353,6 +450,40 @@ class CertSignControllerTest {
         signature.initSign(kmsPrivateKey);
         signature.update(digestInfo.getEncoded());
         return signature.sign();
+    }
+
+    private ResponseEntity<byte[]> signWithPkcs12(byte[] inputPdf, String signatureFieldName)
+            throws Exception {
+        SignPDFWithCertRequest request = createPkcs12Request(inputPdf);
+        request.setSignatureFieldName(signatureFieldName);
+        return certSignController.signPDFWithCert(request);
+    }
+
+    private SignPDFWithCertRequest createPkcs12Request(byte[] inputPdf) {
+        SignPDFWithCertRequest request = new SignPDFWithCertRequest();
+        request.setFileInput(
+                new MockMultipartFile(
+                        "fileInput", "test.pdf", MediaType.APPLICATION_PDF_VALUE, inputPdf));
+        request.setCertType("PKCS12");
+        request.setP12File(
+                new MockMultipartFile(
+                        "p12File", "test-cert.p12", "application/x-pkcs12", p12Bytes));
+        request.setPassword("password");
+        request.setShowSignature(false);
+        request.setReason("test");
+        request.setLocation("test");
+        request.setName("tester");
+        request.setPageNumber(1);
+        request.setShowLogo(false);
+        return request;
+    }
+
+    private SignerInformation readSigner(byte[] signedPdf, PDSignature pdfSignature)
+            throws Exception {
+        byte[] signedContent = pdfSignature.getSignedContent(new ByteArrayInputStream(signedPdf));
+        byte[] cmsBytes = pdfSignature.getContents(new ByteArrayInputStream(signedPdf));
+        CMSSignedData cms = new CMSSignedData(new CMSProcessableByteArray(signedContent), cmsBytes);
+        return cms.getSignerInfos().getSigners().iterator().next();
     }
 
     @Test
