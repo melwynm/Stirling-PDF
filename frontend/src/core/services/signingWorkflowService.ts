@@ -13,6 +13,7 @@ export type SigningWorkflowStatus =
   | 'IN_PROGRESS'
   | 'COMPLETED'
   | 'CANCELLED'
+  | 'ARCHIVED'
   | 'DECLINED'
   | 'EXPIRED';
 
@@ -34,6 +35,7 @@ export interface CreateSignatureRequestInput {
   requesterName?: string;
   requesterEmail?: string;
   expiresAt?: string;
+  archivedAt?: string;
   signingOrder: boolean;
   remindersEnabled: boolean;
   reminderIntervalHours: number;
@@ -82,3 +84,62 @@ export const createSignatureRequest = async (
   );
   return response.data;
 };
+
+export interface SignatureAuditEvent {
+  id: string;
+  requestId: string;
+  recipientId?: string;
+  type: string;
+  actorName?: string;
+  actorEmail?: string;
+  message: string;
+  timestamp: string;
+  details: Record<string, string>;
+}
+
+export const listSignatureRequests = async (
+  status?: SigningWorkflowStatus,
+): Promise<SignatureRequestView[]> => {
+  const response = await apiClient.get<SignatureRequestView[]>('/api/v1/security/e-sign/requests', {
+    params: status ? { status } : undefined,
+  });
+  return response.data;
+};
+
+export const getSignatureAudit = async (requestId: string): Promise<SignatureAuditEvent[]> => {
+  const response = await apiClient.get<SignatureAuditEvent[]>(
+    `/api/v1/security/e-sign/requests/${requestId}/audit`,
+  );
+  return response.data;
+};
+
+export const cancelSignatureRequest = async (requestId: string): Promise<SignatureRequestView> => {
+  const response = await apiClient.post<SignatureRequestView>(
+    `/api/v1/security/e-sign/requests/${requestId}/cancel`,
+    {},
+  );
+  return response.data;
+};
+
+export const archiveSignatureRequest = async (requestId: string): Promise<SignatureRequestView> => {
+  const response = await apiClient.post<SignatureRequestView>(
+    `/api/v1/security/e-sign/requests/${requestId}/archive`,
+  );
+  return response.data;
+};
+
+export const deleteSignatureRequest = async (requestId: string): Promise<void> => {
+  await apiClient.delete(`/api/v1/security/e-sign/requests/${requestId}`);
+};
+
+export const remindSignatureRequest = async (requestId: string): Promise<void> => {
+  await apiClient.post(`/api/v1/security/e-sign/requests/${requestId}/reminders`, {});
+};
+
+export const retrySignatureWebhooks = async (requestId: string): Promise<void> => {
+  await apiClient.post(`/api/v1/security/e-sign/requests/${requestId}/webhooks/retry`);
+};
+
+export const signatureRequestDownloadUrl = (requestId: string): string => (
+  `/api/v1/security/e-sign/requests/${requestId}/download`
+);

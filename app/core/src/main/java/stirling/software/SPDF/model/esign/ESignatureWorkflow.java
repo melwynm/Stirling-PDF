@@ -34,6 +34,7 @@ public class ESignatureWorkflow {
     private Instant sentAt;
     private Instant completedAt;
     private Instant cancelledAt;
+    private Instant archivedAt;
     private Instant declinedAt;
     private Instant expiresAt;
     private Instant retentionUntil;
@@ -53,6 +54,7 @@ public class ESignatureWorkflow {
         IN_PROGRESS,
         COMPLETED,
         CANCELLED,
+        ARCHIVED,
         DECLINED,
         EXPIRED
     }
@@ -74,6 +76,7 @@ public class ESignatureWorkflow {
         REMINDER_SENT,
         REQUEST_COMPLETED,
         REQUEST_CANCELLED,
+        REQUEST_ARCHIVED,
         REQUEST_EXPIRED
     }
 

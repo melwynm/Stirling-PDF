@@ -13,6 +13,7 @@ import {
   SimpleGrid,
   Stack,
   Switch,
+  Tabs,
   Text,
   Textarea,
   TextInput,
@@ -30,6 +31,7 @@ import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined';
 import ShortTextRoundedIcon from '@mui/icons-material/ShortTextRounded';
 import { createToolSteps, ToolStepProvider } from '@app/components/tools/shared/ToolStep';
 import { Tooltip } from '@app/components/shared/Tooltip';
+import { SigningWorkflowDashboard } from '@app/components/signing/SigningWorkflowDashboard';
 import { useFileSelection } from '@app/contexts/FileContext';
 import {
   SIGNING_FIELD_DRAG_TYPE,
@@ -97,6 +99,7 @@ const RequestSignatures = ({ onError }: BaseToolProps) => {
   const [submitting, setSubmitting] = useState(false);
   const [createdRequest, setCreatedRequest] = useState<SignatureRequestView | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [view, setView] = useState<string | null>('create');
 
   useEffect(() => {
     if (!selectedFile) return;
@@ -104,9 +107,9 @@ const RequestSignatures = ({ onError }: BaseToolProps) => {
   }, [selectedFile?.fileId]);
 
   useEffect(() => {
-    setAuthoringActive(true);
+    setAuthoringActive(view === 'create');
     return () => setAuthoringActive(false);
-  }, [setAuthoringActive]);
+  }, [setAuthoringActive, view]);
 
   useEffect(() => {
     setAuthoringRecipients(recipients.map(({ accessCode: _accessCode, ...recipient }) => recipient));
@@ -563,36 +566,49 @@ const RequestSignatures = ({ onError }: BaseToolProps) => {
 
   return (
     <Stack gap="sm" p="sm">
-      <ToolStepProvider forceStepNumbers>
-        {steps.createFilesStep({ selectedFiles, minFiles: 1 })}
-        {steps.create(t('requestSignatures.steps.recipients', 'Recipients'), {}, recipientContent)}
-        {steps.create(t('requestSignatures.steps.fields', 'Fields'), {}, fieldAuthoringContent)}
-        {steps.create(t('requestSignatures.steps.routing', 'Routing and timing'), {}, routingContent)}
-        {steps.create(t('requestSignatures.steps.details', 'Request details'), {}, detailsContent)}
-      </ToolStepProvider>
+      <Tabs value={view} onChange={setView} keepMounted={false}>
+        <Tabs.List grow>
+          <Tabs.Tab value="create">{t('requestSignatures.views.create', 'Create')}</Tabs.Tab>
+          <Tabs.Tab value="manage">{t('requestSignatures.views.manage', 'Manage')}</Tabs.Tab>
+        </Tabs.List>
+        <Tabs.Panel value="create" pt="sm">
+          <Stack gap="sm">
+            <ToolStepProvider forceStepNumbers>
+              {steps.createFilesStep({ selectedFiles, minFiles: 1 })}
+              {steps.create(t('requestSignatures.steps.recipients', 'Recipients'), {}, recipientContent)}
+              {steps.create(t('requestSignatures.steps.fields', 'Fields'), {}, fieldAuthoringContent)}
+              {steps.create(t('requestSignatures.steps.routing', 'Routing and timing'), {}, routingContent)}
+              {steps.create(t('requestSignatures.steps.details', 'Request details'), {}, detailsContent)}
+            </ToolStepProvider>
 
-      {createdRequest && (
-        <Alert color="green" title={t('requestSignatures.created', 'Draft created')}>
-          <Text size="sm">{createdRequest.title}</Text>
-          <Text size="xs" c="dimmed">{createdRequest.id}</Text>
-        </Alert>
-      )}
+            {createdRequest && (
+              <Alert color="green" title={t('requestSignatures.created', 'Draft created')}>
+                <Text size="sm">{createdRequest.title}</Text>
+                <Text size="xs" c="dimmed">{createdRequest.id}</Text>
+              </Alert>
+            )}
 
-      {submitError && (
-        <Alert color="red" title={t('requestSignatures.errors.create', 'Unable to create the signature request')}>
-          <Text size="sm">{submitError}</Text>
-        </Alert>
-      )}
+            {submitError && (
+              <Alert color="red" title={t('requestSignatures.errors.create', 'Unable to create the signature request')}>
+                <Text size="sm">{submitError}</Text>
+              </Alert>
+            )}
 
-      <Button
-        fullWidth
-        leftSection={<SaveOutlinedIcon fontSize="small" />}
-        loading={submitting}
-        disabled={!canSubmit}
-        onClick={handleCreate}
-      >
-        {t('requestSignatures.createDraft', 'Create draft')}
-      </Button>
+            <Button
+              fullWidth
+              leftSection={<SaveOutlinedIcon fontSize="small" />}
+              loading={submitting}
+              disabled={!canSubmit}
+              onClick={handleCreate}
+            >
+              {t('requestSignatures.createDraft', 'Create draft')}
+            </Button>
+          </Stack>
+        </Tabs.Panel>
+        <Tabs.Panel value="manage" pt="sm">
+          <SigningWorkflowDashboard />
+        </Tabs.Panel>
+      </Tabs>
     </Stack>
   );
 };

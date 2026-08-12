@@ -27,6 +27,7 @@ public class ESignatureRequestView {
     private Instant sentAt;
     private Instant completedAt;
     private Instant cancelledAt;
+    private Instant archivedAt;
     private Instant declinedAt;
     private Instant expiresAt;
     private Instant retentionUntil;

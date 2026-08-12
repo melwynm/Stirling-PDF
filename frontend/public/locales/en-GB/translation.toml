@@ -6252,6 +6252,30 @@ emailLink = "Email link"
 email = "Email"
 sms = "SMS"
 
+[requestSignatures.views]
+create = "Create"
+manage = "Manage"
+
+[requestSignatures.dashboard]
+actions = "Actions"
+archive = "Archive"
+audit = "Audit timeline"
+cancel = "Cancel"
+confirmDelete = "Permanently delete this request?"
+delete = "Delete permanently"
+download = "Download"
+empty = "No signature requests found"
+progress = "Progress"
+recipients = "Recipients"
+refresh = "Refresh"
+remind = "Send reminder"
+request = "Request"
+retryWebhooks = "Retry webhooks"
+search = "Search"
+status = "Status"
+updated = "Updated"
+view = "View details"
+
 [requestSignatures.errors]
 accessCode = "Use at least 6 characters"
 create = "Unable to create the signature request"

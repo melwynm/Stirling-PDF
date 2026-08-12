@@ -790,6 +790,47 @@ public class ESignatureWorkflowService {
         return toView(workflow);
     }
 
+    public ESignatureRequestView archive(String requestId, ActorContext actor) throws IOException {
+        actor = actorOrSystem(actor);
+        ESignatureWorkflow workflow = loadWorkflow(requestId);
+        ensureOwnedBy(workflow, actor);
+        if (isActiveWorkflow(workflow)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "Active signature requests must be cancelled first");
+        }
+        if (workflow.getStatus() == WorkflowStatus.ARCHIVED) {
+            return toView(workflow);
+        }
+        workflow.setStatus(WorkflowStatus.ARCHIVED);
+        workflow.setArchivedAt(Instant.now());
+        workflow.setUpdatedAt(Instant.now());
+        addAudit(
+                workflow,
+                AuditEventType.REQUEST_ARCHIVED,
+                null,
+                actor,
+                "E-signature request archived",
+                Map.of());
+        saveWorkflow(workflow);
+        return toView(workflow);
+    }
+
+    public void delete(String requestId, ActorContext actor) throws IOException {
+        ESignatureWorkflow workflow = loadWorkflow(requestId);
+        ensureOwnedBy(workflow, actor);
+        if (workflow.getStatus() != WorkflowStatus.ARCHIVED) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "Only archived signature requests can be deleted");
+        }
+        Path path = requestPath(requestId);
+        verifyWithin(requestsPath, path);
+        try (var files = Files.walk(path)) {
+            for (Path candidate : files.sorted(Comparator.reverseOrder()).toList()) {
+                Files.deleteIfExists(candidate);
+            }
+        }
+    }
+
     public Path getDocumentPath(String requestId) throws IOException {
         ESignatureWorkflow workflow = loadWorkflow(requestId);
         return workflowDocumentPath(workflow);
@@ -1260,6 +1301,7 @@ public class ESignatureWorkflowService {
         view.setSentAt(workflow.getSentAt());
         view.setCompletedAt(workflow.getCompletedAt());
         view.setCancelledAt(workflow.getCancelledAt());
+        view.setArchivedAt(workflow.getArchivedAt());
         view.setDeclinedAt(workflow.getDeclinedAt());
         view.setExpiresAt(workflow.getExpiresAt());
         view.setRetentionUntil(workflow.getRetentionUntil());

@@ -417,6 +417,45 @@ class ESignatureWorkflowServiceTest {
     }
 
     @Test
+    void archivesTerminalWorkflowBeforePermanentDeletion() throws Exception {
+        ESignatureCreateRequest request = new ESignatureCreateRequest();
+        ESignatureRecipientRequest recipient = recipient("Signer", "signer@example.com", 1);
+        recipient.setId("recipient-1");
+        request.setRecipients(List.of(recipient));
+        request.setFields(List.of(signatureField("recipient-1", 0.5, 0.75, 0.35, 0.1)));
+        ESignatureRequestView created = service.createRequest(pdfFile(), request, actor);
+        String token =
+                service.sendRequest(created.getId(), new ESignatureSendRequest(), actor)
+                        .getNotifications()
+                        .getFirst()
+                        .getToken();
+        service.sign(token, signRequest("Signer"), actor);
+
+        ESignatureRequestView archived = service.archive(created.getId(), actor);
+
+        assertEquals(WorkflowStatus.ARCHIVED, archived.getStatus());
+        assertNotNull(archived.getArchivedAt());
+        assertTrue(Files.exists(tempDir.resolve(created.getId())));
+        service.delete(created.getId(), actor);
+        assertFalse(Files.exists(tempDir.resolve(created.getId())));
+        assertThrows(
+                ResponseStatusException.class, () -> service.getRequest(created.getId(), actor));
+    }
+
+    @Test
+    void refusesToArchiveAnActiveWorkflow() throws Exception {
+        ESignatureRequestView created =
+                service.createRequest(pdfFile(), orderedCreateRequest(), actor);
+
+        ResponseStatusException error =
+                assertThrows(
+                        ResponseStatusException.class,
+                        () -> service.archive(created.getId(), actor));
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatusCode());
+    }
+
+    @Test
     void signerCompletionUpdatesTheStoredPdfRevision() throws Exception {
         ESignatureCreateRequest request = new ESignatureCreateRequest();
         ESignatureRecipientRequest recipient = recipient("Signer", "signer@example.com", 1);
