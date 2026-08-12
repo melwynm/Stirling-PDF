@@ -36,6 +36,7 @@ import stirling.software.SPDF.model.api.esign.ESignatureCancelRequest;
 import stirling.software.SPDF.model.api.esign.ESignatureCreateRequest;
 import stirling.software.SPDF.model.api.esign.ESignatureDeclineRequest;
 import stirling.software.SPDF.model.api.esign.ESignatureDueReminder;
+import stirling.software.SPDF.model.api.esign.ESignatureEvidenceView;
 import stirling.software.SPDF.model.api.esign.ESignatureNotification;
 import stirling.software.SPDF.model.api.esign.ESignatureRecipientRequest;
 import stirling.software.SPDF.model.api.esign.ESignatureReminderRequest;
@@ -199,6 +200,34 @@ public class ESignatureWorkflowController {
             @PathVariable String requestId, HttpServletRequest servletRequest) throws IOException {
         return ResponseEntity.ok(
                 workflowService.getAuditTrail(requestId, actor(servletRequest, null, null)));
+    }
+
+    @GetMapping("/e-sign/requests/{requestId}/evidence")
+    @Operation(summary = "Get tamper-evident signature workflow evidence")
+    public ResponseEntity<ESignatureEvidenceView> getEvidence(
+            @PathVariable String requestId, HttpServletRequest servletRequest) throws IOException {
+        return ResponseEntity.ok(
+                workflowService.getEvidence(requestId, actor(servletRequest, null, null)));
+    }
+
+    @GetMapping(
+            value = "/e-sign/requests/{requestId}/evidence.pdf",
+            produces = MediaType.APPLICATION_PDF_VALUE)
+    @Operation(summary = "Download the signature workflow evidence certificate")
+    public ResponseEntity<byte[]> downloadEvidencePdf(
+            @PathVariable String requestId, HttpServletRequest servletRequest) throws IOException {
+        byte[] report =
+                workflowService.generateEvidencePdf(requestId, actor(servletRequest, null, null));
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .contentLength(report.length)
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment()
+                                .filename("signature-evidence-" + requestId + ".pdf")
+                                .build()
+                                .toString())
+                .body(report);
     }
 
     @GetMapping("/e-sign/events")

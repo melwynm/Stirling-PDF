@@ -143,3 +143,7 @@ export const retrySignatureWebhooks = async (requestId: string): Promise<void> =
 export const signatureRequestDownloadUrl = (requestId: string): string => (
   `/api/v1/security/e-sign/requests/${requestId}/download`
 );
+
+export const signatureEvidenceDownloadUrl = (requestId: string): string => (
+  `/api/v1/security/e-sign/requests/${requestId}/evidence.pdf`
+);

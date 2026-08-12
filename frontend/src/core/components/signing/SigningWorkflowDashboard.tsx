@@ -34,6 +34,7 @@ import {
   listSignatureRequests,
   remindSignatureRequest,
   retrySignatureWebhooks,
+  signatureEvidenceDownloadUrl,
   signatureRequestDownloadUrl,
   type SignatureAuditEvent,
   type SignatureRequestView,
@@ -205,6 +206,7 @@ export function SigningWorkflowDashboard() {
           <Box><Text size="sm" fw={600}>{t('requestSignatures.dashboard.audit', 'Audit timeline')}</Text>{audit.map(event => <Box key={event.id} py="xs" style={{ borderBottom: '1px solid var(--mantine-color-default-border)' }}><Group justify="space-between"><Text size="sm" fw={500}>{event.type.replaceAll('_', ' ')}</Text><Text size="xs" c="dimmed">{new Date(event.timestamp).toLocaleString()}</Text></Group><Text size="xs" c="dimmed">{event.message}</Text></Box>)}</Box>
           <Group justify="flex-end">
             <Button variant="default" leftSection={<ReplayRoundedIcon fontSize="small" />} onClick={() => void runAction(selected.id, () => retrySignatureWebhooks(selected.id))}>{t('requestSignatures.dashboard.retryWebhooks', 'Retry webhooks')}</Button>
+            <Button component="a" variant="default" href={signatureEvidenceDownloadUrl(selected.id)} leftSection={<DownloadOutlinedIcon fontSize="small" />}>{t('requestSignatures.dashboard.evidence', 'Evidence')}</Button>
             <Button component="a" href={signatureRequestDownloadUrl(selected.id)} leftSection={<DownloadOutlinedIcon fontSize="small" />}>{t('requestSignatures.dashboard.download', 'Download')}</Button>
           </Group>
         </Stack>}

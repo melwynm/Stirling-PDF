@@ -1,5 +1,6 @@
 package stirling.software.SPDF.service;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -15,15 +16,23 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.font.PDType1Font;
+import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -44,6 +53,7 @@ import stirling.software.SPDF.model.api.esign.ESignatureCancelRequest;
 import stirling.software.SPDF.model.api.esign.ESignatureCreateRequest;
 import stirling.software.SPDF.model.api.esign.ESignatureDeclineRequest;
 import stirling.software.SPDF.model.api.esign.ESignatureDueReminder;
+import stirling.software.SPDF.model.api.esign.ESignatureEvidenceView;
 import stirling.software.SPDF.model.api.esign.ESignatureNotification;
 import stirling.software.SPDF.model.api.esign.ESignatureRecipientRequest;
 import stirling.software.SPDF.model.api.esign.ESignatureRecipientView;
@@ -294,6 +304,58 @@ public class ESignatureWorkflowService {
         ESignatureWorkflow workflow = loadWorkflow(requestId);
         ensureOwnedBy(workflow, actor);
         return workflow.getAuditTrail().stream().map(this::toAuditView).toList();
+    }
+
+    public ESignatureEvidenceView getEvidence(String requestId, ActorContext actor)
+            throws IOException {
+        ESignatureWorkflow workflow = loadWorkflow(requestId);
+        ensureOwnedBy(workflow, actor);
+        ESignatureEvidenceView evidence = new ESignatureEvidenceView();
+        evidence.setRequestId(workflow.getId());
+        evidence.setTitle(workflow.getTitle());
+        evidence.setStatus(workflow.getStatus().name());
+        evidence.setGeneratedAt(Instant.now());
+        evidence.setAuditIntegrityValid(verifyAuditIntegrity(workflow));
+        evidence.setAuditRootHash(
+                workflow.getAuditTrail().isEmpty()
+                        ? null
+                        : workflow.getAuditTrail().getLast().getEventHash());
+        evidence.setDocumentSha256(sha256(workflowDocumentPath(workflow)));
+        evidence.setDocumentRevision(workflow.getDocumentRevision());
+        evidence.setRecipients(
+                workflow.getRecipients().stream().map(this::toRecipientView).toList());
+        evidence.setAuditTrail(workflow.getAuditTrail().stream().map(this::toAuditView).toList());
+        return evidence;
+    }
+
+    public byte[] generateEvidencePdf(String requestId, ActorContext actor) throws IOException {
+        ESignatureEvidenceView evidence = getEvidence(requestId, actor);
+        List<String> lines = new ArrayList<>();
+        lines.add("SIGNATURE EVIDENCE REPORT");
+        lines.add("Request: " + evidence.getTitle());
+        lines.add("Request ID: " + evidence.getRequestId());
+        lines.add("Status: " + evidence.getStatus());
+        lines.add("Generated: " + evidence.getGeneratedAt());
+        lines.add("Document SHA-256: " + evidence.getDocumentSha256());
+        lines.add("Audit root SHA-256: " + evidence.getAuditRootHash());
+        lines.add("Audit integrity: " + (evidence.isAuditIntegrityValid() ? "VALID" : "INVALID"));
+        lines.add("");
+        lines.add("RECIPIENTS");
+        for (ESignatureRecipientView recipient : evidence.getRecipients()) {
+            lines.add(
+                    recipient.getName()
+                            + " <"
+                            + recipient.getEmail()
+                            + "> - "
+                            + recipient.getStatus());
+        }
+        lines.add("");
+        lines.add("AUDIT EVENTS");
+        for (ESignatureAuditEventView event : evidence.getAuditTrail()) {
+            lines.add(event.getTimestamp() + "  " + event.getType() + "  " + event.getMessage());
+            lines.add("  hash: " + event.getEventHash());
+        }
+        return createEvidencePdf(lines);
     }
 
     public List<ESignatureAuditEventView> listEvents(Instant since, String type)
@@ -1355,6 +1417,8 @@ public class ESignatureWorkflowService {
         view.setUserAgent(event.getUserAgent());
         view.setMessage(event.getMessage());
         view.setTimestamp(event.getTimestamp());
+        view.setPreviousHash(event.getPreviousHash());
+        view.setEventHash(event.getEventHash());
         view.setDetails(copyStringMap(event.getDetails()));
         return view;
     }
@@ -1378,8 +1442,109 @@ public class ESignatureWorkflowService {
         event.setMessage(message);
         event.setTimestamp(Instant.now());
         event.setDetails(copyStringMap(details));
+        event.setPreviousHash(
+                workflow.getAuditTrail().isEmpty()
+                        ? null
+                        : workflow.getAuditTrail().getLast().getEventHash());
+        event.setEventHash(hashAuditEvent(event));
         workflow.getAuditTrail().add(event);
         enqueueWebhook(workflow, event);
+    }
+
+    private boolean verifyAuditIntegrity(ESignatureWorkflow workflow) {
+        String previousHash = null;
+        for (AuditEvent event : workflow.getAuditTrail()) {
+            if (!Objects.equals(previousHash, event.getPreviousHash())
+                    || !Objects.equals(hashAuditEvent(event), event.getEventHash())) {
+                return false;
+            }
+            previousHash = event.getEventHash();
+        }
+        return true;
+    }
+
+    private String hashAuditEvent(AuditEvent event) {
+        StringBuilder canonical = new StringBuilder();
+        appendHashValue(canonical, event.getId());
+        appendHashValue(canonical, event.getRequestId());
+        appendHashValue(canonical, event.getRecipientId());
+        appendHashValue(canonical, event.getType() == null ? null : event.getType().name());
+        appendHashValue(canonical, event.getActorName());
+        appendHashValue(canonical, event.getActorEmail());
+        appendHashValue(canonical, event.getIpAddress());
+        appendHashValue(canonical, event.getUserAgent());
+        appendHashValue(canonical, event.getMessage());
+        appendHashValue(
+                canonical, event.getTimestamp() == null ? null : event.getTimestamp().toString());
+        appendHashValue(canonical, event.getPreviousHash());
+        new TreeMap<>(copyStringMap(event.getDetails()))
+                .forEach(
+                        (key, value) -> {
+                            appendHashValue(canonical, key);
+                            appendHashValue(canonical, value);
+                        });
+        return sha256(canonical.toString().getBytes(StandardCharsets.UTF_8));
+    }
+
+    private void appendHashValue(StringBuilder target, String value) {
+        String normalized = value == null ? "" : value;
+        target.append(normalized.length()).append(':').append(normalized);
+    }
+
+    private String sha256(Path path) throws IOException {
+        try (InputStream input = Files.newInputStream(path)) {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = input.read(buffer)) >= 0) {
+                digest.update(buffer, 0, read);
+            }
+            return HexFormat.of().formatHex(digest.digest());
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is unavailable", e);
+        }
+    }
+
+    private String sha256(byte[] content) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is unavailable", e);
+        }
+    }
+
+    private byte[] createEvidencePdf(List<String> lines) throws IOException {
+        try (PDDocument document = new PDDocument();
+                ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            PDType1Font regular = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
+            PDType1Font bold = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
+            PDPage page = null;
+            PDPageContentStream content = null;
+            float y = 0;
+            try {
+                for (int index = 0; index < lines.size(); index++) {
+                    if (content == null || y < 48) {
+                        if (content != null) content.close();
+                        page = new PDPage(PDRectangle.A4);
+                        document.addPage(page);
+                        content = new PDPageContentStream(document, page);
+                        y = page.getMediaBox().getHeight() - 48;
+                    }
+                    String line = lines.get(index).replaceAll("[^\\x20-\\x7E]", "?");
+                    if (line.length() > 105) line = line.substring(0, 105);
+                    content.beginText();
+                    content.setFont(index == 0 ? bold : regular, index == 0 ? 16 : 9);
+                    content.newLineAtOffset(48, y);
+                    content.showText(line);
+                    content.endText();
+                    y -= index == 0 ? 26 : 14;
+                }
+            } finally {
+                if (content != null) content.close();
+            }
+            document.save(output);
+            return output.toByteArray();
+        }
     }
 
     private void enqueueWebhook(ESignatureWorkflow workflow, AuditEvent event) {

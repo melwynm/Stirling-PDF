@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.junit.jupiter.api.BeforeEach;
@@ -453,6 +454,31 @@ class ESignatureWorkflowServiceTest {
                         () -> service.archive(created.getId(), actor));
 
         assertEquals(HttpStatus.CONFLICT, error.getStatusCode());
+    }
+
+    @Test
+    void generatesVerifiableEvidenceCertificateAndDetectsAuditTampering() throws Exception {
+        ESignatureRequestView created =
+                service.createRequest(pdfFile(), orderedCreateRequest(), actor);
+
+        var evidence = service.getEvidence(created.getId(), actor);
+
+        assertTrue(evidence.isAuditIntegrityValid());
+        assertNotNull(evidence.getAuditRootHash());
+        assertEquals(64, evidence.getDocumentSha256().length());
+        byte[] report = service.generateEvidencePdf(created.getId(), actor);
+        try (PDDocument document = Loader.loadPDF(report)) {
+            assertTrue(document.getNumberOfPages() >= 1);
+        }
+
+        Path metadataPath = tempDir.resolve(created.getId()).resolve("metadata.json");
+        String metadata = Files.readString(metadataPath);
+        Files.writeString(
+                metadataPath,
+                metadata.replace(
+                        "E-signature request created", "E-signature request silently changed"));
+
+        assertFalse(service.getEvidence(created.getId(), actor).isAuditIntegrityValid());
     }
 
     @Test

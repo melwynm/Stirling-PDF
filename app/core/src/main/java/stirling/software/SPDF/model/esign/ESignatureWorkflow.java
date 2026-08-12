@@ -100,6 +100,8 @@ public class ESignatureWorkflow {
         private String userAgent;
         private String message;
         private Instant timestamp;
+        private String previousHash;
+        private String eventHash;
         private Map<String, String> details = new LinkedHashMap<>();
     }
 
