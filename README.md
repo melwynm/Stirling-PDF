@@ -47,6 +47,8 @@ For full installation options (including desktop and Kubernetes), see our [Docum
 ## Resources
 
 - [**Documentation**](https://docs.stirlingpdf.com)
+- [**Signing and E-Signature Workflows**](docs/signing-workflows.md)
+- [**Signing Release Gates**](docs/signing-release-gates.md)
 - [**Homepage**](https://stirling.com)
 - [**API Docs**](https://registry.scalar.com/@stirlingpdf/apis/stirling-pdf-processing-api/)
 - [**Engine MCP Guide**](engine/MCP.md)
