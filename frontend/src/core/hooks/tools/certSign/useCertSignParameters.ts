@@ -12,6 +12,7 @@ export interface CertSignParameters extends BaseParameters {
   jksFile?: File;
   password: string;
   kmsKeyId: string;
+  signerProvider: 'KMS' | 'REMOTE' | 'CLOUD_KMS' | 'QES' | 'PKCS11';
   kmsSignatureAlgorithm: 'SHA256_WITH_RSA' | 'SHA256_WITH_ECDSA';
 
   // Signature appearance options
@@ -33,6 +34,7 @@ export const defaultParameters: CertSignParameters = {
   certType: '',
   password: '',
   kmsKeyId: '',
+  signerProvider: 'KMS',
   kmsSignatureAlgorithm: 'SHA256_WITH_RSA',
   showSignature: false,
   reason: '',

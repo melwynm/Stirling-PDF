@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 
 import stirling.software.SPDF.service.KmsSignatureService.KmsSignatureAlgorithm;
 import stirling.software.SPDF.service.KmsSignatureService.KmsSigningRequest;
+import stirling.software.SPDF.service.KmsSignatureService.SignerProvider;
 import stirling.software.common.model.ApplicationProperties;
 
 import okhttp3.mockwebserver.MockResponse;
@@ -54,6 +55,7 @@ class KmsSignatureServiceTest {
             assertEquals("application/json", request.getHeader("Content-Type"));
             String requestBody = request.getBody().readUtf8();
             assertTrue(requestBody.contains("\"keyId\":\"alias/pdf-signing\""));
+            assertTrue(requestBody.contains("\"provider\":\"KMS\""));
             assertTrue(requestBody.contains("\"algorithm\":\"SHA256_WITH_RSA\""));
             assertTrue(requestBody.contains("\"digestAlgorithm\":\"SHA-256\""));
             assertTrue(
@@ -103,6 +105,45 @@ class KmsSignatureServiceTest {
         assertEquals(KmsSignatureAlgorithm.SHA256_WITH_RSA, service.resolveAlgorithm("rsa"));
         assertThrows(
                 IllegalArgumentException.class, () -> service.resolveAlgorithm("SHA256_WITH_DSA"));
+        assertFalse(service.isEnabled(SignerProvider.PKCS11));
+        assertEquals(SignerProvider.CLOUD_KMS, SignerProvider.from("cloud-kms"));
+    }
+
+    @Test
+    void remoteProvidersUseTheirOwnConfigurationAndContract() throws Exception {
+        byte[] signature = {9, 8, 7};
+        try (MockWebServer server = new MockWebServer()) {
+            server.enqueue(
+                    new MockResponse()
+                            .setResponseCode(200)
+                            .addHeader("Content-Type", "application/json")
+                            .setBody(
+                                    "{\"signature\":\""
+                                            + Base64.getEncoder().encodeToString(signature)
+                                            + "\"}"));
+            server.start();
+            ApplicationProperties properties = new ApplicationProperties();
+            var qes = properties.getSecurity().getSigning().getQes();
+            qes.setEnabled(true);
+            qes.setSignerUrl(server.url("/qes/sign").toString());
+            qes.setAuthorizationHeader("Bearer qes-token");
+            KmsSignatureService service =
+                    new KmsSignatureService(properties, JsonMapper.builder().build());
+
+            byte[] actual =
+                    service.signDigest(
+                            SignerProvider.QES,
+                            new KmsSigningRequest(
+                                    "qualified-key",
+                                    KmsSignatureAlgorithm.SHA256_WITH_RSA,
+                                    new byte[] {1}));
+
+            assertArrayEquals(signature, actual);
+            RecordedRequest request = server.takeRequest();
+            assertEquals("/qes/sign", request.getPath());
+            assertEquals("Bearer qes-token", request.getHeader("Authorization"));
+            assertTrue(request.getBody().readUtf8().contains("\"provider\":\"QES\""));
+        }
     }
 
     private KmsSignatureService service(MockWebServer server, String authorizationHeader) {

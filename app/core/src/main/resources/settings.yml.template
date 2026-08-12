@@ -91,6 +91,30 @@ security:
       authorizationHeader: "" # Optional Authorization header value for the signing bridge, e.g. "Bearer <token>"
       signatureAlgorithm: SHA256_WITH_RSA # Signature algorithm used by the KMS key: SHA256_WITH_RSA or SHA256_WITH_ECDSA
       timeoutSeconds: 30 # Timeout for calls to the remote KMS signing bridge
+    remote:
+      enabled: false # Enable a generic remote digest-signing bridge
+      signerUrl: ""
+      authorizationHeader: ""
+      signatureAlgorithm: SHA256_WITH_RSA
+      timeoutSeconds: 30
+    cloudKms:
+      enabled: false # Enable a cloud KMS bridge (AWS KMS, Azure Key Vault, Google Cloud KMS, etc.)
+      signerUrl: ""
+      authorizationHeader: ""
+      signatureAlgorithm: SHA256_WITH_RSA
+      timeoutSeconds: 30
+    qes:
+      enabled: false # Enable a qualified electronic signature provider bridge
+      signerUrl: ""
+      authorizationHeader: ""
+      signatureAlgorithm: SHA256_WITH_RSA
+      timeoutSeconds: 60
+    pkcs11:
+      enabled: false # Enable a local PKCS#11 token or HSM
+      library: "" # Absolute path to the vendor PKCS#11 module
+      slot: "" # Optional slot number
+      pin: "" # Token PIN; prefer an environment-backed secret
+      signatureAlgorithm: SHA256_WITH_RSA
   xFrameOptions: DENY # X-Frame-Options header value. Options: 'DENY' (default, prevents all framing), 'SAMEORIGIN' (allows framing from same domain), 'DISABLED' (no X-Frame-Options header sent). Note: automatically set to DISABLED when login is disabled
 
 premium:

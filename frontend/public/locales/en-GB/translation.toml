@@ -2064,12 +2064,20 @@ padesProfile = "PAdES profile"
 reason = "Reason"
 serverCertMessage = "Using server certificate - no files or password required"
 showLogo = "Show Logo"
+signerProvider = "Signer provider"
 signatureFieldName = "Existing signature field"
 signatureImage = "Appearance image"
 signatureText = "Appearance text"
 tags = "authenticate,PEM,P12,official,encrypt,sign,certificate,PKCS12,JKS,server,manual,auto,KMS,PAdES"
 title = "Certificate Signing"
 tsaUrl = "Timestamp authority URL"
+
+[certSign.providers]
+cloudKms = "Cloud KMS"
+kms = "KMS / HSM bridge"
+pkcs11 = "PKCS#11 token / HSM"
+qes = "Qualified e-signature"
+remote = "Remote signer"
 
 [certSign.appearance]
 invisible = "Invisible"

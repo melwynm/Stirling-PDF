@@ -502,6 +502,10 @@ public class ApplicationProperties {
         @Data
         public static class Signing {
             private Kms kms = new Kms();
+            private Pkcs11 pkcs11 = new Pkcs11();
+            private RemoteSigner remote = new RemoteSigner();
+            private RemoteSigner cloudKms = new RemoteSigner();
+            private RemoteSigner qes = new RemoteSigner();
 
             @Data
             public static class Kms {
@@ -510,6 +514,24 @@ public class ApplicationProperties {
                 @ToString.Exclude private String authorizationHeader = "";
                 private String signatureAlgorithm = "SHA256_WITH_RSA";
                 private int timeoutSeconds = 30;
+            }
+
+            @Data
+            public static class RemoteSigner {
+                private boolean enabled = false;
+                private String signerUrl = "";
+                @ToString.Exclude private String authorizationHeader = "";
+                private String signatureAlgorithm = "SHA256_WITH_RSA";
+                private int timeoutSeconds = 30;
+            }
+
+            @Data
+            public static class Pkcs11 {
+                private boolean enabled = false;
+                private String library = "";
+                private String slot = "";
+                @ToString.Exclude private String pin = "";
+                private String signatureAlgorithm = "SHA256_WITH_RSA";
             }
         }
 

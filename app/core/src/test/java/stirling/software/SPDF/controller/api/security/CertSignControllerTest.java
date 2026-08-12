@@ -48,6 +48,7 @@ import stirling.software.SPDF.model.api.security.SignPDFWithCertRequest;
 import stirling.software.SPDF.service.KmsSignatureService;
 import stirling.software.SPDF.service.KmsSignatureService.KmsSignatureAlgorithm;
 import stirling.software.SPDF.service.KmsSignatureService.KmsSigningRequest;
+import stirling.software.SPDF.service.KmsSignatureService.SignerProvider;
 import stirling.software.SPDF.service.PadesLtvService;
 import stirling.software.common.service.CustomPDFDocumentFactory;
 import stirling.software.common.service.ServerCertificateServiceInterface;
@@ -393,11 +394,13 @@ class CertSignControllerTest {
                         "application/x-x509-ca-cert",
                         kmsCertificate.getEncoded());
 
-        when(kmsSignatureService.isEnabled()).thenReturn(true);
-        when(kmsSignatureService.resolveAlgorithm("SHA256_WITH_RSA"))
+        when(kmsSignatureService.isEnabled(SignerProvider.KMS)).thenReturn(true);
+        when(kmsSignatureService.resolveAlgorithm(SignerProvider.KMS, "SHA256_WITH_RSA"))
                 .thenReturn(KmsSignatureAlgorithm.SHA256_WITH_RSA);
-        when(kmsSignatureService.signDigest(any(KmsSigningRequest.class)))
-                .thenAnswer(invocation -> signSha256RsaDigest(invocation.getArgument(0)));
+        when(kmsSignatureService.signDigest(
+                        org.mockito.ArgumentMatchers.eq(SignerProvider.KMS),
+                        any(KmsSigningRequest.class)))
+                .thenAnswer(invocation -> signSha256RsaDigest(invocation.getArgument(1)));
 
         SignPDFWithCertRequest request = new SignPDFWithCertRequest();
         request.setFileInput(pdfFile);
@@ -497,8 +500,8 @@ class CertSignControllerTest {
                 new MockMultipartFile(
                         "certFile", "test-cert.pem", "application/x-pem-file", pemCertBytes);
 
-        when(kmsSignatureService.isEnabled()).thenReturn(true);
-        when(kmsSignatureService.resolveAlgorithm("SHA256_WITH_DSA"))
+        when(kmsSignatureService.isEnabled(SignerProvider.KMS)).thenReturn(true);
+        when(kmsSignatureService.resolveAlgorithm(SignerProvider.KMS, "SHA256_WITH_DSA"))
                 .thenThrow(
                         new IllegalArgumentException(
                                 "Unsupported KMS signature algorithm: SHA256_WITH_DSA"));

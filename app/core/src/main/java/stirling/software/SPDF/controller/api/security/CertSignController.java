@@ -89,6 +89,7 @@ import stirling.software.SPDF.model.api.security.SignPDFWithCertRequest;
 import stirling.software.SPDF.service.KmsSignatureService;
 import stirling.software.SPDF.service.KmsSignatureService.KmsSignatureAlgorithm;
 import stirling.software.SPDF.service.KmsSignatureService.KmsSigningRequest;
+import stirling.software.SPDF.service.KmsSignatureService.SignerProvider;
 import stirling.software.SPDF.service.PadesLtvService;
 import stirling.software.common.annotations.AutoJobPostMapping;
 import stirling.software.common.service.CustomPDFDocumentFactory;
@@ -262,6 +263,7 @@ public class CertSignController {
         String keystorePassword = password;
         Certificate[] kmsCertificateChain = null;
         KmsSignatureAlgorithm kmsSignatureAlgorithm = null;
+        SignerProvider signerProvider = SignerProvider.KMS;
 
         switch (certType) {
             case "PEM":
@@ -312,9 +314,18 @@ public class CertSignController {
                 keystorePassword = serverCertificateService.getServerCertificatePassword();
                 break;
             case "KMS":
-                if (!kmsSignatureService.isEnabled()) {
+                try {
+                    signerProvider = SignerProvider.from(request.getSignerProvider());
+                } catch (IllegalArgumentException e) {
                     throw ExceptionUtils.createIllegalArgumentException(
-                            "error.kmsSigningDisabled", "KMS signing is not enabled");
+                            "error.invalidArgument",
+                            "Invalid argument: {0}",
+                            "unknown managed signer provider");
+                }
+                if (!kmsSignatureService.isEnabled(signerProvider)) {
+                    throw ExceptionUtils.createIllegalArgumentException(
+                            "error.kmsSigningDisabled",
+                            signerProvider.getLabel() + " signing is not enabled");
                 }
                 certFile =
                         validateFilePresent(
@@ -322,7 +333,8 @@ public class CertSignController {
                                 "KMS certificate chain",
                                 "certificate chain file is required");
                 kmsSignatureAlgorithm =
-                        resolveKmsSignatureAlgorithm(request.getKmsSignatureAlgorithm());
+                        resolveKmsSignatureAlgorithm(
+                                signerProvider, request.getKmsSignatureAlgorithm());
                 kmsCertificateChain = getCertificatesFromPEM(certFile.getBytes());
                 validateKmsCertificate(kmsCertificateChain, kmsSignatureAlgorithm);
                 break;
@@ -340,6 +352,7 @@ public class CertSignController {
                     new KmsCreateSignature(
                             kmsCertificateChain,
                             kmsSignatureService,
+                            signerProvider,
                             kmsKeyId,
                             kmsSignatureAlgorithm);
         } else {
@@ -430,9 +443,10 @@ public class CertSignController {
         throw new IOException("Signature field is not attached to a PDF page");
     }
 
-    private KmsSignatureAlgorithm resolveKmsSignatureAlgorithm(String requestAlgorithm) {
+    private KmsSignatureAlgorithm resolveKmsSignatureAlgorithm(
+            SignerProvider signerProvider, String requestAlgorithm) {
         try {
-            return kmsSignatureService.resolveAlgorithm(requestAlgorithm);
+            return kmsSignatureService.resolveAlgorithm(signerProvider, requestAlgorithm);
         } catch (IllegalArgumentException e) {
             throw ExceptionUtils.createIllegalArgumentException(
                     "error.invalidArgument", "Invalid argument: {0}", e.getMessage());
@@ -661,17 +675,20 @@ public class CertSignController {
 
     class KmsCreateSignature extends VisibleCreateSignature {
         private final KmsSignatureService kmsSignatureService;
+        private final SignerProvider signerProvider;
         private final String keyId;
         private final KmsSignatureAlgorithm signatureAlgorithm;
 
         public KmsCreateSignature(
                 Certificate[] certificateChain,
                 KmsSignatureService kmsSignatureService,
+                SignerProvider signerProvider,
                 String keyId,
                 KmsSignatureAlgorithm signatureAlgorithm)
                 throws IOException, CertificateException {
             super(certificateChain);
             this.kmsSignatureService = kmsSignatureService;
+            this.signerProvider = signerProvider;
             this.keyId = keyId;
             this.signatureAlgorithm = signatureAlgorithm;
         }
@@ -682,7 +699,8 @@ public class CertSignController {
                 CMSSignedDataGenerator gen = new CMSSignedDataGenerator();
                 X509Certificate cert = (X509Certificate) getCertificateChain()[0];
                 ContentSigner signer =
-                        new DigestKmsContentSigner(kmsSignatureService, keyId, signatureAlgorithm);
+                        new DigestKmsContentSigner(
+                                kmsSignatureService, signerProvider, keyId, signatureAlgorithm);
                 JcaSignerInfoGeneratorBuilder signerInfoBuilder =
                         new JcaSignerInfoGeneratorBuilder(
                                 new JcaDigestCalculatorProviderBuilder().build());
@@ -704,6 +722,7 @@ public class CertSignController {
 
     private static class DigestKmsContentSigner implements ContentSigner {
         private final KmsSignatureService kmsSignatureService;
+        private final SignerProvider signerProvider;
         private final String keyId;
         private final KmsSignatureAlgorithm signatureAlgorithm;
         private final AlgorithmIdentifier algorithmIdentifier;
@@ -711,9 +730,11 @@ public class CertSignController {
 
         private DigestKmsContentSigner(
                 KmsSignatureService kmsSignatureService,
+                SignerProvider signerProvider,
                 String keyId,
                 KmsSignatureAlgorithm signatureAlgorithm) {
             this.kmsSignatureService = kmsSignatureService;
+            this.signerProvider = signerProvider;
             this.keyId = keyId;
             this.signatureAlgorithm = signatureAlgorithm;
             this.algorithmIdentifier =
@@ -738,7 +759,7 @@ public class CertSignController {
                         MessageDigest.getInstance(signatureAlgorithm.getDigestAlgorithm())
                                 .digest(contentToSign.toByteArray());
                 return kmsSignatureService.signDigest(
-                        new KmsSigningRequest(keyId, signatureAlgorithm, digest));
+                        signerProvider, new KmsSigningRequest(keyId, signatureAlgorithm, digest));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw new IllegalStateException("Failed to sign digest with KMS", e);

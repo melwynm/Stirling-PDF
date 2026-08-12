@@ -47,6 +47,7 @@ describe('buildCertSignFormData', () => {
       signMode: 'KMS',
       certFile,
       kmsKeyId: 'alias/pdf-signing',
+      signerProvider: 'CLOUD_KMS',
       kmsSignatureAlgorithm: 'SHA256_WITH_ECDSA',
     });
 
@@ -54,6 +55,7 @@ describe('buildCertSignFormData', () => {
     expect(formData.get('certType')).toBe('KMS');
     expect(formData.get('certFile')).toBe(certFile);
     expect(formData.get('kmsKeyId')).toBe('alias/pdf-signing');
+    expect(formData.get('signerProvider')).toBe('CLOUD_KMS');
     expect(formData.get('kmsSignatureAlgorithm')).toBe('SHA256_WITH_ECDSA');
     expect(formData.get('privateKeyFile')).toBeNull();
     expect(formData.get('password')).toBeNull();

@@ -2,6 +2,7 @@ import { Select, Stack, Text, TextInput } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import { CertSignParameters } from "@app/hooks/tools/certSign/useCertSignParameters";
 import FileUploadButton from "@app/components/shared/FileUploadButton";
+import { useAppConfig } from '@app/contexts/AppConfigContext';
 
 interface CertificateFilesSettingsProps {
   parameters: CertSignParameters;
@@ -11,6 +12,15 @@ interface CertificateFilesSettingsProps {
 
 const CertificateFilesSettings = ({ parameters, onParameterChange, disabled = false }: CertificateFilesSettingsProps) => {
   const { t } = useTranslation();
+  const { config } = useAppConfig();
+  const enabledProviders = config?.managedSignerProviders ?? ['KMS'];
+  const providerOptions = [
+    { value: 'KMS', label: t('certSign.providers.kms', 'KMS / HSM bridge') },
+    { value: 'CLOUD_KMS', label: t('certSign.providers.cloudKms', 'Cloud KMS') },
+    { value: 'REMOTE', label: t('certSign.providers.remote', 'Remote signer') },
+    { value: 'QES', label: t('certSign.providers.qes', 'Qualified e-signature') },
+    { value: 'PKCS11', label: t('certSign.providers.pkcs11', 'PKCS#11 token / HSM') },
+  ].filter(option => enabledProviders.includes(option.value as CertSignParameters['signerProvider']));
 
   return (
     <Stack gap="md">
@@ -77,6 +87,14 @@ const CertificateFilesSettings = ({ parameters, onParameterChange, disabled = fa
             accept=".pem,.der,.crt,.cer"
             disabled={disabled}
             placeholder={t('certSign.chooseKmsCertificate', 'Choose KMS Certificate Chain')}
+          />
+          <Select
+            label={t('certSign.signerProvider', 'Signer provider')}
+            value={parameters.signerProvider}
+            onChange={(value) => onParameterChange('signerProvider', value || 'KMS')}
+            data={providerOptions}
+            disabled={disabled}
+            allowDeselect={false}
           />
           <TextInput
             label={t('certSign.kmsKeyId', 'KMS Key ID')}

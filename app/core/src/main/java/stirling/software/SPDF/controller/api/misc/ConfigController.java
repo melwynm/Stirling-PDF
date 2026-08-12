@@ -250,11 +250,28 @@ public class ConfigController {
                     "serverCertificateEnabled",
                     serverCertificateService != null && serverCertificateService.isEnabled());
             var kmsSigning = applicationProperties.getSecurity().getSigning().getKms();
-            configData.put(
-                    "kmsSigningEnabled",
-                    kmsSigning.isEnabled()
-                            && kmsSigning.getSignerUrl() != null
-                            && !kmsSigning.getSignerUrl().isBlank());
+            var signing = applicationProperties.getSecurity().getSigning();
+            List<String> managedSignerProviders = new java.util.ArrayList<>();
+            if (kmsSigning.isEnabled()
+                    && kmsSigning.getSignerUrl() != null
+                    && !kmsSigning.getSignerUrl().isBlank()) {
+                managedSignerProviders.add("KMS");
+            }
+            if (signing.getRemote().isEnabled() && !signing.getRemote().getSignerUrl().isBlank()) {
+                managedSignerProviders.add("REMOTE");
+            }
+            if (signing.getCloudKms().isEnabled()
+                    && !signing.getCloudKms().getSignerUrl().isBlank()) {
+                managedSignerProviders.add("CLOUD_KMS");
+            }
+            if (signing.getQes().isEnabled() && !signing.getQes().getSignerUrl().isBlank()) {
+                managedSignerProviders.add("QES");
+            }
+            if (signing.getPkcs11().isEnabled() && !signing.getPkcs11().getLibrary().isBlank()) {
+                managedSignerProviders.add("PKCS11");
+            }
+            configData.put("managedSignerProviders", managedSignerProviders);
+            configData.put("kmsSigningEnabled", !managedSignerProviders.isEmpty());
 
             // Legal settings
             configData.put(

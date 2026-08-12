@@ -46,6 +46,12 @@ public class SignPDFWithCertRequest extends PDFFile {
     private String kmsKeyId;
 
     @Schema(
+            description = "Managed signer provider",
+            allowableValues = {"KMS", "REMOTE", "CLOUD_KMS", "QES", "PKCS11"},
+            defaultValue = "KMS")
+    private String signerProvider = "KMS";
+
+    @Schema(
             description = "KMS signature algorithm",
             allowableValues = {"SHA256_WITH_RSA", "SHA256_WITH_ECDSA"},
             defaultValue = "SHA256_WITH_RSA")

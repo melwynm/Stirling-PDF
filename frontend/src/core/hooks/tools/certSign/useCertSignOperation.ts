@@ -14,6 +14,7 @@ export const buildCertSignFormData = (parameters: CertSignParameters, file: File
   } else if (parameters.signMode === 'KMS') {
     formData.append('certType', 'KMS');
     formData.append('kmsKeyId', parameters.kmsKeyId);
+    formData.append('signerProvider', parameters.signerProvider);
     formData.append('kmsSignatureAlgorithm', parameters.kmsSignatureAlgorithm);
     if (parameters.certFile) {
       formData.append('certFile', parameters.certFile);

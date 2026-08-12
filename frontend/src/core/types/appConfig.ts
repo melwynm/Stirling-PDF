@@ -31,6 +31,7 @@ export interface AppConfig {
   SSOAutoLogin?: boolean;
   serverCertificateEnabled?: boolean;
   kmsSigningEnabled?: boolean;
+  managedSignerProviders?: Array<'KMS' | 'REMOTE' | 'CLOUD_KMS' | 'QES' | 'PKCS11'>;
   enableMobileScanner?: boolean;
   mobileScannerConvertToPdf?: boolean;
   mobileScannerImageResolution?: string;
