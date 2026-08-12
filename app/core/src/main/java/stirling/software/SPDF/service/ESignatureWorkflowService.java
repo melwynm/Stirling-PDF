@@ -101,6 +101,7 @@ public class ESignatureWorkflowService {
 
     private final ObjectMapper objectMapper;
     private final ESignaturePdfService pdfService;
+    private final SigningAnchorService anchorService;
     private final ESignatureWebhookService webhookService;
     private final Map<String, SigningNotificationProvider> notificationProviders;
     private final SecureRandom secureRandom = new SecureRandom();
@@ -119,17 +120,24 @@ public class ESignatureWorkflowService {
                         "e-signature-workflows",
                         "requests"),
                 pdfService,
+                new SigningAnchorService(),
                 webhookService,
                 notificationProviders);
     }
 
     ESignatureWorkflowService(ObjectMapper objectMapper, Path requestsPath) {
-        this(objectMapper, requestsPath, new ESignaturePdfService(), null, List.of());
+        this(
+                objectMapper,
+                requestsPath,
+                new ESignaturePdfService(),
+                new SigningAnchorService(),
+                null,
+                List.of());
     }
 
     ESignatureWorkflowService(
             ObjectMapper objectMapper, Path requestsPath, ESignaturePdfService pdfService) {
-        this(objectMapper, requestsPath, pdfService, null, List.of());
+        this(objectMapper, requestsPath, pdfService, new SigningAnchorService(), null, List.of());
     }
 
     ESignatureWorkflowService(
@@ -137,7 +145,13 @@ public class ESignatureWorkflowService {
             Path requestsPath,
             ESignaturePdfService pdfService,
             ESignatureWebhookService webhookService) {
-        this(objectMapper, requestsPath, pdfService, webhookService, List.of());
+        this(
+                objectMapper,
+                requestsPath,
+                pdfService,
+                new SigningAnchorService(),
+                webhookService,
+                List.of());
     }
 
     ESignatureWorkflowService(
@@ -146,9 +160,26 @@ public class ESignatureWorkflowService {
             ESignaturePdfService pdfService,
             ESignatureWebhookService webhookService,
             List<SigningNotificationProvider> notificationProviders) {
+        this(
+                objectMapper,
+                requestsPath,
+                pdfService,
+                new SigningAnchorService(),
+                webhookService,
+                notificationProviders);
+    }
+
+    ESignatureWorkflowService(
+            ObjectMapper objectMapper,
+            Path requestsPath,
+            ESignaturePdfService pdfService,
+            SigningAnchorService anchorService,
+            ESignatureWebhookService webhookService,
+            List<SigningNotificationProvider> notificationProviders) {
         this.objectMapper = objectMapper;
         this.requestsPath = requestsPath;
         this.pdfService = pdfService;
+        this.anchorService = anchorService;
         this.webhookService = webhookService;
         this.notificationProviders =
                 notificationProviders.stream()
@@ -227,7 +258,9 @@ public class ESignatureWorkflowService {
             workflow.getRecipients().add(recipient);
             fallbackOrder++;
         }
-        workflow.setFields(prepareSigningFields(request.getFields(), workflow.getRecipients()));
+        List<SigningField> requestedFields = new ArrayList<>(request.getFields());
+        requestedFields.addAll(anchorService.resolve(file.getBytes(), request.getAnchors()));
+        workflow.setFields(prepareSigningFields(requestedFields, workflow.getRecipients()));
         validateSigningModel(workflow.getRecipients(), workflow.getFields());
 
         Path requestPath = requestPath(requestId);
@@ -281,7 +314,9 @@ public class ESignatureWorkflowService {
                     source.getSigningOrder() == null ? order++ : source.getSigningOrder());
             recipients.add(recipient);
         }
-        validateSigningModel(recipients, prepareSigningFields(request.getFields(), recipients));
+        List<SigningField> requestedFields = new ArrayList<>(request.getFields());
+        requestedFields.addAll(anchorService.resolve(file.getBytes(), request.getAnchors()));
+        validateSigningModel(recipients, prepareSigningFields(requestedFields, recipients));
     }
 
     String sanitizeWorkflowFilename(String filename) {

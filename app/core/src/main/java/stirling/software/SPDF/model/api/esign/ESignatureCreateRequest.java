@@ -7,6 +7,7 @@ import java.util.List;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import stirling.software.SPDF.model.signing.SigningAnchor;
 import stirling.software.SPDF.model.signing.SigningField;
 
 @Data
@@ -24,4 +25,5 @@ public class ESignatureCreateRequest {
     private Integer reminderIntervalHours;
     private List<ESignatureRecipientRequest> recipients = new ArrayList<>();
     private List<SigningField> fields = new ArrayList<>();
+    private List<SigningAnchor> anchors = new ArrayList<>();
 }
