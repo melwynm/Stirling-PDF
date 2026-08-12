@@ -24,8 +24,12 @@ import org.springframework.web.server.ResponseStatusException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import stirling.software.SPDF.model.api.esign.ESignatureBulkTemplateItemResult;
+import stirling.software.SPDF.model.api.esign.ESignatureBulkTemplateRequest;
+import stirling.software.SPDF.model.api.esign.ESignatureBulkTemplateResponse;
 import stirling.software.SPDF.model.api.esign.ESignatureCreateRequest;
 import stirling.software.SPDF.model.api.esign.ESignatureRequestView;
+import stirling.software.SPDF.model.api.esign.ESignatureSendRequest;
 import stirling.software.SPDF.model.api.esign.ESignatureTemplateCreateRequest;
 import stirling.software.SPDF.model.api.esign.ESignatureTemplateInstantiateRequest;
 import stirling.software.SPDF.model.esign.ESignatureTemplate;
@@ -42,6 +46,7 @@ public class ESignatureTemplateService {
     private static final String METADATA_FILE = "metadata.json";
     private static final String DOCUMENT_FILE = "document.pdf";
     private static final Pattern SAFE_ID_PATTERN = Pattern.compile("^[a-zA-Z0-9-]+$");
+    private static final int MAX_BULK_ITEMS = 500;
 
     private final ObjectMapper objectMapper;
     private final ESignatureWorkflowService workflowService;
@@ -163,6 +168,49 @@ public class ESignatureTemplateService {
                 Files.deleteIfExists(candidate);
             }
         }
+    }
+
+    public ESignatureBulkTemplateResponse instantiateBulk(
+            String templateId, ESignatureBulkTemplateRequest bulkRequest, ActorContext actor)
+            throws IOException {
+        if (bulkRequest == null
+                || bulkRequest.getItems() == null
+                || bulkRequest.getItems().isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "At least one bulk template item is required");
+        }
+        if (bulkRequest.getItems().size() > MAX_BULK_ITEMS) {
+            throw new ResponseStatusException(
+                    HttpStatus.PAYLOAD_TOO_LARGE,
+                    "Bulk template requests are limited to " + MAX_BULK_ITEMS + " items");
+        }
+        // Resolve ownership before processing any rows.
+        ensureOwned(load(templateId), actor);
+
+        ESignatureBulkTemplateResponse response = new ESignatureBulkTemplateResponse();
+        response.setRequested(bulkRequest.getItems().size());
+        for (int index = 0; index < bulkRequest.getItems().size(); index++) {
+            ESignatureBulkTemplateItemResult result = new ESignatureBulkTemplateItemResult();
+            result.setIndex(index);
+            try {
+                ESignatureRequestView request =
+                        instantiate(templateId, bulkRequest.getItems().get(index), actor);
+                result.setRequest(request);
+                if (bulkRequest.isSendImmediately()) {
+                    ESignatureSendRequest send = new ESignatureSendRequest();
+                    send.setPublicBaseUrl(bulkRequest.getPublicBaseUrl());
+                    result.setAction(workflowService.sendRequest(request.getId(), send, actor));
+                    result.setRequest(result.getAction().getRequest());
+                }
+                result.setSuccess(true);
+                response.setSucceeded(response.getSucceeded() + 1);
+            } catch (ResponseStatusException | IllegalArgumentException e) {
+                result.setError(e.getMessage());
+                response.setFailed(response.getFailed() + 1);
+            }
+            response.getResults().add(result);
+        }
+        return response;
     }
 
     private ESignatureCreateRequest merge(

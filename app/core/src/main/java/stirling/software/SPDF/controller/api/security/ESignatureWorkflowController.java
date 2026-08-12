@@ -32,6 +32,8 @@ import lombok.RequiredArgsConstructor;
 
 import stirling.software.SPDF.model.api.esign.ESignatureActionResponse;
 import stirling.software.SPDF.model.api.esign.ESignatureAuditEventView;
+import stirling.software.SPDF.model.api.esign.ESignatureBulkTemplateRequest;
+import stirling.software.SPDF.model.api.esign.ESignatureBulkTemplateResponse;
 import stirling.software.SPDF.model.api.esign.ESignatureCancelRequest;
 import stirling.software.SPDF.model.api.esign.ESignatureCreateRequest;
 import stirling.software.SPDF.model.api.esign.ESignatureDeclineRequest;
@@ -123,6 +125,27 @@ public class ESignatureWorkflowController {
             @PathVariable String templateId, HttpServletRequest servletRequest) throws IOException {
         templateService.delete(templateId, actor(servletRequest, null, null));
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/e-sign/templates/{templateId}/bulk-requests")
+    @Operation(
+            summary = "Create or send many e-signature requests from a template",
+            description =
+                    "Processes up to 500 independent template rows and returns a result for each."
+                            + " Successful rows are retained when another row fails, making the"
+                            + " endpoint suitable for CSV imports, n8n item lists, and MCP tools.")
+    public ResponseEntity<ESignatureBulkTemplateResponse> instantiateTemplateBulk(
+            @PathVariable String templateId,
+            @RequestBody ESignatureBulkTemplateRequest request,
+            HttpServletRequest servletRequest)
+            throws IOException {
+        if (!StringUtils.hasText(request.getPublicBaseUrl())) {
+            request.setPublicBaseUrl(baseUrl(servletRequest));
+        }
+        return ResponseEntity.status(HttpStatus.MULTI_STATUS)
+                .body(
+                        templateService.instantiateBulk(
+                                templateId, request, actor(servletRequest, null, null)));
     }
 
     @PostMapping(value = "/e-sign/requests", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

@@ -18,6 +18,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
+import stirling.software.SPDF.model.api.esign.ESignatureBulkTemplateRequest;
+import stirling.software.SPDF.model.api.esign.ESignatureBulkTemplateResponse;
 import stirling.software.SPDF.model.api.esign.ESignatureCreateRequest;
 import stirling.software.SPDF.model.api.esign.ESignatureRecipientRequest;
 import stirling.software.SPDF.model.api.esign.ESignatureRequestView;
@@ -104,6 +106,55 @@ class ESignatureTemplateServiceTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, error.getStatusCode());
         assertFalse(Files.exists(tempDir.resolve("templates")));
+    }
+
+    @Test
+    void bulkInstantiationReportsPartialSuccessByInputIndex() throws Exception {
+        ESignatureTemplate template = templateService.create(pdfFile(), templateRequest(), owner);
+        ESignatureBulkTemplateRequest bulk = new ESignatureBulkTemplateRequest();
+        bulk.setItems(
+                List.of(
+                        instantiateFor("Ada", "ada@example.com"),
+                        instantiateFor("Invalid", "not-an-email")));
+
+        ESignatureBulkTemplateResponse response =
+                templateService.instantiateBulk(template.getId(), bulk, owner);
+
+        assertEquals(2, response.getRequested());
+        assertEquals(1, response.getSucceeded());
+        assertEquals(1, response.getFailed());
+        assertEquals(0, response.getResults().getFirst().getIndex());
+        assertEquals(1, response.getResults().getLast().getIndex());
+        assertFalse(response.getResults().getLast().isSuccess());
+    }
+
+    @Test
+    void bulkInstantiationEnforcesBatchLimitBeforeCreatingRequests() throws Exception {
+        ESignatureTemplate template = templateService.create(pdfFile(), templateRequest(), owner);
+        ESignatureBulkTemplateRequest bulk = new ESignatureBulkTemplateRequest();
+        bulk.setItems(
+                java.util.stream.IntStream.rangeClosed(1, 501)
+                        .mapToObj(
+                                index ->
+                                        instantiateFor(
+                                                "Signer " + index, "s" + index + "@example.com"))
+                        .toList());
+
+        ResponseStatusException error =
+                assertThrows(
+                        ResponseStatusException.class,
+                        () -> templateService.instantiateBulk(template.getId(), bulk, owner));
+
+        assertEquals(HttpStatus.PAYLOAD_TOO_LARGE, error.getStatusCode());
+        assertFalse(Files.exists(tempDir.resolve("requests")));
+    }
+
+    private ESignatureTemplateInstantiateRequest instantiateFor(String name, String email) {
+        ESignatureCreateRequest overrides = new ESignatureCreateRequest();
+        overrides.setRecipients(List.of(recipient(name, email)));
+        ESignatureTemplateInstantiateRequest request = new ESignatureTemplateInstantiateRequest();
+        request.setOverrides(overrides);
+        return request;
     }
 
     private ESignatureTemplateCreateRequest templateRequest() {
