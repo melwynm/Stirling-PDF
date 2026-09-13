@@ -50,6 +50,9 @@ export const TOOL_CREDIT_COSTS: Record<ToolId, number> = {
   read: CREDIT_COSTS.SMALL,
 
   // Medium operations (3 credits)
+  // Preserve the existing fallback cost for these workspace tools.
+  requestSignatures: CREDIT_COSTS.MEDIUM,
+  manageCertificates: CREDIT_COSTS.MEDIUM,
   split: CREDIT_COSTS.MEDIUM,
   merge: CREDIT_COSTS.MEDIUM,
   pdfTextEditor: CREDIT_COSTS.MEDIUM,

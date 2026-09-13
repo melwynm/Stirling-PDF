@@ -13,6 +13,7 @@ import AuthCallback from '@app/routes/AuthCallback';
 import ResetPassword from '@app/routes/ResetPassword';
 import OnboardingBootstrap from '@app/components/OnboardingBootstrap';
 import TrialExpiredBootstrap from '@app/components/TrialExpiredBootstrap';
+import PublicRecipientSigningPage from '@app/pages/PublicRecipientSigningPage';
 
 // Import global styles
 import '@app/styles/tailwind.css';
@@ -30,7 +31,9 @@ function handleConfigLoaded(config: AppConfig) {
 export default function App() {
   return (
     <Suspense fallback={<LoadingFallback />}>
-      <AppProviders appConfigProviderProps={{ onConfigLoaded: handleConfigLoaded }}>
+      <Routes>
+        <Route path="/sign-request/:token" element={<PublicRecipientSigningPage />} />
+        <Route path="*" element={<AppProviders appConfigProviderProps={{ onConfigLoaded: handleConfigLoaded }}>
         <AppLayout>
           <OnboardingBootstrap />
           <TrialExpiredBootstrap />
@@ -43,7 +46,8 @@ export default function App() {
           </Routes>
           <OnboardingTour />
         </AppLayout>
-      </AppProviders>
+        </AppProviders>} />
+      </Routes>
     </Suspense>
   );
 }

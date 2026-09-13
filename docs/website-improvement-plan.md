@@ -304,7 +304,7 @@ operability, with external dependencies clearly identified.
 
 ### Implementation Sequence
 
-- [ ] **8.1 Repair time-sensitive test fixtures.** Generate appropriate test certificates relative to
+- [x] **8.1 Repair time-sensitive test fixtures.** Generate appropriate test certificates relative to
   a controlled test time or inject a clock where needed. Preserve explicit expired/not-yet-valid cases;
   never bypass production certificate validity checks to make tests pass.
 - [ ] **8.2 Add browser workflow gates.** Cover sender draft -> delivery -> recipient authentication
@@ -365,6 +365,12 @@ Estimate effort after Phase 0; unlocated signing changes and deployment topology
   guarantees. Do not declare a workstream complete from implementation presence alone.
 
 ## Delivery Ledger
+
+2026-09-13 increment: repaired PAdES fixture (three tests passing), implemented distinct recipient
+outcomes and required-field navigation, added public recipient routing to proprietary/SaaS layers,
+and preserved credit fallback values explicitly. Five recipient component tests, translation coverage,
+all frontend typechecks, ESLint, and two Chromium browser checks (1440px/390px) pass. Browser checks
+use mocked APIs and do not establish live email/KMS behavior. Remaining workstream tasks stay pending.
 
 | Workstream | Current status | Implementation revision | Acceptance evidence | Next action |
 | --- | --- | --- | --- | --- |

@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const externalBaseUrl = process.env.STIRLING_E2E_BASE_URL;
+
 /**
  * @see https://playwright.dev/docs/test-configuration
  */
@@ -19,7 +21,7 @@ export default defineConfig({
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: 'http://localhost:5173',
+    baseURL: externalBaseUrl ?? 'http://localhost:5173',
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
@@ -31,6 +33,7 @@ export default defineConfig({
       name: 'chromium',
       use: { 
         ...devices['Desktop Chrome'],
+        channel: process.env.STIRLING_E2E_BROWSER_CHANNEL,
         viewport: { width: 1920, height: 1080 }
       },
     },
@@ -67,7 +70,7 @@ export default defineConfig({
   ],
 
   /* Run your local dev server before starting the tests */
-  webServer: {
+  webServer: externalBaseUrl ? undefined : {
     command: 'npm run dev',
     url: 'http://localhost:5173',
     reuseExistingServer: !process.env.CI,

@@ -15,6 +15,15 @@
   background: var(--mantine-color-body);
 }
 
+.header > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.header > a {
+  flex-shrink: 0;
+}
+
 .main {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(19rem, 25rem);

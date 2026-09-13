@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   Alert,
@@ -8,6 +8,9 @@ import {
   Loader,
   Paper,
   PasswordInput,
+  Progress,
+  Radio,
+  Select,
   Stack,
   Text,
   Textarea,
@@ -62,8 +65,12 @@ const initialFieldValues = (context: RecipientSigningContext): Record<string, st
 );
 
 export default function RecipientSigningPage() {
-  const { t } = useTranslation();
   const { token = '' } = useParams();
+  return <RecipientSigningSession key={token} token={token} />;
+}
+
+function RecipientSigningSession({ token }: { token: string }) {
+  const { t } = useTranslation();
   const [context, setContext] = useState<RecipientSigningContext | null>(null);
   const [accessCode, setAccessCode] = useState('');
   const [authenticated, setAuthenticated] = useState(false);
@@ -74,8 +81,16 @@ export default function RecipientSigningPage() {
   const [declining, setDeclining] = useState(false);
   const [declineReason, setDeclineReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [completed, setCompleted] = useState(false);
+  const [outcome, setOutcome] = useState<'signed' | 'declined' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [documentError, setDocumentError] = useState<string | null>(null);
+  const documentUrlRef = useRef<string | null>(null);
+  const documentLoadGeneration = useRef(0);
+
+  useEffect(() => () => {
+    documentLoadGeneration.current += 1;
+    if (documentUrlRef.current) URL.revokeObjectURL(documentUrlRef.current);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -85,6 +100,8 @@ export default function RecipientSigningPage() {
         setContext(nextContext);
         setSignerName(nextContext.recipient.name);
         setFieldValues(initialFieldValues(nextContext));
+        setOutcome(nextContext.recipient.status === 'SIGNED' ? 'signed'
+          : nextContext.recipient.status === 'DECLINED' ? 'declined' : null);
       })
       .catch(() => {
         if (!cancelled) {
@@ -97,41 +114,49 @@ export default function RecipientSigningPage() {
   }, [t, token]);
 
   const loadDocument = useCallback(async (code?: string, recordView = true) => {
-    setError(null);
+    const generation = ++documentLoadGeneration.current;
+    setDocumentError(null);
     const blob = await downloadRecipientDocument(token, code);
+    if (generation !== documentLoadGeneration.current) return;
     const nextUrl = URL.createObjectURL(blob);
-    setDocumentUrl(current => {
-      if (current) URL.revokeObjectURL(current);
-      return nextUrl;
-    });
+    if (documentUrlRef.current) URL.revokeObjectURL(documentUrlRef.current);
+    documentUrlRef.current = nextUrl;
+    setDocumentUrl(nextUrl);
     setAuthenticated(true);
     if (recordView) {
-      await markRecipientViewed(token, code);
+      try {
+        await markRecipientViewed(token, code);
+      } catch {
+        // Viewing telemetry must not turn a successful document download into an auth failure.
+      }
     }
   }, [token]);
 
   useEffect(() => {
     if (context?.recipient.authenticationMethod === 'emailLink' && !authenticated) {
-      loadDocument().catch(() => {
-        setError(t('recipientSigning.errors.document', 'Unable to open the document'));
+      loadDocument(undefined, context.recipient.status !== 'SIGNED'
+        && context.recipient.status !== 'DECLINED' && context.recipient.role !== 'cc').catch(() => {
+        setDocumentError(t('recipientSigning.errors.document', 'Unable to open the document'));
       });
     }
   }, [authenticated, context, loadDocument, t]);
 
-  useEffect(() => () => {
-    if (documentUrl) URL.revokeObjectURL(documentUrl);
-  }, [documentUrl]);
-
-  const requiredFieldsComplete = useMemo(() => context?.request.fields.every(field => {
-    if (!field.required) return true;
+  const incompleteFields = useMemo(() => context?.request.fields.filter(field => {
+    if (!field.required) return false;
     const value = fieldValues[field.id];
-    return field.type === 'checkbox' ? value === 'true' : Boolean(value?.trim());
-  }) ?? false, [context, fieldValues]);
+    if (field.type === 'checkbox') return value !== 'true';
+    if (field.type === 'radio' || field.type === 'dropdown') return !field.options.includes(value);
+    return !value?.trim();
+  }) ?? [], [context, fieldValues]);
+  const requiredFieldsComplete = Boolean(context) && incompleteFields.length === 0;
+  const requiredCount = context?.request.fields.filter(field => field.required).length ?? 0;
+  const closed = Boolean(context && ['CANCELLED', 'EXPIRED', 'ARCHIVED', 'DECLINED'].includes(context.request.status));
+  const canRespond = authenticated && !outcome && !closed && context?.recipient.role !== 'cc';
 
   const handleUnlock = async () => {
     setSubmitting(true);
     try {
-      await loadDocument(accessCode);
+      await loadDocument(accessCode, !outcome && context?.recipient.role !== 'cc');
     } catch {
       setError(t('recipientSigning.errors.authentication', 'The access code is incorrect'));
     } finally {
@@ -140,11 +165,11 @@ export default function RecipientSigningPage() {
   };
 
   const handleSign = async () => {
-    if (!context || !requiredFieldsComplete || !consentAccepted) return;
+    if (!context || !canRespond || submitting || !requiredFieldsComplete || !consentAccepted) return;
     setSubmitting(true);
     setError(null);
     try {
-      await completeRecipientSignature(token, {
+      const signedRequest = await completeRecipientSignature(token, {
         signerName: signerName.trim() || context.recipient.name,
         signatureType: 'typed',
         accessCode: context.recipient.authenticationMethod === 'accessCode' ? accessCode : undefined,
@@ -152,11 +177,8 @@ export default function RecipientSigningPage() {
         consentText: t('recipientSigning.consent', 'I agree to sign this document electronically.'),
         fieldValues,
       });
-      setCompleted(true);
-      await loadDocument(
-        context.recipient.authenticationMethod === 'accessCode' ? accessCode : undefined,
-        false,
-      );
+      setContext(current => current ? { ...current, request: signedRequest } : current);
+      setOutcome('signed');
     } catch {
       setError(t('recipientSigning.errors.sign', 'Unable to complete the signature'));
     } finally {
@@ -164,16 +186,26 @@ export default function RecipientSigningPage() {
     }
   };
 
+  useEffect(() => {
+    if (outcome !== 'signed' || !authenticated) return;
+    if (documentUrlRef.current) URL.revokeObjectURL(documentUrlRef.current);
+    documentUrlRef.current = null;
+    setDocumentUrl(null);
+    void loadDocument(context?.recipient.authenticationMethod === 'accessCode' ? accessCode : undefined, false)
+      .catch(() => setDocumentError(t('recipientSigning.errors.refresh', 'Your signature was recorded, but the updated PDF could not be downloaded.')));
+  }, [outcome, authenticated, accessCode, context?.recipient.authenticationMethod, loadDocument, t]);
+
   const handleDecline = async () => {
-    if (!context) return;
+    if (!context || !canRespond || submitting) return;
     setSubmitting(true);
+    setError(null);
     try {
       await declineRecipientSignature(
         token,
         declineReason.trim(),
         context.recipient.authenticationMethod === 'accessCode' ? accessCode : undefined,
       );
-      setCompleted(true);
+      setOutcome('declined');
       setDeclining(false);
     } catch {
       setError(t('recipientSigning.errors.decline', 'Unable to decline the request'));
@@ -257,13 +289,45 @@ export default function RecipientSigningPage() {
         </section>
         <section className={styles.form} aria-label={t('recipientSigning.fields', 'Signing fields')}>
           <Stack gap="md">
-            {completed ? (
-              <Alert color="green" icon={<CheckCircleRoundedIcon />} title={t('recipientSigning.completed', 'Completed')}>
-                {t('recipientSigning.completedBody', 'Your response has been recorded.')}
+            {documentError && (
+              <Alert color="yellow" role="alert">
+                {documentError}
+                <Button variant="subtle" onClick={() => void loadDocument(
+                  context.recipient.authenticationMethod === 'accessCode' ? accessCode : undefined, false,
+                ).catch(() => setDocumentError(t('recipientSigning.errors.document', 'Unable to open the document')))}>
+                  {t('recipientSigning.retryDownload', 'Retry download')}
+                </Button>
               </Alert>
+            )}
+            {outcome === 'signed' ? (
+              <Alert color="green" role="status" icon={<CheckCircleRoundedIcon />} title={t('recipientSigning.signed', 'Signature recorded')}>
+                {context.request.status === 'COMPLETED'
+                  ? t('recipientSigning.allCompleted', 'All required recipients have completed this request.')
+                  : t('recipientSigning.waitingForOthers', 'Your signing step is complete. Other recipients still need to respond.')}
+              </Alert>
+            ) : outcome === 'declined' ? (
+              <Alert color="yellow" role="status" title={t('recipientSigning.declined', 'Request declined')}>
+                {t('recipientSigning.declinedBody', 'Your decision has been recorded. You have not signed this document.')}
+              </Alert>
+            ) : closed ? (
+              <Alert color="yellow" role="status">{t('recipientSigning.closed', 'This request is no longer accepting responses.')}</Alert>
+            ) : context.recipient.role === 'cc' ? (
+              <Text>{t('recipientSigning.copyRecipient', 'You received a copy of this document. No signature is required.')}</Text>
             ) : (
               <>
                 {context.request.message && <Text size="sm">{context.request.message}</Text>}
+                <Text size="sm" role="status">
+                  {t('recipientSigning.progress', '{{completed}} of {{total}} required fields complete', {
+                    completed: requiredCount - incompleteFields.length, total: requiredCount,
+                  })}
+                </Text>
+                <Progress value={requiredCount ? (requiredCount - incompleteFields.length) / requiredCount * 100 : 100}
+                  aria-label={t('recipientSigning.fields', 'Signing fields')} />
+                {incompleteFields.length > 0 && (
+                  <Button variant="light" onClick={() => document.getElementById(`recipient-field-${incompleteFields[0].id}`)?.focus()}>
+                    {t('recipientSigning.nextField', 'Next required field')}
+                  </Button>
+                )}
                 <TextInput
                   label={t('recipientSigning.signerName', 'Signer name')}
                   value={signerName}
@@ -284,7 +348,7 @@ export default function RecipientSigningPage() {
                   label={t('recipientSigning.consent', 'I agree to sign this document electronically.')}
                   required
                 />
-                {error && <Alert color="red">{error}</Alert>}
+                {error && <Alert color="red" role="alert">{error}</Alert>}
                 {declining ? (
                   <Stack gap="xs">
                     <Textarea
@@ -297,20 +361,20 @@ export default function RecipientSigningPage() {
                       <Button variant="default" onClick={() => setDeclining(false)}>
                         {t('cancel', 'Cancel')}
                       </Button>
-                      <Button color="red" loading={submitting} onClick={handleDecline}>
+                      <Button color="red" loading={submitting} disabled={!canRespond} onClick={handleDecline}>
                         {t('recipientSigning.confirmDecline', 'Decline')}
                       </Button>
                     </Group>
                   </Stack>
                 ) : (
                   <Group grow>
-                    <Button variant="default" color="red" onClick={() => setDeclining(true)}>
+                    <Button variant="default" color="red" disabled={!canRespond || submitting} onClick={() => setDeclining(true)}>
                       {t('recipientSigning.decline', 'Decline')}
                     </Button>
                     <Button
                       leftSection={<SendRoundedIcon fontSize="small" />}
                       loading={submitting}
-                      disabled={!signerName.trim() || !requiredFieldsComplete || !consentAccepted}
+                      disabled={!canRespond || !signerName.trim() || !requiredFieldsComplete || !consentAccepted}
                       onClick={handleSign}
                     >
                       {t('recipientSigning.sign', 'Sign')}
@@ -335,18 +399,36 @@ function RecipientField({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const id = `recipient-field-${field.id}`;
+  if (field.type === 'dropdown') {
+    return <Select id={id} label={field.label} data={field.options} value={value || null}
+      onChange={next => onChange(next ?? '')} required={field.required} readOnly={field.readOnly} />;
+  }
+  if (field.type === 'radio') {
+    return (
+      <Radio.Group label={field.label} value={value} onChange={onChange} required={field.required}>
+        <Stack gap="xs">
+          {field.options.map((option, index) => <Radio key={option} id={index === 0 ? id : `${id}-${index}`}
+            value={option} label={option} disabled={field.readOnly} />)}
+        </Stack>
+      </Radio.Group>
+    );
+  }
   if (field.type === 'checkbox') {
     return (
       <Checkbox
+        id={id}
         checked={value === 'true'}
         onChange={event => onChange(String(event.currentTarget.checked))}
         label={field.label}
         required={field.required}
+        disabled={field.readOnly}
       />
     );
   }
   return (
     <TextInput
+      id={id}
       label={field.label}
       value={value}
       onChange={event => onChange(event.currentTarget.value)}

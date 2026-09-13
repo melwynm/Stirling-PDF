@@ -28,3 +28,8 @@ cd engine && make check
 On Windows, run the engine equivalents with `uv run` and use a repository-local pytest `--basetemp` when
 the shared Windows temporary directory is unavailable. Run Playwright against a live backend/frontend pair
 for the end-to-end and mobile viewport gates.
+
+To test an already running preview, set `STIRLING_E2E_BASE_URL` to its URL; Playwright will not start
+another dev server. Set `STIRLING_E2E_BROWSER_CHANNEL=chrome` to use installed Chrome for the Chromium
+project. `recipient-signing.spec.ts` covers desktop and mobile-width public signing with mocked API
+responses; real delivery, backend persistence, and provider interoperability require separate checks.

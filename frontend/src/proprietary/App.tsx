@@ -11,6 +11,7 @@ import Signup from "@app/routes/Signup";
 import AuthCallback from "@app/routes/AuthCallback";
 import InviteAccept from "@app/routes/InviteAccept";
 import MobileScannerPage from "@app/pages/MobileScannerPage";
+import PublicRecipientSigningPage from "@app/pages/PublicRecipientSigningPage";
 import Onboarding from "@app/components/onboarding/Onboarding";
 
 // Import global styles
@@ -37,6 +38,7 @@ export default function App() {
   return (
     <Suspense fallback={<LoadingFallback />}>
       <Routes>
+        <Route path="/sign-request/:token" element={<PublicRecipientSigningPage />} />
         {/* Mobile scanner route - no backend needed, pure P2P WebRTC */}
         <Route
           path="/mobile-scanner"
