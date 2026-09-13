@@ -10,7 +10,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
 import java.math.BigInteger;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -49,7 +48,6 @@ import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.core.io.ClassPathResource;
 
 import stirling.software.common.service.SsrfProtectionService;
 
@@ -62,11 +60,13 @@ class PadesLtvServiceTest {
     @BeforeEach
     void setUp() throws Exception {
         KeyStore keyStore = KeyStore.getInstance("PKCS12");
-        try (InputStream input = new ClassPathResource("certs/test-cert.p12").getInputStream()) {
-            keyStore.load(input, "password".toCharArray());
-        }
-        String alias = keyStore.aliases().nextElement();
-        certificateChain = keyStore.getCertificateChain(alias);
+        keyStore.load(null, "password".toCharArray());
+        KeyPair keys = KeyPairGenerator.getInstance("RSA").generateKeyPair();
+        X500Name name = new X500Name("CN=PAdES Test Signer");
+        certificateChain =
+                new Certificate[] {createCertificate(name, name, keys, keys, true, null)};
+        keyStore.setKeyEntry(
+                "signer", keys.getPrivate(), "password".toCharArray(), certificateChain);
         CreateSignatureBase signer = new CreateSignatureBase(keyStore, "password".toCharArray()) {};
         signedPdf = createSignedPdf(signer);
         ssrfProtectionService = mock(SsrfProtectionService.class);
