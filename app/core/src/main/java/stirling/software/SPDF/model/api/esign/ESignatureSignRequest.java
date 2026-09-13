@@ -5,6 +5,7 @@ import java.util.Map;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 @Data
 @NoArgsConstructor
@@ -13,6 +14,7 @@ public class ESignatureSignRequest {
     private String signatureType;
     private String signatureDataUrl;
     private String accessCode;
+    @ToString.Exclude private String otp;
     private boolean consentAccepted;
     private String consentText;
     private String ipAddress;

@@ -13,10 +13,23 @@ export interface RecipientSignInput {
   signatureType: 'typed' | 'drawn';
   signatureDataUrl?: string;
   accessCode?: string;
+  otp?: string;
   consentAccepted: boolean;
   consentText: string;
   fieldValues: Record<string, string>;
 }
+
+export interface SigningOtpChallenge {
+  expiresAt: string;
+  resendAt: string;
+}
+
+export const requestSigningOtp = async (token: string, input: RecipientSignInput): Promise<SigningOtpChallenge> => {
+  const response = await apiClient.post<SigningOtpChallenge>(
+    `/api/v1/security/e-sign/recipients/${encodeURIComponent(token)}/otp`, input,
+  );
+  return response.data;
+};
 
 const accessCodeHeaders = (accessCode?: string) => (
   accessCode ? { 'X-Signing-Access-Code': accessCode } : undefined

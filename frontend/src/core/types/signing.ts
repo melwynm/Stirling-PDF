@@ -1,7 +1,7 @@
 export const SIGNING_MODEL_VERSION = 1 as const;
 
 export type SigningRecipientRole = 'signer' | 'approver' | 'cc';
-export type SigningAuthenticationMethod = 'emailLink' | 'accessCode';
+export type SigningAuthenticationMethod = 'emailLink' | 'accessCode' | 'emailOtp';
 export type SigningDeliveryChannel = 'email' | 'sms';
 export type SigningRecipientStatus =
   | 'PENDING'

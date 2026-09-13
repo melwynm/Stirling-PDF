@@ -122,6 +122,7 @@ public class SigningRecipient {
 
         public boolean isConfigured() {
             return method == Method.EMAIL_LINK
+                    || method == Method.EMAIL_OTP
                     || (method == Method.ACCESS_CODE
                             && accessCodeHash != null
                             && !accessCodeHash.isBlank());
@@ -130,6 +131,7 @@ public class SigningRecipient {
 
     public enum Method {
         EMAIL_LINK("emailLink"),
+        EMAIL_OTP("emailOtp"),
         ACCESS_CODE("accessCode");
 
         private final String value;

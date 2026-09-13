@@ -9,12 +9,14 @@ import {
   downloadRecipientDocument,
   getRecipientSigningContext,
   markRecipientViewed,
+  requestSigningOtp,
   type RecipientSigningContext,
 } from '@app/services/recipientSigningService';
 
 vi.mock('@app/services/recipientSigningService', () => ({
   completeRecipientSignature: vi.fn(), declineRecipientSignature: vi.fn(),
   downloadRecipientDocument: vi.fn(), getRecipientSigningContext: vi.fn(), markRecipientViewed: vi.fn(),
+  requestSigningOtp: vi.fn(),
 }));
 
 vi.mock('react-i18next', () => {
@@ -113,5 +115,24 @@ describe('Recipient signing outcomes', () => {
     expect(screen.getByRole('textbox', { name: /Reference/ })).toHaveFocus();
     fireEvent.change(screen.getByRole('textbox', { name: /Reference/ }), { target: { value: 'ABC' } });
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Next required field' })).not.toBeInTheDocument());
+  });
+
+  it('sends consent for a code before submitting an email OTP signature', async () => {
+    const otpContext = context();
+    otpContext.recipient.authenticationMethod = 'emailOtp';
+    vi.mocked(getRecipientSigningContext).mockResolvedValue(otpContext);
+    vi.mocked(requestSigningOtp).mockResolvedValue({ expiresAt: new Date(Date.now() + 300000).toISOString(), resendAt: new Date(Date.now() + 60000).toISOString() });
+    vi.mocked(completeRecipientSignature).mockResolvedValue({ ...otpContext.request, status: 'COMPLETED' });
+    showPage();
+    await screen.findByRole('link', { name: 'Download' });
+    fireEvent.click(screen.getByRole('checkbox', { name: /I agree/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send verification code' }));
+    await screen.findByRole('textbox', { name: 'Verification code' });
+    expect(completeRecipientSignature).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Verify and sign' })).toBeDisabled();
+    fireEvent.change(screen.getByRole('textbox', { name: 'Verification code' }), { target: { value: '123456' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Verify and sign' }));
+    await screen.findByText('Signature recorded');
+    expect(completeRecipientSignature).toHaveBeenCalledWith('token', expect.objectContaining({ otp: '123456', consentAccepted: true }));
   });
 });

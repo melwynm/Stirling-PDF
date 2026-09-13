@@ -53,6 +53,7 @@ import stirling.software.SPDF.model.esign.ESignatureWorkflow.WebhookDelivery;
 import stirling.software.SPDF.service.ESignatureTemplateService;
 import stirling.software.SPDF.service.ESignatureWorkflowService;
 import stirling.software.SPDF.service.ESignatureWorkflowService.ActorContext;
+import stirling.software.SPDF.service.SigningOtpService;
 import stirling.software.common.annotations.api.SecurityApi;
 
 import tools.jackson.core.type.TypeReference;
@@ -424,6 +425,14 @@ public class ESignatureWorkflowController {
             throws IOException {
         return ResponseEntity.ok(
                 workflowService.sign(token, request, actor(servletRequest, null, null)));
+    }
+
+    @PostMapping("/e-sign/recipients/{token}/otp")
+    @Operation(summary = "Send a one-use code bound to the reviewed document and consent")
+    public ResponseEntity<SigningOtpService.Challenge> issueSigningOtp(
+            @PathVariable String token, @RequestBody ESignatureSignRequest request)
+            throws IOException {
+        return ResponseEntity.ok(workflowService.issueSigningOtp(token, request));
     }
 
     @PostMapping("/e-sign/recipients/{token}/decline")

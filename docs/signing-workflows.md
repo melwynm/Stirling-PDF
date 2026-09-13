@@ -28,6 +28,27 @@ Signing links contain random tokens whose hashes, not plaintext values, are pers
 also hashed. Templates never persist reusable access codes; supply those recipient values when a template
 is instantiated. Owner-scoped operations intentionally return not found for another user's resources.
 
+## Email Step-Up Verification
+
+Select `emailOtp` authentication to require fresh email verification after review and consent,
+following the eKYC signing sequence. The existing email notification provider must be configured.
+The recipient's signing link allows document review; the email code authorizes the signing step.
+This is an additional email verification step, not independent identity proofing or a second factor
+when the signing link was also delivered to that same mailbox.
+
+`POST /api/v1/security/e-sign/recipients/{token}/otp` accepts the intended signing payload, including
+consent and field values, and returns `expiresAt` and `resendAt`. Submit the same payload with `otp`
+to the existing `/sign` endpoint. Codes expire after five minutes; resending has a 60-second cooldown.
+Five failed attempts lock verification for the remainder of a 15-minute attempt window, including
+across resends and restarts. A changed document, field schema, or consent invalidates the challenge.
+
+Challenges contain salted hashes and are saved under `requests/{requestId}/.step-up`, so they are
+removed with their workflow. Challenge consumption uses filesystem locks
+and atomic replacement where available. Shared-storage deployments must support those semantics.
+Consumption happens before applying the signature; a failed downstream operation requires a fresh code.
+This increment adds authorization to recipient signing; it does not itself add a KMS certificate seal
+to recipient-generated PDF revisions or connect to the eKYC production n8n deployment.
+
 ## Templates and Automation
 
 Templates persist a validated source PDF and recipient, field, routing, and reminder defaults. The bulk
@@ -72,4 +93,3 @@ Before production release, validate output with at least Adobe Acrobat and one i
 validator. Exercise RSA and ECDSA certificates, each enabled PAdES profile, multiple signatures, existing
 fields, TSA failure, revocation material, and an untrusted chain. The evidence report supplements the PDF's
 cryptographic signatures; it does not replace certificate-path validation.
-

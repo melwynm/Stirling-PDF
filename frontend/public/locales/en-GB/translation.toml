@@ -6295,6 +6295,7 @@ title = "Request title"
 unnamedRecipient = "Unnamed recipient"
 
 [requestSignatures.authenticationMethods]
+emailOtp = "Email verification code"
 accessCode = "Access code"
 emailLink = "Email link"
 
@@ -6381,6 +6382,14 @@ recipients = "Recipients"
 routing = "Routing and timing"
 
 [recipientSigning]
+otpExpired = "This code has expired. Request a new code to continue."
+resendWait = "Resend available in {{seconds}} seconds"
+otp = "Verification code"
+otpSent = "A verification code was sent to your email. It expires in 5 minutes."
+resendOtp = "Resend code"
+backToReview = "Back to review"
+verifyAndSign = "Verify and sign"
+sendOtp = "Send verification code"
 accessCode = "Access code"
 allCompleted = "All required recipients have completed this request."
 closed = "This request is no longer accepting responses."
@@ -6407,6 +6416,7 @@ signerName = "Signer name"
 waitingForOthers = "Your signing step is complete. Other recipients still need to respond."
 
 [recipientSigning.errors]
+otp = "Unable to send a code. Wait a minute before trying again."
 refresh = "Your signature was recorded, but the updated PDF could not be downloaded."
 authentication = "The access code is incorrect"
 decline = "Unable to decline the request"

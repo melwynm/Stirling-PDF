@@ -534,6 +534,46 @@ class ESignatureWorkflowServiceTest {
         assertTrue(Files.exists(tempDir.resolve(created.getId()).resolve("document.pdf")));
     }
 
+    @Test
+    void emailOtpRequiresFreshDocumentBoundCodeBeforeSigning() throws Exception {
+        List<SigningNotificationMessage> messages = new ArrayList<>();
+        SigningNotificationProvider email =
+                new SigningNotificationProvider() {
+                    @Override
+                    public String channel() {
+                        return "email";
+                    }
+
+                    @Override
+                    public void send(SigningNotificationMessage message) {
+                        messages.add(message);
+                    }
+                };
+        service =
+                new ESignatureWorkflowService(
+                        JsonMapper.builder().build(),
+                        tempDir,
+                        new ESignaturePdfService(),
+                        null,
+                        List.of(email));
+        ESignatureCreateRequest create = orderedCreateRequest();
+        create.getRecipients().getFirst().setAuthenticationMethod(Method.EMAIL_OTP);
+        var created = service.createRequest(pdfFile(), create, actor);
+        var sent = service.sendRequest(created.getId(), new ESignatureSendRequest(), actor);
+        String token = sent.getNotifications().getFirst().getToken();
+        var signing = signRequest("First");
+        assertThrows(ResponseStatusException.class, () -> service.sign(token, signing, actor));
+        service.issueSigningOtp(token, signing);
+        var matcher =
+                java.util.regex.Pattern.compile("\\b[0-9]{6}\\b")
+                        .matcher(messages.getLast().body());
+        assertTrue(matcher.find());
+        signing.setOtp(matcher.group());
+        var result = service.sign(token, signing, actor);
+        assertEquals(Status.SIGNED, result.getRequest().getRecipients().getFirst().getStatus());
+        assertThrows(ResponseStatusException.class, () -> service.sign(token, signing, actor));
+    }
+
     private ESignatureCreateRequest orderedCreateRequest() {
         ESignatureCreateRequest request = new ESignatureCreateRequest();
         request.setTitle("Mutual NDA");

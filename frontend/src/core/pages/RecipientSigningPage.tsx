@@ -28,6 +28,9 @@ import {
   downloadRecipientDocument,
   getRecipientSigningContext,
   markRecipientViewed,
+  requestSigningOtp,
+  type RecipientSignInput,
+  type SigningOtpChallenge,
   type RecipientSigningContext,
 } from '@app/services/recipientSigningService';
 import type { SigningField } from '@app/types/signing';
@@ -84,8 +87,21 @@ function RecipientSigningSession({ token }: { token: string }) {
   const [outcome, setOutcome] = useState<'signed' | 'declined' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [documentError, setDocumentError] = useState<string | null>(null);
+  const [otp, setOtp] = useState('');
+  const [otpNow, setOtpNow] = useState(Date.now);
+  const [otpChallenge, setOtpChallenge] = useState<(SigningOtpChallenge & { input: RecipientSignInput }) | null>(null);
   const documentUrlRef = useRef<string | null>(null);
   const documentLoadGeneration = useRef(0);
+
+  useEffect(() => {
+    if (!otpChallenge) return;
+    setOtpNow(Date.now());
+    const interval = window.setInterval(() => setOtpNow(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, [otpChallenge]);
+
+  const otpExpired = Boolean(otpChallenge && otpNow >= Date.parse(otpChallenge.expiresAt));
+  const resendSeconds = otpChallenge ? Math.max(0, Math.ceil((Date.parse(otpChallenge.resendAt) - otpNow) / 1000)) : 0;
 
   useEffect(() => () => {
     documentLoadGeneration.current += 1;
@@ -133,7 +149,7 @@ function RecipientSigningSession({ token }: { token: string }) {
   }, [token]);
 
   useEffect(() => {
-    if (context?.recipient.authenticationMethod === 'emailLink' && !authenticated) {
+    if (context && context.recipient.authenticationMethod !== 'accessCode' && !authenticated) {
       loadDocument(undefined, context.recipient.status !== 'SIGNED'
         && context.recipient.status !== 'DECLINED' && context.recipient.role !== 'cc').catch(() => {
         setDocumentError(t('recipientSigning.errors.document', 'Unable to open the document'));
@@ -165,22 +181,45 @@ function RecipientSigningSession({ token }: { token: string }) {
   };
 
   const handleSign = async () => {
-    if (!context || !canRespond || submitting || !requiredFieldsComplete || !consentAccepted) return;
+    if (!context || !canRespond || submitting || !requiredFieldsComplete || !consentAccepted || otpExpired) return;
     setSubmitting(true);
     setError(null);
     try {
-      const signedRequest = await completeRecipientSignature(token, {
+      const input: RecipientSignInput = otpChallenge?.input ?? {
         signerName: signerName.trim() || context.recipient.name,
         signatureType: 'typed',
         accessCode: context.recipient.authenticationMethod === 'accessCode' ? accessCode : undefined,
         consentAccepted,
         consentText: t('recipientSigning.consent', 'I agree to sign this document electronically.'),
         fieldValues,
-      });
+      };
+      if (context.recipient.authenticationMethod === 'emailOtp' && !otpChallenge) {
+        const challenge = await requestSigningOtp(token, input);
+        setOtpChallenge({ ...challenge, input });
+        setOtp('');
+        return;
+      }
+      const signedRequest = await completeRecipientSignature(token, { ...input, otp: otpChallenge ? otp : undefined });
       setContext(current => current ? { ...current, request: signedRequest } : current);
       setOutcome('signed');
     } catch {
+      setOtp('');
       setError(t('recipientSigning.errors.sign', 'Unable to complete the signature'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (!otpChallenge || submitting || resendSeconds > 0) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const challenge = await requestSigningOtp(token, otpChallenge.input);
+      setOtpChallenge({ ...challenge, input: otpChallenge.input });
+      setOtp('');
+    } catch {
+      setError(t('recipientSigning.errors.otp', 'Unable to send a code. Wait a minute before trying again.'));
     } finally {
       setSubmitting(false);
     }
@@ -330,6 +369,7 @@ function RecipientSigningSession({ token }: { token: string }) {
                 )}
                 <TextInput
                   label={t('recipientSigning.signerName', 'Signer name')}
+                  disabled={Boolean(otpChallenge) || submitting}
                   value={signerName}
                   onChange={event => setSignerName(event.currentTarget.value)}
                   required
@@ -337,17 +377,36 @@ function RecipientSigningSession({ token }: { token: string }) {
                 {context.request.fields.map(field => (
                   <RecipientField
                     key={field.id}
-                    field={field}
+                    field={{ ...field, readOnly: field.readOnly || Boolean(otpChallenge) || submitting }}
                     value={fieldValues[field.id] ?? ''}
                     onChange={value => setFieldValues(current => ({ ...current, [field.id]: value }))}
                   />
                 ))}
                 <Checkbox
+                  disabled={Boolean(otpChallenge) || submitting}
                   checked={consentAccepted}
                   onChange={event => setConsentAccepted(event.currentTarget.checked)}
                   label={t('recipientSigning.consent', 'I agree to sign this document electronically.')}
                   required
                 />
+                {otpChallenge && (
+                  <Stack gap="xs">
+                    <Text size="sm" role="status">{t('recipientSigning.otpSent', 'A verification code was sent to your email. It expires in 5 minutes.')}</Text>
+                    {otpExpired && <Alert color="yellow">{t('recipientSigning.otpExpired', 'This code has expired. Request a new code to continue.')}</Alert>}
+                    <TextInput label={t('recipientSigning.otp', 'Verification code')} value={otp}
+                      onChange={event => setOtp(event.currentTarget.value.replace(/\D/g, '').slice(0, 6))}
+                      inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus disabled={submitting} />
+                    <Group>
+                      <Button variant="subtle" disabled={submitting || resendSeconds > 0} onClick={() => void handleResendOtp()}>
+                        {t('recipientSigning.resendOtp', 'Resend code')}
+                      </Button>
+                      <Button variant="subtle" disabled={submitting} onClick={() => { setOtpChallenge(null); setOtp(''); }}>
+                        {t('recipientSigning.backToReview', 'Back to review')}
+                      </Button>
+                    </Group>
+                    {resendSeconds > 0 && <Text size="xs">{t('recipientSigning.resendWait', 'Resend available in {{seconds}} seconds', { seconds: resendSeconds })}</Text>}
+                  </Stack>
+                )}
                 {error && <Alert color="red" role="alert">{error}</Alert>}
                 {declining ? (
                   <Stack gap="xs">
@@ -374,10 +433,13 @@ function RecipientSigningSession({ token }: { token: string }) {
                     <Button
                       leftSection={<SendRoundedIcon fontSize="small" />}
                       loading={submitting}
-                      disabled={!canRespond || !signerName.trim() || !requiredFieldsComplete || !consentAccepted}
+                      disabled={!canRespond || !signerName.trim() || !requiredFieldsComplete || !consentAccepted || otpExpired || Boolean(otpChallenge && otp.length !== 6)}
                       onClick={handleSign}
                     >
-                      {t('recipientSigning.sign', 'Sign')}
+                      {context.recipient.authenticationMethod === 'emailOtp'
+                        ? otpChallenge ? t('recipientSigning.verifyAndSign', 'Verify and sign')
+                          : t('recipientSigning.sendOtp', 'Send verification code')
+                        : t('recipientSigning.sign', 'Sign')}
                     </Button>
                   </Group>
                 )}

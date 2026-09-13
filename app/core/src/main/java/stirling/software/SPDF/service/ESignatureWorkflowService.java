@@ -12,6 +12,7 @@ import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -766,6 +767,74 @@ public class ESignatureWorkflowService {
         return actionResponse(workflow, List.of());
     }
 
+    public SigningOtpService.Challenge issueSigningOtp(String token, ESignatureSignRequest request)
+            throws IOException {
+        if (request == null
+                || !request.isConsentAccepted()
+                || !StringUtils.hasText(request.getConsentText())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Accept the consent statement before requesting a code");
+        }
+        TokenResolution resolution = resolveToken(token);
+        ESignatureWorkflow workflow = resolution.workflow();
+        SigningRecipient recipient = resolution.recipient();
+        ensureWorkflowCanContinue(workflow);
+        ensureRecipientCanAct(recipient);
+        if (recipient.getAuthentication().getMethod() != Method.EMAIL_OTP) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "This recipient does not use signing codes");
+        }
+        if (workflow.isSigningOrder() && !isRecipientInActiveOrder(workflow, recipient)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "This recipient is not next in the signing order");
+        }
+        SigningNotificationProvider provider = notificationProviders.get("email");
+        if (provider == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE, "Email delivery is not configured");
+        }
+        return otpService(workflow)
+                .issue(
+                        sha256(token.getBytes(StandardCharsets.UTF_8)),
+                        signingIntentBinding(workflow, recipient, request),
+                        code ->
+                                provider.send(
+                                        new SigningNotificationMessage(
+                                                recipient.getEmail(),
+                                                recipient.getName(),
+                                                "Your signing verification code",
+                                                "Your code is "
+                                                        + code
+                                                        + ". It expires in 5 minutes.")));
+    }
+
+    private SigningOtpService otpService(ESignatureWorkflow workflow) {
+        return new SigningOtpService(
+                objectMapper, requestPath(workflow.getId()).resolve(".step-up"), Clock.systemUTC());
+    }
+
+    private String signingIntentBinding(
+            ESignatureWorkflow workflow, SigningRecipient recipient, ESignatureSignRequest request)
+            throws IOException {
+        Map<String, Object> intent = new TreeMap<>();
+        intent.put("request", workflow.getId());
+        intent.put("recipient", recipient.getId());
+        intent.put("document", sha256(workflowDocumentPath(workflow)));
+        intent.put("revision", workflow.getDocumentRevision());
+        intent.put("fieldSchema", workflow.getFields());
+        intent.put("consent", request.getConsentText());
+        intent.put("name", request.getSignerName());
+        intent.put("type", request.getSignatureType());
+        intent.put("image", request.getSignatureDataUrl());
+        intent.put(
+                "fields",
+                request.getFieldValues() == null
+                        ? Map.of()
+                        : new TreeMap<>(request.getFieldValues()));
+        return sha256(objectMapper.writeValueAsBytes(intent));
+    }
+
     public ESignatureActionResponse sign(
             String token, ESignatureSignRequest request, ActorContext actor) throws IOException {
         if (request == null || !request.isConsentAccepted()) {
@@ -787,6 +856,17 @@ public class ESignatureWorkflowService {
 
         Instant now = Instant.now();
         Path documentPath = requestPath(workflow.getId()).resolve(workflow.getDocumentFileName());
+        if (recipient.getAuthentication().getMethod() == Method.EMAIL_OTP) {
+            if (!StringUtils.hasText(request.getConsentText())) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "Consent statement is required");
+            }
+            otpService(workflow)
+                    .consume(
+                            sha256(token.getBytes(StandardCharsets.UTF_8)),
+                            signingIntentBinding(workflow, recipient, request),
+                            request.getOtp());
+        }
         ESignaturePdfService.AppliedRevision appliedRevision =
                 pdfService.applyRecipientFields(
                         documentPath, workflow.getFields(), recipient, request, now);
@@ -1906,7 +1986,9 @@ public class ESignatureWorkflowService {
             ESignatureWorkflow workflow, SigningRecipient recipient, String accessCode)
             throws IOException {
         Authentication authentication = recipient.getAuthentication();
-        if (authentication == null || authentication.getMethod() == Method.EMAIL_LINK) {
+        if (authentication == null
+                || authentication.getMethod() == Method.EMAIL_LINK
+                || authentication.getMethod() == Method.EMAIL_OTP) {
             return;
         }
         Instant now = Instant.now();

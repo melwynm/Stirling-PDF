@@ -12,7 +12,7 @@ FileContext, notification providers, and PAdES implementation. Do not copy deplo
 Supabase tenant assumptions, or client-supplied document hashes as authoritative values.
 
 - [x] Read eKYC signing UI, API bridge, and operator documentation.
-- [ ] Add request-bound, expiring step-up verification with replay and resend protection.
+- [x] Add request-bound, expiring step-up verification with replay and resend protection.
 - [ ] Bind verified consent to the exact document revision on the server.
 - [ ] Integrate configured remote KMS signing after verification and validate the PDF result.
 - [ ] Distinguish signature recorded, cryptographic validity, trust, and audit-chain status in the UI.
@@ -378,8 +378,24 @@ use mocked APIs and do not establish live email/KMS behavior. Remaining workstre
 | 1. Signing reliability | Verification pending | Not recorded | Earlier local audit only | Reconcile and reproduce concurrency/delivery behavior |
 | 2. Unified workspace | Planned; foundations exist | Not recorded | No new acceptance run | Map existing state and history ownership |
 | 3. Precise authoring | Planned; drag/resize exists | Not recorded | No new acceptance run | Establish geometry fixtures and selection contract |
-| 4. Recipient experience | Planned; base flow exists | Not recorded | No new browser run | Audit updated recipient states and mobile rendering |
+| 4. Recipient experience | Outcomes and email step-up implemented | `b90965824` plus current increment | 6 component tests; 4 mocked-API browser scenarios | Real-device and live-provider acceptance |
 | 5. Performance | Measurement pending | Not recorded | No reference benchmark | Define corpus, hardware, and instrumentation |
 | 6. Intelligence | Planned | Not recorded | No evaluation run | Define deterministic suggestion baseline |
 | 7. Visual consistency | Audit pending | Not recorded | Source review only | Capture representative screens and journeys |
-| 8. Production readiness | Incomplete evidence | `032af038d` tested locally | Targeted backend: 30 passed, 3 fixture-expiry failures | Reconcile revision and repair dated fixtures |
+| 8. Production readiness | Incomplete evidence; dated fixture repaired | `831801482` plus current increment | 3 PAdES tests; 23 OTP/workflow tests | Complete concurrency, provider, recovery, and interoperability gates |
+
+### eKYC Alignment Increment (2026-09-13)
+
+- Completed: optional sender-selected email OTP, explicit consent before code delivery, review/code/
+  sign recipient flow, expiry and resend controls, and persisted one-use challenge verification.
+- Challenge binding includes the server-computed document hash, revision, field schema, recipient,
+  consent, signature input, and submitted field values. Challenge storage follows request retention.
+- Verified: 6 challenge tests and 17 workflow tests pass; four mocked-API browser scenarios cover
+  email-link/email-code signing at 1440px and 390px. All frontend layer typechecks and changed-file
+  ESLint pass. These checks do not establish real-device, live-provider, or production acceptance.
+- Still required: serialize complete workflow/PDF mutations, seal recipient revisions through the
+  configured KMS/certificate adapter, verify the resulting PDF cryptographically, add durable delivery
+  and authentication audit events, and exercise live-provider failure/recovery scenarios.
+- Email OTP proves access to the recipient mailbox, not verified legal identity or QES status. The
+  eKYC reference flow is adapted to Stirling's providers; no eKYC credentials or deployment data were
+  copied. The eight workstreams above remain incomplete until their acceptance checks are satisfied.

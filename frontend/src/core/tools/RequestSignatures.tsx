@@ -359,6 +359,7 @@ const RequestSignatures = ({ onError }: BaseToolProps) => {
                   value: 'emailLink',
                   label: t('requestSignatures.authenticationMethods.emailLink', 'Email link'),
                 },
+                { value: 'emailOtp', label: t('requestSignatures.authenticationMethods.emailOtp', 'Email verification code') },
                 {
                   value: 'accessCode',
                   label: t('requestSignatures.authenticationMethods.accessCode', 'Access code'),
