@@ -97,6 +97,7 @@ public class ESignatureWorkflowService {
     private static final Duration AUTHENTICATION_LOCK_DURATION = Duration.ofMinutes(15);
     private static final int MAX_WEBHOOK_ATTEMPTS = 8;
     private static final int MAX_NOTIFICATION_ATTEMPTS = 3;
+    private static final int MAX_PREVIOUS_SIGNING_TOKENS = 5;
     private static final Pattern SAFE_ID_PATTERN = Pattern.compile("^[a-zA-Z0-9-]+$");
     private static final Pattern PDF_EXTENSION_PATTERN = Pattern.compile("(?i).*\\.pdf$");
 
@@ -583,11 +584,11 @@ public class ESignatureWorkflowService {
         return actionResponse(workflow, notifications);
     }
 
-    public List<ESignatureDueReminder> getDueReminders() throws IOException {
+    public List<ESignatureDueReminder> getDueReminders(ActorContext actor) throws IOException {
         Instant now = Instant.now();
         List<ESignatureDueReminder> dueReminders = new ArrayList<>();
         for (ESignatureWorkflow workflow : listWorkflows()) {
-            if (!isActiveWorkflow(workflow)) {
+            if (!isOwnedBy(workflow, actor) || !isActiveWorkflow(workflow)) {
                 continue;
             }
             for (SigningRecipient recipient : recipientsToNotify(workflow, List.of(), true)) {
@@ -616,7 +617,11 @@ public class ESignatureWorkflowService {
         Instant now = Instant.now();
         List<ESignatureNotification> notifications = new ArrayList<>();
         for (ESignatureWorkflow workflow : listWorkflows()) {
-            if (!isActiveWorkflow(workflow) || !workflow.isRemindersEnabled()) {
+            // Reminders issue fresh signing links, so only the owner (or the scheduler) may
+            // trigger them.
+            if (!isOwnedBy(workflow, actor)
+                    || !isActiveWorkflow(workflow)
+                    || !workflow.isRemindersEnabled()) {
                 continue;
             }
             List<SigningRecipient> recipients =
@@ -796,7 +801,7 @@ public class ESignatureWorkflowService {
         }
         return otpService(workflow)
                 .issue(
-                        sha256(token.getBytes(StandardCharsets.UTF_8)),
+                        otpSubject(workflow, recipient),
                         signingIntentBinding(workflow, recipient, request),
                         code ->
                                 provider.send(
@@ -807,6 +812,12 @@ public class ESignatureWorkflowService {
                                                 "Your code is "
                                                         + code
                                                         + ". It expires in 5 minutes.")));
+    }
+
+    /** One challenge per recipient, so every valid link shares the same attempt limit. */
+    private String otpSubject(ESignatureWorkflow workflow, SigningRecipient recipient) {
+        return sha256(
+                (workflow.getId() + ":" + recipient.getId()).getBytes(StandardCharsets.UTF_8));
     }
 
     private SigningOtpService otpService(ESignatureWorkflow workflow) {
@@ -863,7 +874,7 @@ public class ESignatureWorkflowService {
             }
             otpService(workflow)
                     .consume(
-                            sha256(token.getBytes(StandardCharsets.UTF_8)),
+                            otpSubject(workflow, recipient),
                             signingIntentBinding(workflow, recipient, request),
                             request.getOtp());
         }
@@ -1282,8 +1293,7 @@ public class ESignatureWorkflowService {
             boolean rotateToken,
             String eventType) {
         String signingToken = generateToken();
-        recipient.setSigningTokenHash(hashToken(signingToken));
-        recipient.setSigningToken(null);
+        issueSigningToken(recipient, signingToken, rotateToken);
 
         String baseUrl = defaultIfBlank(publicBaseUrl, workflow.getPublicBaseUrl());
         String signingPath = "/sign-request/" + signingToken;
@@ -1334,8 +1344,7 @@ public class ESignatureWorkflowService {
                 continue;
             }
             String token = generateToken();
-            recipient.setSigningTokenHash(hashToken(token));
-            recipient.setSigningToken(null);
+            issueSigningToken(recipient, token, false);
             String documentPath = "/api/v1/security/e-sign/recipients/" + token + "/download";
             String baseUrl = workflow.getPublicBaseUrl();
             ESignatureNotification copy = new ESignatureNotification();
@@ -1399,7 +1408,8 @@ public class ESignatureWorkflowService {
                 notification.setDeliveryError(truncate(e.getMessage(), 500));
                 if (attempt == MAX_NOTIFICATION_ATTEMPTS) {
                     log.warn(
-                            "Unable to deliver {} notification for signing request {} after {} attempts",
+                            "Unable to deliver {} notification for signing request {} after {}"
+                                + " attempts",
                             channel,
                             notification.getRequestId(),
                             attempt,
@@ -1448,6 +1458,27 @@ public class ESignatureWorkflowService {
         return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
+    /**
+     * Stores the hash of a newly issued link. Earlier links stay valid so that a reminder does not
+     * break the link a recipient already received, unless the sender asked to revoke them.
+     */
+    private void issueSigningToken(
+            SigningRecipient recipient, String token, boolean revokeEarlierTokens) {
+        List<String> previous =
+                recipient.getPreviousSigningTokenHashes() == null || revokeEarlierTokens
+                        ? new ArrayList<>()
+                        : new ArrayList<>(recipient.getPreviousSigningTokenHashes());
+        if (!revokeEarlierTokens && StringUtils.hasText(recipient.getSigningTokenHash())) {
+            previous.add(recipient.getSigningTokenHash());
+        }
+        while (previous.size() > MAX_PREVIOUS_SIGNING_TOKENS) {
+            previous.removeFirst();
+        }
+        recipient.setPreviousSigningTokenHashes(previous);
+        recipient.setSigningTokenHash(hashToken(token));
+        recipient.setSigningToken(null);
+    }
+
     private String hashToken(String token) {
         try {
             byte[] digest =
@@ -1461,9 +1492,21 @@ public class ESignatureWorkflowService {
 
     private boolean tokenMatches(SigningRecipient recipient, String candidate) {
         if (StringUtils.hasText(recipient.getSigningTokenHash())) {
-            byte[] expected = recipient.getSigningTokenHash().getBytes(StandardCharsets.US_ASCII);
             byte[] actual = hashToken(candidate).getBytes(StandardCharsets.US_ASCII);
-            return MessageDigest.isEqual(expected, actual);
+            boolean matches =
+                    MessageDigest.isEqual(
+                            recipient.getSigningTokenHash().getBytes(StandardCharsets.US_ASCII),
+                            actual);
+            if (recipient.getPreviousSigningTokenHashes() != null) {
+                for (String previousHash : recipient.getPreviousSigningTokenHashes()) {
+                    matches |=
+                            previousHash != null
+                                    && MessageDigest.isEqual(
+                                            previousHash.getBytes(StandardCharsets.US_ASCII),
+                                            actual);
+                }
+            }
+            return matches;
         }
         if (!StringUtils.hasText(recipient.getSigningToken())) {
             return false;

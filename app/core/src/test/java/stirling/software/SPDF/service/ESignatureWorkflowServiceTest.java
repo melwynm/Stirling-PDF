@@ -30,6 +30,7 @@ import stirling.software.SPDF.model.api.esign.ESignatureActionResponse;
 import stirling.software.SPDF.model.api.esign.ESignatureCreateRequest;
 import stirling.software.SPDF.model.api.esign.ESignatureNotification;
 import stirling.software.SPDF.model.api.esign.ESignatureRecipientRequest;
+import stirling.software.SPDF.model.api.esign.ESignatureReminderRequest;
 import stirling.software.SPDF.model.api.esign.ESignatureRequestView;
 import stirling.software.SPDF.model.api.esign.ESignatureSendRequest;
 import stirling.software.SPDF.model.api.esign.ESignatureSignRequest;
@@ -47,7 +48,9 @@ import stirling.software.common.service.SigningNotificationProvider;
 import stirling.software.common.service.SigningNotificationProvider.SigningNotificationMessage;
 import stirling.software.common.service.SsrfProtectionService;
 
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 class ESignatureWorkflowServiceTest {
 
@@ -572,6 +575,144 @@ class ESignatureWorkflowServiceTest {
         var result = service.sign(token, signing, actor);
         assertEquals(Status.SIGNED, result.getRequest().getRecipients().getFirst().getStatus());
         assertThrows(ResponseStatusException.class, () -> service.sign(token, signing, actor));
+    }
+
+    @Test
+    void dueRemindersOnlyIssueLinksForTheCallersOwnWorkflows() throws Exception {
+        ActorContext owner =
+                new ActorContext("Owner", "owner@example.com", "127.0.0.1", "JUnit", "user-1");
+        ActorContext otherUser =
+                new ActorContext("Other", "other@example.com", "127.0.0.2", "JUnit", "user-2");
+        ESignatureRequestView created =
+                service.createRequest(pdfFile(), orderedCreateRequest(), owner);
+        service.sendRequest(created.getId(), new ESignatureSendRequest(), owner);
+        ESignatureReminderRequest reminders = new ESignatureReminderRequest();
+        reminders.setOnlyDue(false);
+        reminders.setPublicBaseUrl("https://attacker.example");
+
+        assertTrue(service.sendDueReminders(reminders, otherUser).isEmpty());
+        assertTrue(service.getDueReminders(otherUser).isEmpty());
+        assertEquals(
+                0,
+                service.getRequest(created.getId(), owner)
+                        .getRecipients()
+                        .get(0)
+                        .getReminderCount());
+
+        List<ESignatureNotification> ownerReminders = service.sendDueReminders(reminders, owner);
+        assertEquals(1, ownerReminders.size());
+        assertEquals(created.getId(), ownerReminders.getFirst().getRequestId());
+    }
+
+    @Test
+    void remindersKeepEarlierLinksValidUntilTokensAreRotated() throws Exception {
+        ESignatureRequestView created =
+                service.createRequest(pdfFile(), orderedCreateRequest(), actor);
+        String originalToken =
+                service.sendRequest(created.getId(), new ESignatureSendRequest(), actor)
+                        .getNotifications()
+                        .getFirst()
+                        .getToken();
+        ESignatureReminderRequest reminder = new ESignatureReminderRequest();
+        String reminderToken =
+                service.sendReminders(created.getId(), reminder, actor)
+                        .getNotifications()
+                        .getFirst()
+                        .getToken();
+
+        assertFalse(originalToken.equals(reminderToken));
+        assertEquals(
+                "first@example.com",
+                service.getTokenContext(originalToken).getRecipient().getEmail());
+        assertEquals(
+                "first@example.com",
+                service.getTokenContext(reminderToken).getRecipient().getEmail());
+
+        ESignatureSendRequest rotate = new ESignatureSendRequest();
+        rotate.setRotateTokens(true);
+        String rotatedToken =
+                service.sendRequest(created.getId(), rotate, actor)
+                        .getNotifications()
+                        .getFirst()
+                        .getToken();
+
+        for (String revoked : List.of(originalToken, reminderToken)) {
+            ResponseStatusException error =
+                    assertThrows(
+                            ResponseStatusException.class, () -> service.getTokenContext(revoked));
+            assertEquals(HttpStatus.NOT_FOUND, error.getStatusCode());
+        }
+        service.sign(rotatedToken, signRequest("First"), actor);
+        assertEquals(
+                Status.SIGNED,
+                service.getRequest(created.getId()).getRecipients().get(0).getStatus());
+    }
+
+    @Test
+    void emailOtpIssuedThroughOneLinkCanBeUsedFromAReminderLink() throws Exception {
+        List<SigningNotificationMessage> messages = new ArrayList<>();
+        SigningNotificationProvider email =
+                new SigningNotificationProvider() {
+                    @Override
+                    public String channel() {
+                        return "email";
+                    }
+
+                    @Override
+                    public void send(SigningNotificationMessage message) {
+                        messages.add(message);
+                    }
+                };
+        service =
+                new ESignatureWorkflowService(
+                        JsonMapper.builder().build(),
+                        tempDir,
+                        new ESignaturePdfService(),
+                        null,
+                        List.of(email));
+        ESignatureCreateRequest create = orderedCreateRequest();
+        create.getRecipients().getFirst().setAuthenticationMethod(Method.EMAIL_OTP);
+        var created = service.createRequest(pdfFile(), create, actor);
+        String originalToken =
+                service.sendRequest(created.getId(), new ESignatureSendRequest(), actor)
+                        .getNotifications()
+                        .getFirst()
+                        .getToken();
+        String reminderToken =
+                service.sendReminders(created.getId(), new ESignatureReminderRequest(), actor)
+                        .getNotifications()
+                        .getFirst()
+                        .getToken();
+        var signing = signRequest("First");
+        service.issueSigningOtp(originalToken, signing);
+        var matcher =
+                java.util.regex.Pattern.compile("\\b[0-9]{6}\\b")
+                        .matcher(messages.getLast().body());
+        assertTrue(matcher.find());
+        signing.setOtp(matcher.group());
+
+        var result = service.sign(reminderToken, signing, actor);
+
+        assertEquals(Status.SIGNED, result.getRequest().getRecipients().getFirst().getStatus());
+    }
+
+    @Test
+    void legacyPlaintextSigningLinkStillResolvesAfterMigration() throws Exception {
+        ESignatureRequestView created =
+                service.createRequest(pdfFile(), orderedCreateRequest(), actor);
+        service.sendRequest(created.getId(), new ESignatureSendRequest(), actor);
+        JsonMapper mapper = JsonMapper.builder().build();
+        Path metadataPath = tempDir.resolve(created.getId()).resolve("metadata.json");
+        ObjectNode metadata = (ObjectNode) mapper.readTree(metadataPath.toFile());
+        metadata.put("modelVersion", 0);
+        JsonNode firstRecipient = metadata.get("recipients").get(0);
+        ((ObjectNode) firstRecipient).putNull("signingTokenHash");
+        ((ObjectNode) firstRecipient).put("signingToken", "legacy-plaintext-token");
+        mapper.writeValue(metadataPath.toFile(), metadata);
+
+        ESignatureTokenContext context = service.getTokenContext("legacy-plaintext-token");
+
+        assertEquals("first@example.com", context.getRecipient().getEmail());
     }
 
     private ESignatureCreateRequest orderedCreateRequest() {

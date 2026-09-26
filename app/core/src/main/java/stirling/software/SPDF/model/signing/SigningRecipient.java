@@ -1,7 +1,9 @@
 package stirling.software.SPDF.model.signing;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -29,6 +31,10 @@ public class SigningRecipient {
     private String signingToken;
 
     private String signingTokenHash;
+
+    /** Hashes of earlier links that remain valid until the sender explicitly rotates tokens. */
+    private List<String> previousSigningTokenHashes = new ArrayList<>();
+
     private Instant createdAt;
     private Instant sentAt;
     private Instant viewedAt;

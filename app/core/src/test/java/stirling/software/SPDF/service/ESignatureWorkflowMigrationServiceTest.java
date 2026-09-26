@@ -19,13 +19,14 @@ class ESignatureWorkflowMigrationServiceTest {
             new ESignatureWorkflowMigrationService();
 
     @Test
-    void migratesLegacyPlaintextTokenAndNullCollections() {
+    void migratesLegacyPlaintextTokenAndNullCollections() throws Exception {
         ESignatureWorkflow workflow = new ESignatureWorkflow();
         workflow.setModelVersion(0);
         SigningRecipient recipient = new SigningRecipient();
         recipient.setSigningToken("legacy-secret-token");
         recipient.setAuthentication(null);
         recipient.setMetadata(null);
+        recipient.setPreviousSigningTokenHashes(null);
         workflow.setRecipients(new java.util.ArrayList<>(java.util.List.of(recipient)));
         workflow.setFields(null);
         workflow.setAuditTrail(null);
@@ -37,6 +38,18 @@ class ESignatureWorkflowMigrationServiceTest {
         assertNull(recipient.getSigningToken());
         assertNotNull(recipient.getSigningTokenHash());
         assertFalse(recipient.getSigningTokenHash().contains("legacy-secret-token"));
+        assertEquals(
+                java.util.Base64.getUrlEncoder()
+                        .withoutPadding()
+                        .encodeToString(
+                                java.security.MessageDigest.getInstance("SHA-256")
+                                        .digest(
+                                                "legacy-secret-token"
+                                                        .getBytes(
+                                                                java.nio.charset.StandardCharsets
+                                                                        .UTF_8))),
+                recipient.getSigningTokenHash());
+        assertNotNull(recipient.getPreviousSigningTokenHashes());
         assertNotNull(recipient.getAuthentication());
         assertNotNull(recipient.getMetadata());
         assertNotNull(migrated.getFields());

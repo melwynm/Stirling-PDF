@@ -256,8 +256,10 @@ public class ESignatureWorkflowController {
 
     @GetMapping("/e-sign/reminders/due")
     @Operation(summary = "List due e-signature reminders")
-    public ResponseEntity<List<ESignatureDueReminder>> getDueReminders() throws IOException {
-        return ResponseEntity.ok(workflowService.getDueReminders());
+    public ResponseEntity<List<ESignatureDueReminder>> getDueReminders(
+            HttpServletRequest servletRequest) throws IOException {
+        return ResponseEntity.ok(
+                workflowService.getDueReminders(actor(servletRequest, null, null)));
     }
 
     @PostMapping("/e-sign/reminders/due")

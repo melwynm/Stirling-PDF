@@ -4,7 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.HexFormat;
+import java.util.Base64;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -42,6 +42,8 @@ public class ESignatureWorkflowMigrationService {
                 recipient.setAuthentication(new Authentication());
             if (recipient.getMetadata() == null)
                 recipient.setMetadata(new java.util.LinkedHashMap<>());
+            if (recipient.getPreviousSigningTokenHashes() == null)
+                recipient.setPreviousSigningTokenHashes(new ArrayList<>());
         }
         if (workflow.getFields() == null) workflow.setFields(new ArrayList<>());
         if (workflow.getAuditTrail() == null) workflow.setAuditTrail(new ArrayList<>());
@@ -59,10 +61,12 @@ public class ESignatureWorkflowMigrationService {
         }
     }
 
+    /** Must match the encoding used by ESignatureWorkflowService when resolving tokens. */
     private String sha256(String value) {
         try {
-            return HexFormat.of()
-                    .formatHex(
+            return Base64.getUrlEncoder()
+                    .withoutPadding()
+                    .encodeToString(
                             MessageDigest.getInstance("SHA-256")
                                     .digest(value.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException e) {

@@ -25,8 +25,11 @@ rotate API credentials, and test TSA, OCSP, CRL, and trust anchors before produc
 5. Download the completed PDF and tamper-evident evidence report.
 
 Signing links contain random tokens whose hashes, not plaintext values, are persisted. Access codes are
-also hashed. Templates never persist reusable access codes; supply those recipient values when a template
-is instantiated. Owner-scoped operations intentionally return not found for another user's resources.
+also hashed. Reminders and re-sends issue a new link while the recipient's five most recent earlier links
+remain valid; send with `rotateTokens=true` to revoke all earlier links. The due-reminder endpoints only
+list and remind the caller's own workflows; the built-in scheduler processes all workflows. Templates
+never persist reusable access codes; supply those recipient values when a template is instantiated.
+Owner-scoped operations intentionally return not found for another user's resources.
 
 ## Email Step-Up Verification
 
@@ -40,7 +43,8 @@ when the signing link was also delivered to that same mailbox.
 consent and field values, and returns `expiresAt` and `resendAt`. Submit the same payload with `otp`
 to the existing `/sign` endpoint. Codes expire after five minutes; resending has a 60-second cooldown.
 Five failed attempts lock verification for the remainder of a 15-minute attempt window, including
-across resends and restarts. A changed document, field schema, or consent invalidates the challenge.
+across resends, restarts, and all of the recipient's valid links. A changed document, field schema, or
+consent invalidates the challenge.
 
 Challenges contain salted hashes and are saved under `requests/{requestId}/.step-up`, so they are
 removed with their workflow. Challenge consumption uses filesystem locks
