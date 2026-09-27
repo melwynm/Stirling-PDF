@@ -3,6 +3,7 @@ package stirling.software.SPDF.controller.api.security;
 import java.io.IOException;
 import java.util.List;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -28,6 +29,10 @@ import stirling.software.SPDF.service.SigningTrustStoreService.TrustCertificate;
 @RestController
 @RequestMapping("/api/v1/admin/signing-trust")
 @RequiredArgsConstructor
+// Managing trust anchors decides which signatures validate, so these endpoints must never be
+// reachable without the admin check. Lite builds ship without Spring Security, which would leave
+// @PreAuthorize unenforced, so the controller is not registered at all in those builds.
+@ConditionalOnClass(name = "org.springframework.security.access.prepost.PreAuthorize")
 @PreAuthorize("hasRole('ADMIN')")
 @Tag(name = "Admin - Signing Trust", description = "Manage PDF signature trust certificates")
 public class SigningTrustStoreController {

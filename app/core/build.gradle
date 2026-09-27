@@ -44,6 +44,10 @@ dependencies {
     }
 
     implementation project(':common')
+    // Spring Security reaches core only transitively through :proprietary, which lite builds drop.
+    // SigningTrustStoreController needs @PreAuthorize to compile in every variant; it is registered
+    // only when Spring Security is actually present (see @ConditionalOnClass on that controller).
+    compileOnly 'org.springframework.security:spring-security-core'
     implementation 'org.springframework.boot:spring-boot-starter-jetty'
     implementation 'org.eclipse.jetty.http2:jetty-http2-server'
     implementation 'org.eclipse.jetty:jetty-alpn-java-server'
