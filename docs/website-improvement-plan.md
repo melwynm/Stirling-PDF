@@ -375,14 +375,14 @@ use mocked APIs and do not establish live email/KMS behavior. Remaining workstre
 | Workstream | Current status | Implementation revision | Acceptance evidence | Next action |
 | --- | --- | --- | --- | --- |
 | Baseline | Pending reconciliation | Not recorded | Last remote check: `032af038d` | Locate owner's completed signing revision |
-| 1. Signing reliability | Verification pending | Not recorded | Earlier local audit only | Reconcile and reproduce concurrency/delivery behavior |
+| 1. Signing reliability | Single-instance serialisation done; 1.3 multi-instance and 1.4–1.7 pending | `105e62a` | 77 signing tests; lock regression test fails without the lock | Multi-instance coordination, recoverable publication, durable outbox |
 | 2. Unified workspace | Planned; foundations exist | Not recorded | No new acceptance run | Map existing state and history ownership |
 | 3. Precise authoring | Planned; drag/resize exists | Not recorded | No new acceptance run | Establish geometry fixtures and selection contract |
 | 4. Recipient experience | Outcomes and email step-up implemented | `b90965824` plus current increment | 6 component tests; 4 mocked-API browser scenarios | Real-device and live-provider acceptance |
 | 5. Performance | Measurement pending | Not recorded | No reference benchmark | Define corpus, hardware, and instrumentation |
 | 6. Intelligence | Planned | Not recorded | No evaluation run | Define deterministic suggestion baseline |
 | 7. Visual consistency | Audit pending | Not recorded | Source review only | Capture representative screens and journeys |
-| 8. Production readiness | Incomplete evidence; dated fixture repaired | `831801482` plus current increment | 3 PAdES tests; 23 OTP/workflow tests | Complete concurrency, provider, recovery, and interoperability gates |
+| 8. Production readiness | Review blockers fixed except public signing route | `0033930`–`105e62a` | 77 signing tests pass; lite build compiles | Public `/sign-request/` route; provider, recovery, and interoperability gates |
 
 ### eKYC Alignment Increment (2026-09-13)
 
@@ -399,3 +399,24 @@ use mocked APIs and do not establish live email/KMS behavior. Remaining workstre
 - Email OTP proves access to the recipient mailbox, not verified legal identity or QES status. The
   eKYC reference flow is adapted to Stirling's providers; no eKYC credentials or deployment data were
   copied. The eight workstreams above remain incomplete until their acceptance checks are satisfied.
+
+### Production Review Increment (2026-10-03)
+
+- Fixed: due-reminder endpoints scoped to the caller (any user could previously obtain other users'
+  signing tokens); reminders keep earlier links valid until `rotateTokens`; email OTP limits are per
+  recipient; legacy token migration uses the same hash encoding as lookup (`0033930`).
+- Fixed: lite builds (`Dockerfile.ultra-lite`, `Dockerfile.unified-lite`, default and server-only
+  release variants) failed to compile; the trust-store controller is now absent rather than
+  unprotected in builds without Spring Security; expired signing fixtures regenerated to 2126
+  (`25560eb`, `af8fa0f`).
+- Fixed: per-workflow locking for every mutation, with webhook calls made outside the lock under a
+  ten-minute delivery lease; recipients no longer receive the sender's callback URL (`105e62a`).
+- Verified: 77 signing tests pass in the lite configuration with JDK 25. The new concurrency test
+  fails with the lock disabled (`expected SIGNED but was SENT`) and passes with it.
+- Still required: allow anonymous access to the `/sign-request/` page when login is enabled (the
+  recipient API is already public; the page is not, so external recipients are sent to `/login`);
+  multi-instance coordination; and the remaining review findings: full-scan token lookup, open API
+  when login is disabled, trusted-proxy handling of forwarded headers, webhook signing, analytics
+  masking of signing URLs, TSA redirect handling, KMS key authorisation, and sender access to
+  recipient tokens. Full builds with `:proprietary` were not compiled here because its SAML
+  dependency's repository is unreachable from this environment.
