@@ -72,6 +72,13 @@ Workflow documents and metadata are stored below the configured custom-files pat
 atomic replacement where supported. Archived workflows can be permanently deleted. Configure filesystem
 encryption, backup, retention, and access controls appropriate to the documents being signed.
 
+Every change to a workflow (signing, declining, viewing, reminders, expiry, cancellation, webhook
+bookkeeping) runs under a per-workflow lock, so recipients, the reminder scheduler, and the webhook
+worker cannot save over each other's changes. Webhook calls run outside the lock; a delivery being
+attempted is leased for ten minutes so a concurrent worker skips it. These locks are in-process:
+**run a single Stirling instance against a given workflow directory.** Several instances sharing the
+same storage can still lose updates and need external coordination, which is not yet implemented.
+
 Ordinary uploads stream to storage and do not materialize the PDF in memory. The workflow limit is 100 GiB.
 Text-anchor discovery and cryptographic PDF operations require parsing the document and therefore need
 memory and temporary storage appropriate to the specific PDF. Load-test representative documents before

@@ -3,8 +3,10 @@ package stirling.software.SPDF.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -13,7 +15,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -713,6 +720,115 @@ class ESignatureWorkflowServiceTest {
         ESignatureTokenContext context = service.getTokenContext("legacy-plaintext-token");
 
         assertEquals("first@example.com", context.getRecipient().getEmail());
+    }
+
+    @Test
+    void reminderInFlightDoesNotOverwriteAConcurrentSignature() throws Exception {
+        CountDownLatch reminderSending = new CountDownLatch(1);
+        CountDownLatch releaseReminder = new CountDownLatch(1);
+        AtomicBoolean blockNextSend = new AtomicBoolean();
+        SigningNotificationProvider email =
+                new SigningNotificationProvider() {
+                    @Override
+                    public String channel() {
+                        return "email";
+                    }
+
+                    @Override
+                    public void send(SigningNotificationMessage message) throws Exception {
+                        if (blockNextSend.compareAndSet(true, false)) {
+                            reminderSending.countDown();
+                            assertTrue(releaseReminder.await(10, TimeUnit.SECONDS));
+                        }
+                    }
+                };
+        service =
+                new ESignatureWorkflowService(
+                        JsonMapper.builder().build(),
+                        tempDir,
+                        new ESignaturePdfService(),
+                        null,
+                        List.of(email));
+        ESignatureCreateRequest create = orderedCreateRequest();
+        create.setSigningOrder(false);
+        ESignatureRequestView created = service.createRequest(pdfFile(), create, actor);
+        String secondToken =
+                service
+                        .sendRequest(created.getId(), new ESignatureSendRequest(), actor)
+                        .getNotifications()
+                        .stream()
+                        .filter(n -> "second-recipient".equals(n.getRecipientId()))
+                        .findFirst()
+                        .orElseThrow()
+                        .getToken();
+        ESignatureReminderRequest reminder = new ESignatureReminderRequest();
+        reminder.setRecipientIds(List.of("first-recipient"));
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+
+        // The reminder loads the workflow and then blocks while "sending" its email. The second
+        // recipient signs meanwhile; without per-workflow locking the reminder would then save
+        // its stale copy over the signature.
+        blockNextSend.set(true);
+        Thread reminderThread =
+                startCapturing(
+                        failure, () -> service.sendReminders(created.getId(), reminder, actor));
+        assertTrue(reminderSending.await(10, TimeUnit.SECONDS));
+        Thread signThread =
+                startCapturing(
+                        failure, () -> service.sign(secondToken, signRequest("Second"), actor));
+        awaitParkedOrFinished(signThread);
+        releaseReminder.countDown();
+        reminderThread.join(10_000);
+        signThread.join(10_000);
+
+        assertNull(failure.get());
+        ESignatureRequestView stored = service.getRequest(created.getId());
+        assertEquals(Status.SIGNED, stored.getRecipients().get(1).getStatus());
+        assertEquals(1, stored.getRecipients().get(0).getReminderCount());
+        assertEquals(1, stored.getDocumentRevision());
+    }
+
+    @Test
+    void recipientContextDoesNotExposeTheSendersCallbackUrl() throws Exception {
+        ESignatureCreateRequest create = orderedCreateRequest();
+        create.setCallbackUrl("https://automation.example/webhook/secret-path");
+        ESignatureRequestView created = service.createRequest(pdfFile(), create, actor);
+        String token =
+                service.sendRequest(created.getId(), new ESignatureSendRequest(), actor)
+                        .getNotifications()
+                        .getFirst()
+                        .getToken();
+
+        assertNull(service.getTokenContext(token).getRequest().getCallbackUrl());
+        assertEquals(
+                "https://automation.example/webhook/secret-path",
+                service.getRequest(created.getId(), actor).getCallbackUrl());
+    }
+
+    private static Thread startCapturing(AtomicReference<Throwable> failure, Callable<?> action) {
+        Thread thread =
+                new Thread(
+                        () -> {
+                            try {
+                                action.call();
+                            } catch (Throwable e) {
+                                failure.compareAndSet(null, e);
+                            }
+                        });
+        thread.start();
+        return thread;
+    }
+
+    private static void awaitParkedOrFinished(Thread thread) throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (System.nanoTime() < deadline) {
+            Thread.State state = thread.getState();
+            if (state == Thread.State.WAITING || state == Thread.State.TERMINATED) {
+                return;
+            }
+            Thread.sleep(10);
+        }
+        fail("Signer neither waited for the workflow lock nor finished");
     }
 
     private ESignatureCreateRequest orderedCreateRequest() {
