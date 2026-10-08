@@ -11,6 +11,7 @@ import '@app/i18n'; // Initialize i18next
 import posthog from 'posthog-js';
 import { PostHogProvider } from '@posthog/react';
 import { BASE_PATH } from '@app/constants/app';
+import { redactSigningTokens } from '@app/utils/analyticsRedaction';
 
 posthog.init(import.meta.env.VITE_PUBLIC_POSTHOG_KEY, {
   api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
@@ -20,6 +21,8 @@ posthog.init(import.meta.env.VITE_PUBLIC_POSTHOG_KEY, {
   opt_out_capturing_by_default: true, // Opt-out by default, controlled by cookie consent
   persistence: 'memory', // No cookies/localStorage written until user opts in
   cross_subdomain_cookie: false,
+  // Signing-link tokens grant access to a recipient's request; never send them to analytics.
+  before_send: (event) => (event ? redactSigningTokens(event) : event),
 });
 
 function updatePosthogConsent() {
