@@ -61,6 +61,7 @@ import org.bouncycastle.cert.ocsp.OCSPRespBuilder;
 import org.bouncycastle.operator.DigestCalculator;
 import org.bouncycastle.operator.jcajce.JcaContentVerifierProviderBuilder;
 import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import stirling.software.common.service.SsrfProtectionService;
@@ -88,6 +89,9 @@ public class PadesLtvService {
     private final ValidationTransport transport;
     private final TimestampTokenProvider timestampTokenProvider;
 
+    // Required: with a second (test) constructor Spring otherwise looks for a no-arg constructor
+    // and the application fails to start.
+    @Autowired
     public PadesLtvService(SsrfProtectionService ssrfProtectionService) {
         this(ssrfProtectionService, PadesLtvService::sendHttp, PadesLtvService::requestTimestamp);
     }
@@ -351,12 +355,16 @@ public class PadesLtvService {
             request.header("Content-Type", contentType)
                     .POST(HttpRequest.BodyPublishers.ofByteArray(body));
         }
-        HttpResponse<byte[]> response =
-                client.send(request.build(), HttpResponse.BodyHandlers.ofByteArray());
-        if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            throw new IOException("Validation endpoint returned HTTP " + response.statusCode());
+        HttpResponse<InputStream> response =
+                client.send(request.build(), HttpResponse.BodyHandlers.ofInputStream());
+        try (InputStream responseBody = response.body()) {
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new IOException("Validation endpoint returned HTTP " + response.statusCode());
+            }
+            // Stop reading one byte past the limit rather than buffering an unbounded body;
+            // request() rejects anything over the limit.
+            return responseBody.readNBytes(MAX_VALIDATION_RESPONSE_BYTES + 1);
         }
-        return response.body();
     }
 
     private static byte[] requestTimestamp(String tsaUrl, InputStream content) throws IOException {

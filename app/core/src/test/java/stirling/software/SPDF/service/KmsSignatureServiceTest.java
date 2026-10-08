@@ -146,13 +146,67 @@ class KmsSignatureServiceTest {
         }
     }
 
+    @Test
+    void allowListRestrictsWhichKeysUsersMayRequest() throws Exception {
+        try (MockWebServer server = new MockWebServer()) {
+            server.enqueue(
+                    new MockResponse()
+                            .setResponseCode(200)
+                            .addHeader("Content-Type", "application/json")
+                            .setBody("{\"signature\":\"AQID\"}"));
+            server.start();
+            ApplicationProperties properties = properties(server, null);
+            properties
+                    .getSecurity()
+                    .getSigning()
+                    .getKms()
+                    .setAllowedKeyIds(java.util.List.of("alias/department-seal", " "));
+            KmsSignatureService service =
+                    new KmsSignatureService(properties, JsonMapper.builder().build());
+
+            service.ensureKeyAllowed(SignerProvider.KMS, " alias/department-seal ");
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> service.ensureKeyAllowed(SignerProvider.KMS, "alias/company-seal"));
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> service.ensureKeyAllowed(SignerProvider.KMS, null));
+            IOException refused =
+                    assertThrows(
+                            IOException.class,
+                            () ->
+                                    service.signDigest(
+                                            new KmsSigningRequest(
+                                                    "alias/company-seal",
+                                                    KmsSignatureAlgorithm.SHA256_WITH_RSA,
+                                                    new byte[] {1})));
+            assertTrue(refused.getMessage().contains("allow-list"));
+            assertEquals(0, server.getRequestCount());
+
+            assertArrayEquals(
+                    new byte[] {1, 2, 3},
+                    service.signDigest(
+                            new KmsSigningRequest(
+                                    "alias/department-seal",
+                                    KmsSignatureAlgorithm.SHA256_WITH_RSA,
+                                    new byte[] {1})));
+            // Other providers keep their own (empty) lists.
+            service.ensureKeyAllowed(SignerProvider.REMOTE, "anything");
+        }
+    }
+
     private KmsSignatureService service(MockWebServer server, String authorizationHeader) {
+        return new KmsSignatureService(
+                properties(server, authorizationHeader), JsonMapper.builder().build());
+    }
+
+    private ApplicationProperties properties(MockWebServer server, String authorizationHeader) {
         ApplicationProperties properties = new ApplicationProperties();
         var kms = properties.getSecurity().getSigning().getKms();
         kms.setEnabled(true);
         kms.setSignerUrl(server.url("/sign").toString());
         kms.setAuthorizationHeader(authorizationHeader);
         kms.setTimeoutSeconds(5);
-        return new KmsSignatureService(properties, JsonMapper.builder().build());
+        return properties;
     }
 }

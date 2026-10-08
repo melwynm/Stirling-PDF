@@ -8,6 +8,7 @@ import java.net.http.HttpResponse;
 import java.security.GeneralSecurityException;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.List;
 import java.util.Locale;
 
 import org.bouncycastle.asn1.DERNull;
@@ -62,6 +63,11 @@ public class KmsSignatureService {
 
     public byte[] signDigest(SignerProvider provider, KmsSigningRequest request)
             throws IOException, InterruptedException {
+        try {
+            ensureKeyAllowed(provider, request.keyId());
+        } catch (IllegalArgumentException e) {
+            throw new IOException(e.getMessage(), e);
+        }
         if (provider == SignerProvider.PKCS11) {
             return signWithPkcs11(request);
         }
@@ -205,6 +211,36 @@ public class KmsSignatureService {
         } catch (GeneralSecurityException | RuntimeException e) {
             throw new IOException("PKCS#11 signing failed", e);
         }
+    }
+
+    /**
+     * Rejects key IDs outside the configured allow-list. Without one, every user who may sign can
+     * ask the signer for any key it holds, such as an organisation seal.
+     */
+    public void ensureKeyAllowed(SignerProvider provider, String keyId) {
+        List<String> allowed = allowedKeyIds(provider);
+        if (allowed.isEmpty()) {
+            return;
+        }
+        if (!StringUtils.hasText(keyId) || !allowed.contains(keyId.trim())) {
+            throw new IllegalArgumentException(
+                    provider.getLabel() + " key is not in the configured allow-list");
+        }
+    }
+
+    private List<String> allowedKeyIds(SignerProvider provider) {
+        var signing = applicationProperties.getSecurity().getSigning();
+        List<String> configured =
+                switch (provider) {
+                    case KMS -> signing.getKms().getAllowedKeyIds();
+                    case REMOTE -> signing.getRemote().getAllowedKeyIds();
+                    case CLOUD_KMS -> signing.getCloudKms().getAllowedKeyIds();
+                    case QES -> signing.getQes().getAllowedKeyIds();
+                    case PKCS11 -> signing.getPkcs11().getAllowedKeyIds();
+                };
+        return configured == null
+                ? List.of()
+                : configured.stream().filter(StringUtils::hasText).map(String::trim).toList();
     }
 
     private RemoteSignerSettings remoteSettings(SignerProvider provider) {

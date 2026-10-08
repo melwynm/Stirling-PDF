@@ -25,6 +25,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.text.PDFTextStripper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -42,6 +43,7 @@ import stirling.software.SPDF.model.api.esign.ESignatureRequestView;
 import stirling.software.SPDF.model.api.esign.ESignatureSendRequest;
 import stirling.software.SPDF.model.api.esign.ESignatureSignRequest;
 import stirling.software.SPDF.model.api.esign.ESignatureTokenContext;
+import stirling.software.SPDF.model.esign.ESignatureWorkflow;
 import stirling.software.SPDF.model.esign.ESignatureWorkflow.AuditEventType;
 import stirling.software.SPDF.model.esign.ESignatureWorkflow.WebhookDeliveryStatus;
 import stirling.software.SPDF.model.esign.ESignatureWorkflow.WorkflowStatus;
@@ -322,9 +324,11 @@ class ESignatureWorkflowServiceTest {
         ESignatureWebhookService webhookService =
                 new ESignatureWebhookService(
                         ssrf,
-                        (uri, eventId, payload) -> {
+                        (uri, headers, payload) -> {
                             deliveries.incrementAndGet();
-                            assertTrue(payload.contains(eventId));
+                            assertTrue(
+                                    payload.contains(
+                                            headers.get(ESignatureWebhookService.EVENT_ID_HEADER)));
                             return 204;
                         });
         service =
@@ -357,7 +361,7 @@ class ESignatureWorkflowServiceTest {
         SsrfProtectionService ssrf = mock(SsrfProtectionService.class);
         when(ssrf.isUrlAllowed("https://hooks.example/signing")).thenReturn(true);
         ESignatureWebhookService webhookService =
-                new ESignatureWebhookService(ssrf, (uri, eventId, payload) -> 503);
+                new ESignatureWebhookService(ssrf, (uri, headers, payload) -> 503);
         service =
                 new ESignatureWorkflowService(
                         JsonMapper.builder().build(),
@@ -803,6 +807,69 @@ class ESignatureWorkflowServiceTest {
         assertEquals(
                 "https://automation.example/webhook/secret-path",
                 service.getRequest(created.getId(), actor).getCallbackUrl());
+    }
+
+    @Test
+    void evidenceReportKeepsAccentedAndNonLatinNames() throws Exception {
+        ESignatureCreateRequest create = orderedCreateRequest();
+        create.setTitle("Contrat de confidentialité");
+        create.getRecipients().get(0).setName("José Müller");
+        create.getRecipients().get(1).setName("Дмитрий Ковалёв");
+        ESignatureRequestView created = service.createRequest(pdfFile(), create, actor);
+
+        byte[] report = service.generateEvidencePdf(created.getId(), actor);
+
+        try (PDDocument document = Loader.loadPDF(report)) {
+            String text = new PDFTextStripper().getText(document);
+            assertTrue(text.contains("Contrat de confidentialité"), text);
+            assertTrue(text.contains("José Müller"), text);
+            assertTrue(text.contains("Дмитрий Ковалёв"), text);
+        }
+    }
+
+    @Test
+    void unknownSigningTokensAreRejectedWithoutReadingWorkflowMetadata() throws Exception {
+        AtomicInteger metadataReads = new AtomicInteger();
+        ESignatureWorkflowMigrationService countingMigration =
+                new ESignatureWorkflowMigrationService() {
+                    @Override
+                    public ESignatureWorkflow migrate(ESignatureWorkflow workflow) {
+                        metadataReads.incrementAndGet();
+                        return super.migrate(workflow);
+                    }
+                };
+        service =
+                new ESignatureWorkflowService(
+                        JsonMapper.builder().build(),
+                        tempDir,
+                        new ESignaturePdfService(),
+                        new SigningAnchorService(),
+                        countingMigration,
+                        null,
+                        List.of());
+        for (int other = 0; other < 3; other++) {
+            service.createRequest(pdfFile(), orderedCreateRequest(), actor);
+        }
+        ESignatureRequestView target =
+                service.createRequest(pdfFile(), orderedCreateRequest(), actor);
+        String token =
+                service.sendRequest(target.getId(), new ESignatureSendRequest(), actor)
+                        .getNotifications()
+                        .getFirst()
+                        .getToken();
+        assertEquals("first@example.com", service.getTokenContext(token).getRecipient().getEmail());
+
+        metadataReads.set(0);
+        for (String unknown : List.of("guess-1", "guess-2", "guess-3", "guess-4", "guess-5")) {
+            ResponseStatusException error =
+                    assertThrows(
+                            ResponseStatusException.class, () -> service.getTokenContext(unknown));
+            assertEquals(HttpStatus.NOT_FOUND, error.getStatusCode());
+        }
+        assertEquals(0, metadataReads.get());
+
+        service.getTokenContext(token);
+        assertEquals(1, metadataReads.get());
     }
 
     private static Thread startCapturing(AtomicReference<Throwable> failure, Callable<?> action) {

@@ -26,6 +26,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.regex.Pattern;
 
@@ -33,8 +34,8 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
-import org.apache.pdfbox.pdmodel.font.PDType1Font;
-import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
+import org.apache.pdfbox.pdmodel.font.PDFont;
+import org.apache.pdfbox.pdmodel.font.PDType0Font;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -112,6 +113,17 @@ public class ESignatureWorkflowService {
     private final Map<String, SigningNotificationProvider> notificationProviders;
     private final SecureRandom secureRandom = new SecureRandom();
     private final ReentrantLock[] workflowLocks = newWorkflowLocks();
+
+    /**
+     * Signing-token hash to request id, so a public token lookup reads one workflow instead of all
+     * of them. Only a hint: every hit is re-verified against that workflow's metadata, so a stale
+     * entry cannot grant access. Built on first use; every full scan (including the scheduled
+     * reminder run each minute) refreshes it from storage.
+     */
+    private final Map<String, String> tokenIndex = new ConcurrentHashMap<>();
+
+    private final Object tokenIndexBuildLock = new Object();
+    private volatile boolean tokenIndexBuilt;
     private final Path requestsPath;
 
     @Autowired
@@ -1197,6 +1209,7 @@ public class ESignatureWorkflowService {
                 Files.deleteIfExists(candidate);
             }
         }
+        tokenIndex.values().removeIf(requestId::equals);
     }
 
     public Path getDocumentPath(String requestId) throws IOException {
@@ -1305,9 +1318,26 @@ public class ESignatureWorkflowService {
             ESignatureWorkflow current = expireIfNeeded(snapshot);
             if (current != null) {
                 workflows.add(current);
+                for (SigningRecipient recipient : current.getRecipients()) {
+                    for (String tokenHash : activeTokenHashes(recipient)) {
+                        tokenIndex.put(tokenHash, current.getId());
+                    }
+                }
             }
         }
         return workflows;
+    }
+
+    private void ensureTokenIndex() throws IOException {
+        if (tokenIndexBuilt) {
+            return;
+        }
+        synchronized (tokenIndexBuildLock) {
+            if (!tokenIndexBuilt) {
+                listWorkflows();
+                tokenIndexBuilt = true;
+            }
+        }
     }
 
     private ESignatureWorkflow tryReadWorkflow(Path metadataPath) {
@@ -1393,12 +1423,15 @@ public class ESignatureWorkflowService {
         if (!StringUtils.hasText(token)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing signing token");
         }
-        for (ESignatureWorkflow workflow : listWorkflows()) {
-            Optional<TokenResolution> resolution = matchToken(workflow, token);
+        ensureTokenIndex();
+        String requestId = tokenIndex.get(hashToken(token));
+        if (requestId != null && Files.exists(metadataPath(requestId))) {
+            Optional<TokenResolution> resolution = matchToken(loadWorkflow(requestId), token);
             if (resolution.isPresent()) {
                 return resolution.get();
             }
         }
+        // Unknown tokens are rejected without touching storage.
         throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Signing token not found");
     }
 
@@ -1519,7 +1552,7 @@ public class ESignatureWorkflowService {
             boolean rotateToken,
             String eventType) {
         String signingToken = generateToken();
-        issueSigningToken(recipient, signingToken, rotateToken);
+        issueSigningToken(workflow.getId(), recipient, signingToken, rotateToken);
 
         String baseUrl = defaultIfBlank(publicBaseUrl, workflow.getPublicBaseUrl());
         String signingPath = "/sign-request/" + signingToken;
@@ -1570,7 +1603,7 @@ public class ESignatureWorkflowService {
                 continue;
             }
             String token = generateToken();
-            issueSigningToken(recipient, token, false);
+            issueSigningToken(workflow.getId(), recipient, token, false);
             String documentPath = "/api/v1/security/e-sign/recipients/" + token + "/download";
             String baseUrl = workflow.getPublicBaseUrl();
             ESignatureNotification copy = new ESignatureNotification();
@@ -1689,7 +1722,11 @@ public class ESignatureWorkflowService {
      * break the link a recipient already received, unless the sender asked to revoke them.
      */
     private void issueSigningToken(
-            SigningRecipient recipient, String token, boolean revokeEarlierTokens) {
+            String requestId,
+            SigningRecipient recipient,
+            String token,
+            boolean revokeEarlierTokens) {
+        List<String> hashesBefore = activeTokenHashes(recipient);
         List<String> previous =
                 recipient.getPreviousSigningTokenHashes() == null || revokeEarlierTokens
                         ? new ArrayList<>()
@@ -1703,6 +1740,28 @@ public class ESignatureWorkflowService {
         recipient.setPreviousSigningTokenHashes(previous);
         recipient.setSigningTokenHash(hashToken(token));
         recipient.setSigningToken(null);
+        List<String> hashesAfter = activeTokenHashes(recipient);
+        for (String revoked : hashesBefore) {
+            if (!hashesAfter.contains(revoked)) {
+                tokenIndex.remove(revoked, requestId);
+            }
+        }
+        tokenIndex.put(recipient.getSigningTokenHash(), requestId);
+    }
+
+    private static List<String> activeTokenHashes(SigningRecipient recipient) {
+        List<String> hashes = new ArrayList<>();
+        if (StringUtils.hasText(recipient.getSigningTokenHash())) {
+            hashes.add(recipient.getSigningTokenHash());
+        }
+        if (recipient.getPreviousSigningTokenHashes() != null) {
+            for (String previousHash : recipient.getPreviousSigningTokenHashes()) {
+                if (StringUtils.hasText(previousHash)) {
+                    hashes.add(previousHash);
+                }
+            }
+        }
+        return hashes;
     }
 
     private String hashToken(String token) {
@@ -1919,8 +1978,10 @@ public class ESignatureWorkflowService {
     private byte[] createEvidencePdf(List<String> lines) throws IOException {
         try (PDDocument document = new PDDocument();
                 ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-            PDType1Font regular = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
-            PDType1Font bold = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
+            // Embedded Unicode fonts keep accented and non-Latin names and titles legible; the
+            // standard Helvetica font cannot encode them.
+            PDFont regular = loadEvidenceFont(document, "NotoSans-Regular.ttf");
+            PDFont bold = loadEvidenceFont(document, "NotoSans-Bold.ttf");
             PDPage page = null;
             PDPageContentStream content = null;
             float y = 0;
@@ -1933,10 +1994,16 @@ public class ESignatureWorkflowService {
                         content = new PDPageContentStream(document, page);
                         y = page.getMediaBox().getHeight() - 48;
                     }
-                    String line = lines.get(index).replaceAll("[^\\x20-\\x7E]", "?");
-                    if (line.length() > 105) line = line.substring(0, 105);
+                    PDFont font = index == 0 ? bold : regular;
+                    float fontSize = index == 0 ? 16 : 9;
+                    String line =
+                            fitToWidth(
+                                    font,
+                                    fontSize,
+                                    encodableText(font, lines.get(index)),
+                                    page.getMediaBox().getWidth() - 96);
                     content.beginText();
-                    content.setFont(index == 0 ? bold : regular, index == 0 ? 16 : 9);
+                    content.setFont(font, fontSize);
                     content.newLineAtOffset(48, y);
                     content.showText(line);
                     content.endText();
@@ -1948,6 +2015,44 @@ public class ESignatureWorkflowService {
             document.save(output);
             return output.toByteArray();
         }
+    }
+
+    private PDFont loadEvidenceFont(PDDocument document, String fileName) throws IOException {
+        try (InputStream fontStream =
+                ESignatureWorkflowService.class.getResourceAsStream("/static/fonts/" + fileName)) {
+            if (fontStream == null) {
+                throw new IOException("Evidence report font is unavailable: " + fileName);
+            }
+            return PDType0Font.load(document, fontStream, true);
+        }
+    }
+
+    /** Replaces control characters with spaces and characters the font lacks with '?'. */
+    private String encodableText(PDFont font, String text) throws IOException {
+        StringBuilder result = new StringBuilder(text.length());
+        for (int codePoint : text.codePoints().toArray()) {
+            if (Character.isISOControl(codePoint)) {
+                result.append(' ');
+                continue;
+            }
+            String character = Character.toString(codePoint);
+            try {
+                font.encode(character);
+                result.append(character);
+            } catch (IllegalArgumentException missingGlyph) {
+                result.append('?');
+            }
+        }
+        return result.toString();
+    }
+
+    private String fitToWidth(PDFont font, float fontSize, String text, float maxWidth)
+            throws IOException {
+        String fitted = text;
+        while (!fitted.isEmpty() && font.getStringWidth(fitted) / 1000 * fontSize > maxWidth) {
+            fitted = fitted.substring(0, fitted.offsetByCodePoints(fitted.length(), -1));
+        }
+        return fitted;
     }
 
     private void enqueueWebhook(ESignatureWorkflow workflow, AuditEvent event) {

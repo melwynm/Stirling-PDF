@@ -327,6 +327,12 @@ public class CertSignController {
                             "error.kmsSigningDisabled",
                             signerProvider.getLabel() + " signing is not enabled");
                 }
+                try {
+                    kmsSignatureService.ensureKeyAllowed(signerProvider, kmsKeyId);
+                } catch (IllegalArgumentException e) {
+                    throw ExceptionUtils.createIllegalArgumentException(
+                            "error.invalidArgument", "Invalid argument: {0}", e.getMessage());
+                }
                 certFile =
                         validateFilePresent(
                                 certFile,

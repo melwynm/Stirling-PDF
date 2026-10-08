@@ -514,6 +514,8 @@ public class ApplicationProperties {
                 @ToString.Exclude private String authorizationHeader = "";
                 private String signatureAlgorithm = "SHA256_WITH_RSA";
                 private int timeoutSeconds = 30;
+                // Key IDs users may request; empty allows any key the signer accepts.
+                private List<String> allowedKeyIds = new ArrayList<>();
             }
 
             @Data
@@ -523,6 +525,8 @@ public class ApplicationProperties {
                 @ToString.Exclude private String authorizationHeader = "";
                 private String signatureAlgorithm = "SHA256_WITH_RSA";
                 private int timeoutSeconds = 30;
+                // Key IDs users may request; empty allows any key the signer accepts.
+                private List<String> allowedKeyIds = new ArrayList<>();
             }
 
             @Data
@@ -532,6 +536,8 @@ public class ApplicationProperties {
                 private String slot = "";
                 @ToString.Exclude private String pin = "";
                 private String signatureAlgorithm = "SHA256_WITH_RSA";
+                // Token aliases users may request; empty allows any alias on the token.
+                private List<String> allowedKeyIds = new ArrayList<>();
             }
         }
 
@@ -850,6 +856,16 @@ public class ApplicationProperties {
     @Data
     public static class Signing {
         private Notifications notifications = new Notifications();
+        private Webhooks webhooks = new Webhooks();
+
+        @Data
+        public static class Webhooks {
+            /**
+             * When set, every e-signature webhook carries an HMAC-SHA256 signature of
+             * "timestamp.payload" so receivers can reject forged or replayed calls.
+             */
+            @ToString.Exclude private String signingSecret;
+        }
 
         @Data
         public static class Notifications {

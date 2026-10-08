@@ -55,6 +55,7 @@ import stirling.software.SPDF.service.ESignatureWorkflowService;
 import stirling.software.SPDF.service.ESignatureWorkflowService.ActorContext;
 import stirling.software.SPDF.service.SigningOtpService;
 import stirling.software.common.annotations.api.SecurityApi;
+import stirling.software.common.model.ApplicationProperties;
 
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
@@ -69,6 +70,7 @@ public class ESignatureWorkflowController {
     private final ESignatureWorkflowService workflowService;
     private final ESignatureTemplateService templateService;
     private final ObjectMapper objectMapper;
+    private final ApplicationProperties applicationProperties;
 
     @PostMapping(value = "/e-sign/templates", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(
@@ -524,26 +526,29 @@ public class ESignatureWorkflowController {
                 principalId);
     }
 
-    private String clientIp(HttpServletRequest request) {
-        String forwardedFor = request.getHeader("X-Forwarded-For");
-        if (StringUtils.hasText(forwardedFor)) {
-            return forwardedFor.split(",", 2)[0].trim();
-        }
+    /**
+     * The servlet container applies trusted forwarding headers ({@code
+     * server.forward-headers-strategy=NATIVE}). Reading {@code X-Forwarded-For} here as well would
+     * record whatever value the client sent in the signing evidence.
+     */
+    String clientIp(HttpServletRequest request) {
         return request.getRemoteAddr();
     }
 
-    private String baseUrl(HttpServletRequest request) {
-        String forwardedProto = request.getHeader("X-Forwarded-Proto");
-        String scheme = StringUtils.hasText(forwardedProto) ? forwardedProto : request.getScheme();
-        String forwardedHost = request.getHeader("X-Forwarded-Host");
-        String host =
-                StringUtils.hasText(forwardedHost) ? forwardedHost : request.getHeader("Host");
-        if (StringUtils.hasText(host)) {
-            return scheme + "://" + host;
+    /**
+     * Base for signing links sent to recipients. The configured {@code system.frontendUrl} wins, as
+     * for invitation emails; otherwise the container-resolved request URL is used.
+     */
+    String baseUrl(HttpServletRequest request) {
+        String configured = applicationProperties.getSystem().getFrontendUrl();
+        if (StringUtils.hasText(configured)) {
+            return configured.trim().replaceAll("/+$", "");
         }
+        String scheme = request.getScheme();
         int port = request.getServerPort();
         boolean defaultPort =
-                ("http".equalsIgnoreCase(scheme) && port == 80)
+                port <= 0
+                        || ("http".equalsIgnoreCase(scheme) && port == 80)
                         || ("https".equalsIgnoreCase(scheme) && port == 443);
         return scheme + "://" + request.getServerName() + (defaultPort ? "" : ":" + port);
     }

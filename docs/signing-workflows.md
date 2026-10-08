@@ -16,6 +16,11 @@ incrementally.
 Keep private keys outside Stirling whenever a managed signer is available. Restrict PKCS#11 library paths,
 rotate API credentials, and test TSA, OCSP, CRL, and trust anchors before production use.
 
+Every user who can sign may name any key the configured signer accepts unless you restrict it. List the
+permitted key IDs (or PKCS#11 aliases) in `allowedKeyIds` for each enabled provider under
+`security.signing`; other keys are refused before the signer is called, and with a list configured a
+PKCS#11 request must name its alias.
+
 ## Recipient Workflows
 
 1. Upload a PDF once in the shared workspace.
@@ -30,6 +35,12 @@ remain valid; send with `rotateTokens=true` to revoke all earlier links. The due
 list and remind the caller's own workflows; the built-in scheduler processes all workflows. Templates
 never persist reusable access codes; supply those recipient values when a template is instantiated.
 Owner-scoped operations intentionally return not found for another user's resources.
+
+Set `system.frontendUrl` to the public address recipients use; signing links are built from it. Without
+it, links use the request's scheme and host as resolved by the servlet container. Audit IP addresses
+are the container's client address: with `server.forward-headers-strategy=NATIVE` (the default) the
+reverse proxy in front of Stirling must overwrite, not append to, `X-Forwarded-For`, or a client can
+choose the address recorded in the evidence.
 
 ## Email Step-Up Verification
 
@@ -64,6 +75,12 @@ The OpenAPI endpoints are suitable for n8n and other HTTP automation. An importa
 `engine/examples/n8n-esign-bulk-template.json`. First-class MCP tools cover request creation/list/send,
 template creation/list/instantiation/bulk dispatch, and event polling. MCP creation and dispatch tools
 require `confirmed=true`.
+
+Webhook calls include `X-Stirling-Event-Id`. When `signing.webhooks.signingSecret` is set they also
+include `X-Stirling-Timestamp` (Unix seconds) and `X-Stirling-Signature: sha256=<hex>`, the HMAC-SHA256
+of `<timestamp>.<raw request body>` with that secret. Receivers should recompute it over the exact body
+bytes, compare in constant time, and reject timestamps more than a few minutes old. Without a secret,
+treat the callback URL itself as the only credential and keep it unguessable.
 
 ## Storage, Retention, and Scale
 
