@@ -17,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.server.ResponseStatusException;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -51,5 +52,32 @@ class GlobalExceptionHandlerTest {
         assertEquals(
                 "Reduce the file size to be within the upload limit.",
                 response.getBody().getProperties().get("actionRequired"));
+    }
+
+    @Test
+    void responseStatusExceptionKeepsItsStatusAndReason() {
+        ResponseEntity<ProblemDetail> response =
+                handler.handleResponseStatus(
+                        new ResponseStatusException(
+                                HttpStatus.TOO_MANY_REQUESTS,
+                                "Recipient authentication is temporarily locked"),
+                        request);
+
+        assertEquals(HttpStatus.TOO_MANY_REQUESTS, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(
+                "Recipient authentication is temporarily locked", response.getBody().getDetail());
+    }
+
+    @Test
+    void wrappedResponseStatusExceptionKeepsItsStatus() {
+        ResponseEntity<ProblemDetail> response =
+                handler.handleRuntimeException(
+                        new RuntimeException(
+                                new ResponseStatusException(
+                                        HttpStatus.NOT_FOUND, "Signing token not found")),
+                        request);
+
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
     }
 }

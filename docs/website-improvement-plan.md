@@ -382,7 +382,7 @@ use mocked APIs and do not establish live email/KMS behavior. Remaining workstre
 | 5. Performance | Measurement pending | Not recorded | No reference benchmark | Define corpus, hardware, and instrumentation |
 | 6. Intelligence | Planned | Not recorded | No evaluation run | Define deterministic suggestion baseline |
 | 7. Visual consistency | Audit pending | Not recorded | Source review only | Capture representative screens and journeys |
-| 8. Production readiness | Review blockers fixed except public signing route | `0033930`–`105e62a` | 77 signing tests pass; lite build compiles | Public `/sign-request/` route; provider, recovery, and interoperability gates |
+| 8. Production readiness | Startup failure fixed; backend boots and completes an e-sign flow; public signing route still open | `0033930`–current increment | Signing suite and full core suite; live boot with end-to-end API smoke test | Public `/sign-request/` route; provider, recovery, and interoperability gates |
 
 ### eKYC Alignment Increment (2026-09-13)
 
@@ -420,3 +420,22 @@ use mocked APIs and do not establish live email/KMS behavior. Remaining workstre
   masking of signing URLs, TSA redirect handling, KMS key authorisation, and sender access to
   recipient tokens. Full builds with `:proprietary` were not compiled here because its SAML
   dependency's repository is unreachable from this environment.
+
+### Production Review Increment (2026-10-08)
+
+- Fixed: the backend could not start. `PadesLtvService` and `ESignatureWebhookService` had a public and
+  a test constructor without `@Autowired`, so Spring 7 looked for a no-arg constructor ("No default
+  constructor found"). `SigningServiceWiringTest` fails without the annotations and passes with them.
+- Fixed: every `ResponseStatusException` (404, 401, 409, 410, 429 from e-sign) reached clients as 500
+  through the generic `RuntimeException` handler; the handler now keeps the intended status.
+- Added: token-hash index so unknown public tokens are rejected without reading storage; optional
+  HMAC-signed webhooks (`signing.webhooks.signingSecret`); per-provider `allowedKeyIds` for KMS,
+  remote, QES, and PKCS#11 signers; signing links from `system.frontendUrl`; audit IPs from the
+  servlet container; Unicode fonts in the evidence report; bounded OCSP/CRL reads; analytics
+  redaction of signing tokens.
+- Verified: backend booted in the lite configuration with JDK 25 and completed create, send,
+  recipient view, ordered signing by two recipients, completion, evidence JSON/PDF, and download
+  over HTTP; live error responses were 404 (unknown token), 401 then 429 (access-code lockout), 409,
+  and 400. The full `:stirling-pdf` suite passes (568 tests). Frontend redaction logic was executed
+  with Node; vitest and the TypeScript build were not run. Full builds with `:proprietary` remain
+  unverified here because its SAML dependency's repository is unreachable from this environment.

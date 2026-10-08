@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -1030,6 +1031,42 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handle ResponseStatusException, which code throws to choose a specific HTTP status: for
+     * example 404 for another user's e-signature request, 409 for a conflicting state, 410 for an
+     * expired signing link, or 429 for a locked recipient. Without this handler the
+     * RuntimeException handler answers every one of them with 500.
+     *
+     * @param ex the ResponseStatusException
+     * @param request the HTTP servlet request
+     * @return ProblemDetail with the exception's status and reason
+     */
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ProblemDetail> handleResponseStatus(
+            ResponseStatusException ex, HttpServletRequest request) {
+        HttpStatus status = HttpStatus.resolve(ex.getStatusCode().value());
+        if (status == null) {
+            status = HttpStatus.INTERNAL_SERVER_ERROR;
+        }
+        if (status.is5xxServerError()) {
+            log.error("Request failed at {}: {}", request.getRequestURI(), ex.getMessage(), ex);
+        } else {
+            log.debug(
+                    "Request rejected at {} with {}: {}",
+                    request.getRequestURI(),
+                    status.value(),
+                    ex.getReason());
+        }
+        String detail = ex.getReason() != null ? ex.getReason() : status.getReasonPhrase();
+        ProblemDetail problemDetail = createBaseProblemDetail(status, detail, request);
+        problemDetail.setTitle(status.getReasonPhrase());
+        problemDetail.setProperty("title", status.getReasonPhrase()); // Ensure serialization
+        return ResponseEntity.status(status)
+                .headers(ex.getHeaders())
+                .contentType(PROBLEM_JSON)
+                .body(problemDetail);
+    }
+
+    /**
      * Handle RuntimeException and check for wrapped BaseAppException or BaseValidationException.
      *
      * <p>This handler unwraps RuntimeExceptions that contain typed exceptions from job execution
@@ -1076,6 +1113,8 @@ public class GlobalExceptionHandler {
         } else if (cause instanceof IllegalArgumentException) {
             // Unwrap and handle IllegalArgumentException (business logic validation errors)
             return handleIllegalArgument((IllegalArgumentException) cause, request);
+        } else if (cause instanceof ResponseStatusException statusEx) {
+            return handleResponseStatus(statusEx, request);
         }
 
         // Not a wrapped exception - treat as unexpected error
