@@ -26,7 +26,10 @@ cd engine && make check
 ```
 
 On Windows, run the engine equivalents with `uv run` and use a repository-local pytest `--basetemp` when
-the shared Windows temporary directory is unavailable. Run Playwright against a live backend/frontend pair
+the shared Windows temporary directory is unavailable. On Windows, qualify Gradle test filters with the package, for
+example `--tests "stirling.software.SPDF.*Sign*"`: the Java launcher expands a bare `*Sign*` against files
+in the current directory (such as `test_irs_signed.pdf`) whatever shell or wrapper script is used, and Gradle
+then reports an unknown task. Run Playwright against a live backend/frontend pair
 for the end-to-end and mobile viewport gates.
 
 To test an already running preview, set `STIRLING_E2E_BASE_URL` to its URL; Playwright will not start
