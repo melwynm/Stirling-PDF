@@ -24,6 +24,7 @@ describe('SigningWorkflowDashboard', () => {
       status: 'IN_PROGRESS',
       originalFilename: 'nda.pdf',
       documentRevision: 1,
+      workflowRevision: 4,
       createdAt: '2026-08-12T10:00:00Z',
       updatedAt: '2026-08-12T11:00:00Z',
       signingOrder: true,

@@ -47,6 +47,7 @@ public class ESignatureWorkflowMigrationService {
         if (workflow.getAuditTrail() == null) workflow.setAuditTrail(new ArrayList<>());
         if (workflow.getWebhookDeliveries() == null)
             workflow.setWebhookDeliveries(new ArrayList<>());
+        if (workflow.getCompletedActions() == null) workflow.setCompletedActions(new ArrayList<>());
     }
 
     private void migrateLegacyTokens(ESignatureWorkflow workflow) {

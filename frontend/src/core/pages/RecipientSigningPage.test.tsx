@@ -13,7 +13,8 @@ import {
   type RecipientSigningContext,
 } from '@app/services/recipientSigningService';
 
-vi.mock('@app/services/recipientSigningService', () => ({
+vi.mock('@app/services/recipientSigningService', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@app/services/recipientSigningService')>()),
   completeRecipientSignature: vi.fn(), declineRecipientSignature: vi.fn(),
   downloadRecipientDocument: vi.fn(), getRecipientSigningContext: vi.fn(), markRecipientViewed: vi.fn(),
   requestSigningOtp: vi.fn(),
@@ -34,7 +35,7 @@ const context = (): RecipientSigningContext => {
     recipient, downloadUrl: '/document',
     request: {
       modelVersion: 1, id: 'request-1', title: 'Agreement', status: 'SENT',
-      originalFilename: 'agreement.pdf', documentRevision: 0, createdAt: '', updatedAt: '',
+      originalFilename: 'agreement.pdf', documentRevision: 0, workflowRevision: 3, createdAt: '', updatedAt: '',
       signingOrder: false, remindersEnabled: false, reminderIntervalHours: 48,
       recipients: [recipient], fields: [{
         id: 'signature-1', name: 'signature', label: 'Your signature', type: 'signature',

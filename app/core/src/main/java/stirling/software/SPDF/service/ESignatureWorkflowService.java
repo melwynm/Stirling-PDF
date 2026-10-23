@@ -48,6 +48,7 @@ import io.github.pixee.security.Filenames;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
+import stirling.software.SPDF.exception.CodedResponseStatusException;
 import stirling.software.SPDF.model.api.esign.ESignatureActionResponse;
 import stirling.software.SPDF.model.api.esign.ESignatureAuditEventView;
 import stirling.software.SPDF.model.api.esign.ESignatureCancelRequest;
@@ -63,9 +64,11 @@ import stirling.software.SPDF.model.api.esign.ESignatureRequestView;
 import stirling.software.SPDF.model.api.esign.ESignatureSendRequest;
 import stirling.software.SPDF.model.api.esign.ESignatureSignRequest;
 import stirling.software.SPDF.model.api.esign.ESignatureTokenContext;
+import stirling.software.SPDF.model.esign.ESignatureErrorCode;
 import stirling.software.SPDF.model.esign.ESignatureWorkflow;
 import stirling.software.SPDF.model.esign.ESignatureWorkflow.AuditEvent;
 import stirling.software.SPDF.model.esign.ESignatureWorkflow.AuditEventType;
+import stirling.software.SPDF.model.esign.ESignatureWorkflow.CompletedAction;
 import stirling.software.SPDF.model.esign.ESignatureWorkflow.WebhookDelivery;
 import stirling.software.SPDF.model.esign.ESignatureWorkflow.WebhookDeliveryStatus;
 import stirling.software.SPDF.model.esign.ESignatureWorkflow.WorkflowStatus;
@@ -99,6 +102,9 @@ public class ESignatureWorkflowService {
     private static final int MAX_NOTIFICATION_ATTEMPTS = 3;
     private static final Pattern SAFE_ID_PATTERN = Pattern.compile("^[a-zA-Z0-9-]+$");
     private static final Pattern PDF_EXTENSION_PATTERN = Pattern.compile("(?i).*\\.pdf$");
+    private static final Pattern IDEMPOTENCY_KEY_PATTERN =
+            Pattern.compile("^[A-Za-z0-9._:-]{1,128}$");
+    private static final int MAX_COMPLETED_ACTIONS = 200;
 
     private final ObjectMapper objectMapper;
     private final ESignaturePdfService pdfService;
@@ -108,6 +114,7 @@ public class ESignatureWorkflowService {
     private final Map<String, SigningNotificationProvider> notificationProviders;
     private final SecureRandom secureRandom = new SecureRandom();
     private final Path requestsPath;
+    private final ESignatureRequestLocks locks;
 
     @Autowired
     public ESignatureWorkflowService(
@@ -192,6 +199,7 @@ public class ESignatureWorkflowService {
             List<SigningNotificationProvider> notificationProviders) {
         this.objectMapper = objectMapper;
         this.requestsPath = requestsPath;
+        this.locks = new ESignatureRequestLocks(requestsPath);
         this.pdfService = pdfService;
         this.anchorService = anchorService;
         this.migrationService = migrationService;
@@ -458,27 +466,37 @@ public class ESignatureWorkflowService {
             return List.of();
         }
         int limit = Math.max(1, Math.min(requestedLimit, 500));
-        Instant now = Instant.now();
         List<WebhookDelivery> processed = new ArrayList<>();
-        for (ESignatureWorkflow workflow : listWorkflows()) {
-            if (!isOwnedBy(workflow, actor)) {
+        for (ESignatureWorkflow candidate : listWorkflows()) {
+            if (!isOwnedBy(candidate, actor)) {
                 continue;
             }
-            boolean changed = false;
-            for (WebhookDelivery delivery : workflow.getWebhookDeliveries()) {
-                if (processed.size() >= limit) {
-                    break;
-                }
-                if (!isWebhookDue(delivery, now)) {
-                    continue;
-                }
-                attemptWebhook(workflow, delivery, now);
-                processed.add(delivery);
-                changed = true;
+            if (candidate.getWebhookDeliveries().stream()
+                    .noneMatch(delivery -> isWebhookDue(delivery, Instant.now()))) {
+                continue;
             }
-            if (changed) {
-                saveWorkflow(workflow);
-            }
+            withRequestLock(
+                    candidate.getId(),
+                    () -> {
+                        ESignatureWorkflow workflow = loadWorkflow(candidate.getId());
+                        Instant now = Instant.now();
+                        boolean changed = false;
+                        for (WebhookDelivery delivery : workflow.getWebhookDeliveries()) {
+                            if (processed.size() >= limit) {
+                                break;
+                            }
+                            if (!isWebhookDue(delivery, now)) {
+                                continue;
+                            }
+                            attemptWebhook(workflow, delivery, now);
+                            processed.add(delivery);
+                            changed = true;
+                        }
+                        if (changed) {
+                            saveWorkflow(workflow);
+                        }
+                        return null;
+                    });
             if (processed.size() >= limit) {
                 break;
             }
@@ -491,23 +509,27 @@ public class ESignatureWorkflowService {
         if (webhookService == null) {
             return List.of();
         }
-        ESignatureWorkflow workflow = loadWorkflow(requestId);
-        ensureOwnedBy(workflow, actor);
-        Instant now = Instant.now();
-        List<WebhookDelivery> retried = new ArrayList<>();
-        for (WebhookDelivery delivery : workflow.getWebhookDeliveries()) {
-            if (delivery.getStatus() != WebhookDeliveryStatus.FAILED) {
-                continue;
-            }
-            delivery.setStatus(WebhookDeliveryStatus.RETRYING);
-            delivery.setAttemptCount(0);
-            delivery.setNextAttemptAt(now);
-            delivery.setLastError(null);
-            attemptWebhook(workflow, delivery, now);
-            retried.add(delivery);
-        }
-        saveWorkflow(workflow);
-        return retried;
+        return withRequestLock(
+                requestId,
+                () -> {
+                    ESignatureWorkflow workflow = loadWorkflow(requestId);
+                    ensureOwnedBy(workflow, actor);
+                    Instant now = Instant.now();
+                    List<WebhookDelivery> retried = new ArrayList<>();
+                    for (WebhookDelivery delivery : workflow.getWebhookDeliveries()) {
+                        if (delivery.getStatus() != WebhookDeliveryStatus.FAILED) {
+                            continue;
+                        }
+                        delivery.setStatus(WebhookDeliveryStatus.RETRYING);
+                        delivery.setAttemptCount(0);
+                        delivery.setNextAttemptAt(now);
+                        delivery.setLastError(null);
+                        attemptWebhook(workflow, delivery, now);
+                        retried.add(delivery);
+                    }
+                    saveWorkflow(workflow);
+                    return retried;
+                });
     }
 
     @Scheduled(fixedDelay = 60_000, initialDelay = 60_000)
@@ -522,12 +544,28 @@ public class ESignatureWorkflowService {
     public ESignatureActionResponse sendRequest(
             String requestId, ESignatureSendRequest request, ActorContext actor)
             throws IOException {
-        if (request == null) {
-            request = new ESignatureSendRequest();
-        }
-        actor = actorOrSystem(actor);
-        ESignatureWorkflow workflow = loadWorkflow(requestId);
-        ensureOwnedBy(workflow, actor);
+        ESignatureSendRequest sendRequest = request == null ? new ESignatureSendRequest() : request;
+        ActorContext sender = actorOrSystem(actor);
+        return withRequestLock(
+                requestId,
+                () -> {
+                    ESignatureWorkflow workflow = loadWorkflow(requestId);
+                    ensureOwnedBy(workflow, sender);
+                    return completeAction(
+                            workflow,
+                            "send",
+                            null,
+                            sendRequest.getIdempotencyKey(),
+                            sendRequest.getExpectedWorkflowRevision(),
+                            sendFingerprint(sendRequest),
+                            ESignatureActionResponse.class,
+                            () -> applySend(workflow, sendRequest, sender));
+                });
+    }
+
+    private ESignatureActionResponse applySend(
+            ESignatureWorkflow workflow, ESignatureSendRequest request, ActorContext actor)
+            throws IOException {
         ensureWorkflowCanContinue(workflow);
         ensureSignerFieldsAssigned(workflow);
 
@@ -542,11 +580,15 @@ public class ESignatureWorkflowService {
         List<SigningRecipient> recipients =
                 recipientsToNotify(workflow, request.getRecipientIds(), false);
         if (recipients.isEmpty()) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT, "No recipients are currently eligible to be sent");
+            throw new CodedResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    ESignatureErrorCode.RECIPIENT_STATE_INVALID,
+                    "No recipients are currently eligible to be sent");
         }
 
-        workflow.setStatus(WorkflowStatus.SENT);
+        if (workflow.getStatus() == WorkflowStatus.DRAFT) {
+            ESignatureWorkflowTransitions.transition(workflow, WorkflowStatus.SENT);
+        }
         workflow.setSentAt(workflow.getSentAt() == null ? now : workflow.getSentAt());
         workflow.setUpdatedAt(now);
         addAudit(
@@ -559,7 +601,9 @@ public class ESignatureWorkflowService {
 
         List<ESignatureNotification> notifications = new ArrayList<>();
         for (SigningRecipient recipient : recipients) {
-            recipient.setStatus(Status.SENT);
+            if (recipient.getStatus() == Status.PENDING) {
+                ESignatureWorkflowTransitions.transition(recipient, Status.SENT);
+            }
             recipient.setSentAt(recipient.getSentAt() == null ? now : recipient.getSentAt());
             ESignatureNotification notification =
                     createNotification(
@@ -578,8 +622,6 @@ public class ESignatureWorkflowService {
                     "Recipient signing link issued",
                     Map.of("email", recipient.getEmail()));
         }
-
-        saveWorkflow(workflow);
         return actionResponse(workflow, notifications);
     }
 
@@ -609,52 +651,30 @@ public class ESignatureWorkflowService {
 
     public List<ESignatureNotification> sendDueReminders(
             ESignatureReminderRequest request, ActorContext actor) throws IOException {
-        if (request == null) {
-            request = new ESignatureReminderRequest();
-        }
-        actor = actorOrSystem(actor);
-        Instant now = Instant.now();
+        ESignatureReminderRequest reminderRequest =
+                request == null ? new ESignatureReminderRequest() : request;
+        ActorContext sender = actorOrSystem(actor);
         List<ESignatureNotification> notifications = new ArrayList<>();
-        for (ESignatureWorkflow workflow : listWorkflows()) {
-            if (!isActiveWorkflow(workflow) || !workflow.isRemindersEnabled()) {
+        for (ESignatureWorkflow candidate : listWorkflows()) {
+            if (!isActiveWorkflow(candidate) || !candidate.isRemindersEnabled()) {
                 continue;
             }
-            List<SigningRecipient> recipients =
-                    recipientsToNotify(workflow, request.getRecipientIds(), true);
-            boolean changed = false;
-            for (SigningRecipient recipient : recipients) {
-                Optional<Instant> dueAt = reminderDueAt(workflow, recipient);
-                if (request.isOnlyDue() && (dueAt.isEmpty() || dueAt.get().isAfter(now))) {
-                    continue;
-                }
-                recipient.setLastReminderAt(now);
-                recipient.setReminderCount(recipient.getReminderCount() + 1);
-                ESignatureNotification notification =
-                        createNotification(
-                                workflow,
-                                recipient,
-                                request.getPublicBaseUrl(),
-                                request.getMessage(),
-                                false,
-                                "signature-reminder");
-                notifications.add(notification);
-                addAudit(
-                        workflow,
-                        AuditEventType.REMINDER_SENT,
-                        recipient.getId(),
-                        actor,
-                        "Reminder notification issued",
-                        Map.of(
-                                "email",
-                                recipient.getEmail(),
-                                "reminderCount",
-                                String.valueOf(recipient.getReminderCount())));
-                changed = true;
-            }
-            if (changed) {
-                workflow.setUpdatedAt(now);
-                saveWorkflow(workflow);
-            }
+            withRequestLock(
+                    candidate.getId(),
+                    () -> {
+                        ESignatureWorkflow workflow = loadWorkflow(candidate.getId());
+                        if (!isActiveWorkflow(workflow) || !workflow.isRemindersEnabled()) {
+                            return null;
+                        }
+                        List<ESignatureNotification> issued =
+                                issueReminders(workflow, reminderRequest, sender);
+                        if (!issued.isEmpty()) {
+                            workflow.setUpdatedAt(Instant.now());
+                            saveWorkflow(workflow);
+                            notifications.addAll(issued);
+                        }
+                        return null;
+                    });
         }
         return notifications;
     }
@@ -662,43 +682,62 @@ public class ESignatureWorkflowService {
     public ESignatureActionResponse sendReminders(
             String requestId, ESignatureReminderRequest request, ActorContext actor)
             throws IOException {
-        if (request == null) {
-            request = new ESignatureReminderRequest();
-        }
-        actor = actorOrSystem(actor);
-        ESignatureWorkflow workflow = loadWorkflow(requestId);
-        ensureOwnedBy(workflow, actor);
-        ensureWorkflowCanContinue(workflow);
-        if (!workflow.isRemindersEnabled()) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT, "Reminders are disabled for this request");
-        }
+        ESignatureReminderRequest reminderRequest =
+                request == null ? new ESignatureReminderRequest() : request;
+        ActorContext sender = actorOrSystem(actor);
+        return withRequestLock(
+                requestId,
+                () -> {
+                    ESignatureWorkflow workflow = loadWorkflow(requestId);
+                    ensureOwnedBy(workflow, sender);
+                    ensureWorkflowCanContinue(workflow);
+                    if (!workflow.isRemindersEnabled()) {
+                        throw new CodedResponseStatusException(
+                                HttpStatus.CONFLICT,
+                                ESignatureErrorCode.WORKFLOW_STATE_INVALID,
+                                "Reminders are disabled for this request");
+                    }
+                    if (recipientsToNotify(workflow, reminderRequest.getRecipientIds(), true)
+                            .isEmpty()) {
+                        throw new CodedResponseStatusException(
+                                HttpStatus.CONFLICT,
+                                ESignatureErrorCode.RECIPIENT_STATE_INVALID,
+                                "No recipients are currently eligible for reminders");
+                    }
+                    List<ESignatureNotification> notifications =
+                            issueReminders(workflow, reminderRequest, sender);
+                    if (notifications.isEmpty()) {
+                        throw new CodedResponseStatusException(
+                                HttpStatus.CONFLICT,
+                                ESignatureErrorCode.RECIPIENT_STATE_INVALID,
+                                "No reminders are due");
+                    }
+                    workflow.setUpdatedAt(Instant.now());
+                    saveWorkflow(workflow);
+                    return actionResponse(workflow, notifications);
+                });
+    }
 
+    private List<ESignatureNotification> issueReminders(
+            ESignatureWorkflow workflow, ESignatureReminderRequest request, ActorContext actor) {
         Instant now = Instant.now();
-        List<SigningRecipient> recipients =
-                recipientsToNotify(workflow, request.getRecipientIds(), true);
-        if (recipients.isEmpty()) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT, "No recipients are currently eligible for reminders");
-        }
-
         List<ESignatureNotification> notifications = new ArrayList<>();
-        for (SigningRecipient recipient : recipients) {
+        for (SigningRecipient recipient :
+                recipientsToNotify(workflow, request.getRecipientIds(), true)) {
             Optional<Instant> dueAt = reminderDueAt(workflow, recipient);
             if (request.isOnlyDue() && (dueAt.isEmpty() || dueAt.get().isAfter(now))) {
                 continue;
             }
             recipient.setLastReminderAt(now);
             recipient.setReminderCount(recipient.getReminderCount() + 1);
-            ESignatureNotification notification =
+            notifications.add(
                     createNotification(
                             workflow,
                             recipient,
                             request.getPublicBaseUrl(),
                             request.getMessage(),
                             false,
-                            "signature-reminder");
-            notifications.add(notification);
+                            "signature-reminder"));
             addAudit(
                     workflow,
                     AuditEventType.REMINDER_SENT,
@@ -711,13 +750,7 @@ public class ESignatureWorkflowService {
                             "reminderCount",
                             String.valueOf(recipient.getReminderCount())));
         }
-
-        if (notifications.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "No reminders are due");
-        }
-        workflow.setUpdatedAt(now);
-        saveWorkflow(workflow);
-        return actionResponse(workflow, notifications);
+        return notifications;
     }
 
     public ESignatureTokenContext getTokenContext(String token) throws IOException {
@@ -741,30 +774,36 @@ public class ESignatureWorkflowService {
 
     public ESignatureActionResponse markViewed(String token, String accessCode, ActorContext actor)
             throws IOException {
-        actor = actorOrSystem(actor);
-        TokenResolution resolution = resolveToken(token);
-        ESignatureWorkflow workflow = resolution.workflow();
-        SigningRecipient recipient = resolution.recipient();
-        verifyRecipientAuthentication(workflow, recipient, accessCode);
-        ensureWorkflowCanContinue(workflow);
-        ensureRecipientCanAct(recipient);
+        ActorContext viewer = actorOrSystem(actor);
+        TokenResolution located = resolveToken(token);
+        return withRequestLock(
+                located.workflow().getId(),
+                () -> {
+                    TokenResolution resolution = reloadToken(located.workflow().getId(), token);
+                    ESignatureWorkflow workflow = resolution.workflow();
+                    SigningRecipient recipient = resolution.recipient();
+                    verifyRecipientAuthentication(workflow, recipient, accessCode);
+                    ensureWorkflowCanContinue(workflow);
+                    ensureRecipientCanAct(recipient);
 
-        Instant now = Instant.now();
-        if (recipient.getStatus() == Status.SENT || recipient.getStatus() == Status.PENDING) {
-            recipient.setStatus(Status.VIEWED);
-        }
-        recipient.setViewedAt(recipient.getViewedAt() == null ? now : recipient.getViewedAt());
-        workflow.setStatus(WorkflowStatus.IN_PROGRESS);
-        workflow.setUpdatedAt(now);
-        addAudit(
-                workflow,
-                AuditEventType.RECIPIENT_VIEWED,
-                recipient.getId(),
-                actor,
-                "Recipient viewed signing request",
-                Map.of("email", recipient.getEmail()));
-        saveWorkflow(workflow);
-        return actionResponse(workflow, List.of());
+                    Instant now = Instant.now();
+                    if (recipient.getStatus() == Status.SENT) {
+                        ESignatureWorkflowTransitions.transition(recipient, Status.VIEWED);
+                    }
+                    recipient.setViewedAt(
+                            recipient.getViewedAt() == null ? now : recipient.getViewedAt());
+                    ESignatureWorkflowTransitions.transition(workflow, WorkflowStatus.IN_PROGRESS);
+                    workflow.setUpdatedAt(now);
+                    addAudit(
+                            workflow,
+                            AuditEventType.RECIPIENT_VIEWED,
+                            recipient.getId(),
+                            viewer,
+                            "Recipient viewed signing request",
+                            Map.of("email", recipient.getEmail()));
+                    saveWorkflow(workflow);
+                    return actionResponse(workflow, List.of());
+                });
     }
 
     public SigningOtpService.Challenge issueSigningOtp(String token, ESignatureSignRequest request)
@@ -776,37 +815,40 @@ public class ESignatureWorkflowService {
                     HttpStatus.BAD_REQUEST,
                     "Accept the consent statement before requesting a code");
         }
-        TokenResolution resolution = resolveToken(token);
-        ESignatureWorkflow workflow = resolution.workflow();
-        SigningRecipient recipient = resolution.recipient();
-        ensureWorkflowCanContinue(workflow);
-        ensureRecipientCanAct(recipient);
-        if (recipient.getAuthentication().getMethod() != Method.EMAIL_OTP) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "This recipient does not use signing codes");
-        }
-        if (workflow.isSigningOrder() && !isRecipientInActiveOrder(workflow, recipient)) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT, "This recipient is not next in the signing order");
-        }
-        SigningNotificationProvider provider = notificationProviders.get("email");
-        if (provider == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.SERVICE_UNAVAILABLE, "Email delivery is not configured");
-        }
-        return otpService(workflow)
-                .issue(
-                        sha256(token.getBytes(StandardCharsets.UTF_8)),
-                        signingIntentBinding(workflow, recipient, request),
-                        code ->
-                                provider.send(
-                                        new SigningNotificationMessage(
-                                                recipient.getEmail(),
-                                                recipient.getName(),
-                                                "Your signing verification code",
-                                                "Your code is "
-                                                        + code
-                                                        + ". It expires in 5 minutes.")));
+        TokenResolution located = resolveToken(token);
+        return withRequestLock(
+                located.workflow().getId(),
+                () -> {
+                    TokenResolution resolution = reloadToken(located.workflow().getId(), token);
+                    ESignatureWorkflow workflow = resolution.workflow();
+                    SigningRecipient recipient = resolution.recipient();
+                    ensureWorkflowCanContinue(workflow);
+                    ensureRecipientCanAct(recipient);
+                    if (recipient.getAuthentication().getMethod() != Method.EMAIL_OTP) {
+                        throw new ResponseStatusException(
+                                HttpStatus.BAD_REQUEST,
+                                "This recipient does not use signing codes");
+                    }
+                    ensureRecipientInActiveOrder(workflow, recipient);
+                    SigningNotificationProvider provider = notificationProviders.get("email");
+                    if (provider == null) {
+                        throw new ResponseStatusException(
+                                HttpStatus.SERVICE_UNAVAILABLE, "Email delivery is not configured");
+                    }
+                    return otpService(workflow)
+                            .issue(
+                                    sha256(token.getBytes(StandardCharsets.UTF_8)),
+                                    signingIntentBinding(workflow, recipient, request),
+                                    code ->
+                                            provider.send(
+                                                    new SigningNotificationMessage(
+                                                            recipient.getEmail(),
+                                                            recipient.getName(),
+                                                            "Your signing verification code",
+                                                            "Your code is "
+                                                                    + code
+                                                                    + ". It expires in 5 minutes.")));
+                });
     }
 
     private SigningOtpService otpService(ESignatureWorkflow workflow) {
@@ -841,21 +883,47 @@ public class ESignatureWorkflowService {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "The signer must accept the consent statement");
         }
-        actor = actorOrSystem(actor);
-        TokenResolution resolution = resolveToken(token);
-        ESignatureWorkflow workflow = resolution.workflow();
-        SigningRecipient recipient = resolution.recipient();
-        verifyRecipientAuthentication(workflow, recipient, request.getAccessCode());
+        ActorContext signer = actorOrSystem(actor);
+        TokenResolution located = resolveToken(token);
+        return withRequestLock(
+                located.workflow().getId(),
+                () -> {
+                    TokenResolution resolution = reloadToken(located.workflow().getId(), token);
+                    ESignatureWorkflow workflow = resolution.workflow();
+                    SigningRecipient recipient = resolution.recipient();
+                    verifyRecipientAuthentication(workflow, recipient, request.getAccessCode());
+                    return completeAction(
+                            workflow,
+                            "sign",
+                            recipient.getId(),
+                            request.getIdempotencyKey(),
+                            request.getExpectedWorkflowRevision(),
+                            signFingerprint(request),
+                            ESignatureActionResponse.class,
+                            () -> applySignature(workflow, recipient, token, request, signer));
+                });
+    }
+
+    /**
+     * Applies one recipient's signature while the request lock is held. The step-up challenge is
+     * consumed under the same lock immediately before the PDF revision is written, so a code can
+     * only be burnt by this thread; if the write then fails, the reason is recorded on the audit
+     * trail before the error is returned.
+     */
+    private ESignatureActionResponse applySignature(
+            ESignatureWorkflow workflow,
+            SigningRecipient recipient,
+            String token,
+            ESignatureSignRequest request,
+            ActorContext actor)
+            throws IOException {
         ensureWorkflowCanContinue(workflow);
         ensureRecipientCanAct(recipient);
-
-        if (workflow.isSigningOrder() && !isRecipientInActiveOrder(workflow, recipient)) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT, "This recipient is not next in the signing order");
-        }
+        ensureRecipientInActiveOrder(workflow, recipient);
 
         Instant now = Instant.now();
         Path documentPath = requestPath(workflow.getId()).resolve(workflow.getDocumentFileName());
+        boolean stepUpConsumed = false;
         if (recipient.getAuthentication().getMethod() == Method.EMAIL_OTP) {
             if (!StringUtils.hasText(request.getConsentText())) {
                 throw new ResponseStatusException(
@@ -866,10 +934,20 @@ public class ESignatureWorkflowService {
                             sha256(token.getBytes(StandardCharsets.UTF_8)),
                             signingIntentBinding(workflow, recipient, request),
                             request.getOtp());
+            stepUpConsumed = true;
         }
-        ESignaturePdfService.AppliedRevision appliedRevision =
-                pdfService.applyRecipientFields(
-                        documentPath, workflow.getFields(), recipient, request, now);
+        ESignaturePdfService.AppliedRevision appliedRevision;
+        try {
+            appliedRevision =
+                    pdfService.applyRecipientFields(
+                            documentPath, workflow.getFields(), recipient, request, now);
+        } catch (IOException | RuntimeException e) {
+            if (!stepUpConsumed) {
+                throw e;
+            }
+            recordSignatureFailure(workflow, recipient, e);
+            throw signatureFailure(e);
+        }
         if (appliedRevision.fieldCount() > 0) {
             workflow.setDocumentRevision(workflow.getDocumentRevision() + 1);
             addAudit(
@@ -888,7 +966,7 @@ public class ESignatureWorkflowService {
                             "afterSha256",
                             appliedRevision.afterSha256()));
         }
-        recipient.setStatus(Status.SIGNED);
+        ESignatureWorkflowTransitions.transition(recipient, Status.SIGNED);
         recipient.setSignedAt(now);
         recipient.setSignerName(defaultIfBlank(request.getSignerName(), recipient.getName()));
         recipient.setSignatureType(defaultIfBlank(request.getSignatureType(), "typed"));
@@ -917,7 +995,7 @@ public class ESignatureWorkflowService {
 
         List<ESignatureNotification> notifications = new ArrayList<>();
         if (allRecipientsSigned(workflow)) {
-            workflow.setStatus(WorkflowStatus.COMPLETED);
+            ESignatureWorkflowTransitions.transition(workflow, WorkflowStatus.COMPLETED);
             workflow.setCompletedAt(now);
             addAudit(
                     workflow,
@@ -928,32 +1006,92 @@ public class ESignatureWorkflowService {
                     Map.of("recipientCount", String.valueOf(workflow.getRecipients().size())));
             notifications.addAll(createCompletionNotifications(workflow));
         } else {
-            workflow.setStatus(WorkflowStatus.IN_PROGRESS);
+            ESignatureWorkflowTransitions.transition(workflow, WorkflowStatus.IN_PROGRESS);
             notifications.addAll(activateNextOrderedRecipients(workflow, signerActor));
         }
-
-        saveWorkflow(workflow);
         return actionResponse(workflow, notifications);
+    }
+
+    private void recordSignatureFailure(
+            ESignatureWorkflow workflow, SigningRecipient recipient, Exception cause) {
+        String reason =
+                cause instanceof ResponseStatusException statusException
+                                && StringUtils.hasText(statusException.getReason())
+                        ? statusException.getReason()
+                        : defaultIfBlank(cause.getMessage(), cause.getClass().getSimpleName());
+        addAudit(
+                workflow,
+                AuditEventType.RECIPIENT_SIGNATURE_FAILED,
+                recipient.getId(),
+                ActorContext.system(),
+                "Signature could not be applied after step-up verification",
+                Map.of("reason", truncate(reason, 500), "stepUpConsumed", "true"));
+        workflow.setUpdatedAt(Instant.now());
+        try {
+            saveWorkflow(workflow);
+        } catch (IOException e) {
+            log.error(
+                    "Unable to record the failed signature for request {} recipient {}",
+                    workflow.getId(),
+                    recipient.getId(),
+                    e);
+        }
+    }
+
+    private CodedResponseStatusException signatureFailure(Exception cause) {
+        HttpStatus status = HttpStatus.INTERNAL_SERVER_ERROR;
+        String reason = "The signature could not be applied";
+        if (cause instanceof ResponseStatusException statusException) {
+            HttpStatus resolved = HttpStatus.resolve(statusException.getStatusCode().value());
+            status = resolved == null ? status : resolved;
+            reason = defaultIfBlank(statusException.getReason(), reason);
+        }
+        return new CodedResponseStatusException(
+                status,
+                ESignatureErrorCode.SIGNATURE_APPLY_FAILED,
+                reason + ". The signing code was used; request a new code before trying again.",
+                Map.of("stepUpConsumed", true));
     }
 
     public ESignatureActionResponse decline(
             String token, ESignatureDeclineRequest request, ActorContext actor) throws IOException {
-        if (request == null) {
-            request = new ESignatureDeclineRequest();
-        }
-        actor = actorOrSystem(actor);
-        TokenResolution resolution = resolveToken(token);
-        ESignatureWorkflow workflow = resolution.workflow();
-        SigningRecipient recipient = resolution.recipient();
-        verifyRecipientAuthentication(workflow, recipient, request.getAccessCode());
+        ESignatureDeclineRequest declineRequest =
+                request == null ? new ESignatureDeclineRequest() : request;
+        ActorContext decliner = actorOrSystem(actor);
+        TokenResolution located = resolveToken(token);
+        return withRequestLock(
+                located.workflow().getId(),
+                () -> {
+                    TokenResolution resolution = reloadToken(located.workflow().getId(), token);
+                    ESignatureWorkflow workflow = resolution.workflow();
+                    SigningRecipient recipient = resolution.recipient();
+                    verifyRecipientAuthentication(
+                            workflow, recipient, declineRequest.getAccessCode());
+                    return completeAction(
+                            workflow,
+                            "decline",
+                            recipient.getId(),
+                            declineRequest.getIdempotencyKey(),
+                            declineRequest.getExpectedWorkflowRevision(),
+                            declineFingerprint(declineRequest),
+                            ESignatureActionResponse.class,
+                            () -> applyDecline(workflow, recipient, declineRequest, decliner));
+                });
+    }
+
+    private ESignatureActionResponse applyDecline(
+            ESignatureWorkflow workflow,
+            SigningRecipient recipient,
+            ESignatureDeclineRequest request,
+            ActorContext actor) {
         ensureWorkflowCanContinue(workflow);
         ensureRecipientCanAct(recipient);
 
         Instant now = Instant.now();
-        recipient.setStatus(Status.DECLINED);
+        ESignatureWorkflowTransitions.transition(recipient, Status.DECLINED);
         recipient.setDeclinedAt(now);
         recipient.setDeclineReason(request.getReason());
-        workflow.setStatus(WorkflowStatus.DECLINED);
+        ESignatureWorkflowTransitions.transition(workflow, WorkflowStatus.DECLINED);
         workflow.setDeclinedAt(now);
         workflow.setUpdatedAt(now);
 
@@ -971,80 +1109,113 @@ public class ESignatureWorkflowService {
                         recipient.getEmail(),
                         "reason",
                         defaultIfBlank(request.getReason(), "")));
-        saveWorkflow(workflow);
         return actionResponse(workflow, List.of());
     }
 
     public ESignatureRequestView cancel(
             String requestId, ESignatureCancelRequest request, ActorContext actor)
             throws IOException {
-        if (request == null) {
-            request = new ESignatureCancelRequest();
-        }
-        actor = actorOrSystem(actor);
-        ESignatureWorkflow workflow = loadWorkflow(requestId);
-        ensureOwnedBy(workflow, actor);
-        if (workflow.getStatus() == WorkflowStatus.COMPLETED) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT, "Completed signature requests cannot be cancelled");
-        }
-        if (workflow.getStatus() == WorkflowStatus.CANCELLED) {
-            return toView(workflow);
-        }
-
-        Instant now = Instant.now();
-        workflow.setStatus(WorkflowStatus.CANCELLED);
-        workflow.setCancelledAt(now);
-        workflow.setUpdatedAt(now);
-        addAudit(
-                workflow,
-                AuditEventType.REQUEST_CANCELLED,
-                null,
-                actor,
-                "E-signature request cancelled",
-                Map.of("reason", defaultIfBlank(request.getReason(), "")));
-        saveWorkflow(workflow);
-        return toView(workflow);
+        ESignatureCancelRequest cancelRequest =
+                request == null ? new ESignatureCancelRequest() : request;
+        ActorContext canceller = actorOrSystem(actor);
+        return withRequestLock(
+                requestId,
+                () -> {
+                    ESignatureWorkflow workflow = loadWorkflow(requestId);
+                    ensureOwnedBy(workflow, canceller);
+                    if (workflow.getStatus() == WorkflowStatus.CANCELLED) {
+                        return toView(workflow);
+                    }
+                    return completeAction(
+                            workflow,
+                            "cancel",
+                            null,
+                            cancelRequest.getIdempotencyKey(),
+                            cancelRequest.getExpectedWorkflowRevision(),
+                            cancelFingerprint(cancelRequest),
+                            ESignatureRequestView.class,
+                            () -> {
+                                Instant now = Instant.now();
+                                ESignatureWorkflowTransitions.transition(
+                                        workflow, WorkflowStatus.CANCELLED);
+                                workflow.setCancelledAt(now);
+                                workflow.setUpdatedAt(now);
+                                addAudit(
+                                        workflow,
+                                        AuditEventType.REQUEST_CANCELLED,
+                                        null,
+                                        canceller,
+                                        "E-signature request cancelled",
+                                        Map.of(
+                                                "reason",
+                                                defaultIfBlank(cancelRequest.getReason(), "")));
+                                return toView(workflow);
+                            });
+                });
     }
 
     public ESignatureRequestView archive(String requestId, ActorContext actor) throws IOException {
-        actor = actorOrSystem(actor);
-        ESignatureWorkflow workflow = loadWorkflow(requestId);
-        ensureOwnedBy(workflow, actor);
-        if (isActiveWorkflow(workflow)) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT, "Active signature requests must be cancelled first");
-        }
-        if (workflow.getStatus() == WorkflowStatus.ARCHIVED) {
-            return toView(workflow);
-        }
-        workflow.setStatus(WorkflowStatus.ARCHIVED);
-        workflow.setArchivedAt(Instant.now());
-        workflow.setUpdatedAt(Instant.now());
-        addAudit(
-                workflow,
-                AuditEventType.REQUEST_ARCHIVED,
-                null,
-                actor,
-                "E-signature request archived",
-                Map.of());
-        saveWorkflow(workflow);
-        return toView(workflow);
+        ActorContext archiver = actorOrSystem(actor);
+        return withRequestLock(
+                requestId,
+                () -> {
+                    ESignatureWorkflow workflow = loadWorkflow(requestId);
+                    ensureOwnedBy(workflow, archiver);
+                    if (workflow.getStatus() == WorkflowStatus.ARCHIVED) {
+                        return toView(workflow);
+                    }
+                    ESignatureWorkflowTransitions.transition(workflow, WorkflowStatus.ARCHIVED);
+                    workflow.setArchivedAt(Instant.now());
+                    workflow.setUpdatedAt(Instant.now());
+                    addAudit(
+                            workflow,
+                            AuditEventType.REQUEST_ARCHIVED,
+                            null,
+                            archiver,
+                            "E-signature request archived",
+                            Map.of());
+                    saveWorkflow(workflow);
+                    return toView(workflow);
+                });
     }
 
     public void delete(String requestId, ActorContext actor) throws IOException {
-        ESignatureWorkflow workflow = loadWorkflow(requestId);
-        ensureOwnedBy(workflow, actor);
-        if (workflow.getStatus() != WorkflowStatus.ARCHIVED) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT, "Only archived signature requests can be deleted");
-        }
+        withRequestLock(
+                requestId,
+                () -> {
+                    ESignatureWorkflow workflow = loadWorkflow(requestId);
+                    ensureOwnedBy(workflow, actor);
+                    if (workflow.getStatus() != WorkflowStatus.ARCHIVED) {
+                        throw new CodedResponseStatusException(
+                                HttpStatus.CONFLICT,
+                                ESignatureErrorCode.WORKFLOW_STATE_INVALID,
+                                "Only archived signature requests can be deleted");
+                    }
+                    Path path = requestPath(requestId);
+                    verifyWithin(requestsPath, path);
+                    try (var files = Files.walk(path)) {
+                        for (Path candidate : files.sorted(Comparator.reverseOrder()).toList()) {
+                            if (candidate.equals(path)) {
+                                continue;
+                            }
+                            if (candidate.getFileName() != null
+                                    && ESignatureRequestLocks.LOCK_FILE.equals(
+                                            candidate.getFileName().toString())) {
+                                continue;
+                            }
+                            Files.deleteIfExists(candidate);
+                        }
+                    }
+                    return null;
+                });
+        // The lock file is released now; remove it and the directory. Another process blocked
+        // on the lock may still hold the file open, in which case the empty directory remains.
         Path path = requestPath(requestId);
-        verifyWithin(requestsPath, path);
-        try (var files = Files.walk(path)) {
-            for (Path candidate : files.sorted(Comparator.reverseOrder()).toList()) {
-                Files.deleteIfExists(candidate);
-            }
+        try {
+            Files.deleteIfExists(path.resolve(ESignatureRequestLocks.LOCK_FILE));
+            Files.deleteIfExists(path);
+        } catch (IOException e) {
+            log.debug("Left the lock file of deleted request {} in place", requestId, e);
         }
     }
 
@@ -1061,10 +1232,17 @@ public class ESignatureWorkflowService {
 
     public DocumentDownload getDocumentForToken(String token, String accessCode)
             throws IOException {
-        TokenResolution resolution = resolveToken(token);
-        verifyRecipientAuthentication(resolution.workflow(), resolution.recipient(), accessCode);
-        Path documentPath = getDocumentPath(resolution.workflow().getId());
-        return new DocumentDownload(documentPath, resolution.workflow().getOriginalFilename());
+        TokenResolution located = resolveToken(token);
+        return withRequestLock(
+                located.workflow().getId(),
+                () -> {
+                    TokenResolution resolution = reloadToken(located.workflow().getId(), token);
+                    verifyRecipientAuthentication(
+                            resolution.workflow(), resolution.recipient(), accessCode);
+                    return new DocumentDownload(
+                            workflowDocumentPath(resolution.workflow()),
+                            resolution.workflow().getOriginalFilename());
+                });
     }
 
     public String getOriginalFilename(String requestId) throws IOException {
@@ -1092,26 +1270,26 @@ public class ESignatureWorkflowService {
             throw new ResponseStatusException(
                     HttpStatus.NOT_FOUND, "E-signature request not found");
         }
-        ESignatureWorkflow workflow = readWorkflow(metadataPath);
-        expireIfNeeded(workflow);
-        return workflow;
+        return expireIfNeeded(readWorkflow(metadataPath));
     }
 
     private List<ESignatureWorkflow> listWorkflows() throws IOException {
         Files.createDirectories(requestsPath);
+        List<ESignatureWorkflow> stored;
         try (var stream = Files.list(requestsPath)) {
-            List<ESignatureWorkflow> workflows =
+            stored =
                     stream.filter(Files::isDirectory)
                             .map(path -> path.resolve(METADATA_FILE))
                             .filter(Files::exists)
                             .map(this::tryReadWorkflow)
                             .filter(Objects::nonNull)
                             .toList();
-            for (ESignatureWorkflow workflow : workflows) {
-                expireIfNeeded(workflow);
-            }
-            return workflows;
         }
+        List<ESignatureWorkflow> workflows = new ArrayList<>(stored.size());
+        for (ESignatureWorkflow workflow : stored) {
+            workflows.add(expireIfNeeded(workflow));
+        }
+        return workflows;
     }
 
     private ESignatureWorkflow tryReadWorkflow(Path metadataPath) {
@@ -1128,7 +1306,13 @@ public class ESignatureWorkflowService {
                 objectMapper.readValue(metadataPath.toFile(), ESignatureWorkflow.class));
     }
 
+    /** Persists the workflow as a new committed revision. */
     private void saveWorkflow(ESignatureWorkflow workflow) throws IOException {
+        workflow.setWorkflowRevision(workflow.getWorkflowRevision() + 1);
+        persistWorkflow(workflow);
+    }
+
+    private void persistWorkflow(ESignatureWorkflow workflow) throws IOException {
         Files.createDirectories(requestPath(workflow.getId()));
         workflow.setUpdatedAt(
                 workflow.getUpdatedAt() == null ? Instant.now() : workflow.getUpdatedAt());
@@ -1146,17 +1330,211 @@ public class ESignatureWorkflowService {
         }
     }
 
-    private void expireIfNeeded(ESignatureWorkflow workflow) throws IOException {
-        if (workflow.getExpiresAt() == null
-                || !isActiveWorkflow(workflow)
-                || !Instant.now().isAfter(workflow.getExpiresAt())) {
-            return;
+    private <T> T withRequestLock(String requestId, ESignatureRequestLocks.LockedAction<T> action)
+            throws IOException {
+        validateSafeId(requestId);
+        return locks.withLock(requestId, action);
+    }
+
+    @FunctionalInterface
+    private interface ActionBody<R> {
+        R run() throws IOException;
+    }
+
+    /**
+     * Runs a mutating action under the caller's request lock with idempotency and revision checks,
+     * then commits the workflow. A repeated submission with the same idempotency key and payload
+     * returns the stored result; a different payload or action under the same key, or a stale
+     * expected revision, is rejected with 409 and a stable error code.
+     */
+    private <R> R completeAction(
+            ESignatureWorkflow workflow,
+            String action,
+            String recipientId,
+            String idempotencyKey,
+            Long expectedWorkflowRevision,
+            Map<String, Object> fingerprintSource,
+            Class<R> responseType,
+            ActionBody<R> body)
+            throws IOException {
+        String key = normalizeIdempotencyKey(idempotencyKey);
+        String fingerprint = key == null ? null : fingerprint(fingerprintSource);
+        if (key != null) {
+            Optional<CompletedAction> stored =
+                    workflow.getCompletedActions().stream()
+                            .filter(completed -> key.equals(completed.getIdempotencyKey()))
+                            .findFirst();
+            if (stored.isPresent()) {
+                CompletedAction completed = stored.get();
+                if (action.equals(completed.getAction())
+                        && Objects.equals(recipientId, completed.getRecipientId())
+                        && fingerprint.equals(completed.getFingerprint())
+                        && StringUtils.hasText(completed.getResponse())) {
+                    return objectMapper.readValue(completed.getResponse(), responseType);
+                }
+                throw new CodedResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        ESignatureErrorCode.IDEMPOTENCY_KEY_REUSED,
+                        "The idempotency key was already used for a different action or payload",
+                        Map.of(
+                                "idempotencyKey",
+                                key,
+                                "completedAction",
+                                defaultIfBlank(completed.getAction(), ""),
+                                "completedAtWorkflowRevision",
+                                completed.getWorkflowRevision()));
+            }
         }
-        workflow.setStatus(WorkflowStatus.EXPIRED);
+        if (expectedWorkflowRevision != null
+                && expectedWorkflowRevision != workflow.getWorkflowRevision()) {
+            throw new CodedResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    ESignatureErrorCode.WORKFLOW_REVISION_STALE,
+                    "The e-signature request changed since it was last read",
+                    Map.of(
+                            "expectedWorkflowRevision",
+                            expectedWorkflowRevision,
+                            "currentWorkflowRevision",
+                            workflow.getWorkflowRevision()));
+        }
+        workflow.setWorkflowRevision(workflow.getWorkflowRevision() + 1);
+        R result = body.run();
+        if (key != null) {
+            CompletedAction completed = new CompletedAction();
+            completed.setIdempotencyKey(key);
+            completed.setAction(action);
+            completed.setRecipientId(recipientId);
+            completed.setFingerprint(fingerprint);
+            completed.setWorkflowRevision(workflow.getWorkflowRevision());
+            completed.setCompletedAt(Instant.now());
+            completed.setResponseType(responseType.getSimpleName());
+            completed.setResponse(objectMapper.writeValueAsString(replayableCopy(result)));
+            workflow.getCompletedActions().add(completed);
+            while (workflow.getCompletedActions().size() > MAX_COMPLETED_ACTIONS) {
+                workflow.getCompletedActions().remove(0);
+            }
+        }
+        persistWorkflow(workflow);
+        return result;
+    }
+
+    /** Signing tokens are delivered once; a replayed response never repeats them. */
+    private Object replayableCopy(Object result) {
+        if (!(result instanceof ESignatureActionResponse response)) {
+            return result;
+        }
+        ESignatureActionResponse copy =
+                objectMapper.readValue(
+                        objectMapper.writeValueAsBytes(response), ESignatureActionResponse.class);
+        for (ESignatureNotification notification : copy.getNotifications()) {
+            if (StringUtils.hasText(notification.getToken())) {
+                notification.setToken(null);
+                notification.setSigningUrl(null);
+                notification.setDocumentUrl(null);
+            }
+        }
+        copy.setReplayed(true);
+        return copy;
+    }
+
+    private String normalizeIdempotencyKey(String idempotencyKey) {
+        if (!StringUtils.hasText(idempotencyKey)) {
+            return null;
+        }
+        String normalized = idempotencyKey.trim();
+        if (!IDEMPOTENCY_KEY_PATTERN.matcher(normalized).matches()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Idempotency key must be 1-128 characters of letters, digits, '.', '_', ':'"
+                            + " or '-'");
+        }
+        return normalized;
+    }
+
+    private String fingerprint(Map<String, Object> source) {
+        return sha256(objectMapper.writeValueAsBytes(new TreeMap<>(source)));
+    }
+
+    private Map<String, Object> signFingerprint(ESignatureSignRequest request) {
+        Map<String, Object> source = new TreeMap<>();
+        source.put("signerName", request.getSignerName());
+        source.put("signatureType", request.getSignatureType());
+        source.put("signatureDataUrl", request.getSignatureDataUrl());
+        source.put("consentAccepted", request.isConsentAccepted());
+        source.put("consentText", request.getConsentText());
+        source.put("fieldValues", new TreeMap<>(copyStringMap(request.getFieldValues())));
+        source.put("metadata", new TreeMap<>(copyStringMap(request.getMetadata())));
+        return source;
+    }
+
+    private Map<String, Object> declineFingerprint(ESignatureDeclineRequest request) {
+        Map<String, Object> source = new TreeMap<>();
+        source.put("reason", request.getReason());
+        return source;
+    }
+
+    private Map<String, Object> cancelFingerprint(ESignatureCancelRequest request) {
+        Map<String, Object> source = new TreeMap<>();
+        source.put("reason", request.getReason());
+        return source;
+    }
+
+    private Map<String, Object> sendFingerprint(ESignatureSendRequest request) {
+        Map<String, Object> source = new TreeMap<>();
+        source.put("publicBaseUrl", request.getPublicBaseUrl());
+        source.put("message", request.getMessage());
+        source.put("rotateTokens", request.isRotateTokens());
+        source.put(
+                "recipientIds",
+                request.getRecipientIds() == null
+                        ? List.of()
+                        : request.getRecipientIds().stream().sorted().toList());
+        return source;
+    }
+
+    private boolean needsExpiry(ESignatureWorkflow workflow) {
+        return workflow.getExpiresAt() != null
+                && isActiveWorkflow(workflow)
+                && Instant.now().isAfter(workflow.getExpiresAt());
+    }
+
+    /**
+     * Expires an overdue workflow. Under the caller's lock the change is committed directly;
+     * otherwise the workflow is re-read and expired under its own lock, and the fresh copy is
+     * returned so callers never act on a stale in-memory state.
+     */
+    private ESignatureWorkflow expireIfNeeded(ESignatureWorkflow workflow) throws IOException {
+        if (!needsExpiry(workflow)) {
+            return workflow;
+        }
+        String requestId = workflow.getId();
+        if (locks.isHeldByCurrentThread(requestId)) {
+            expire(workflow);
+            saveWorkflow(workflow);
+            return workflow;
+        }
+        return withRequestLock(
+                requestId,
+                () -> {
+                    Path metadataPath = metadataPath(requestId);
+                    if (!Files.exists(metadataPath)) {
+                        return workflow;
+                    }
+                    ESignatureWorkflow fresh = readWorkflow(metadataPath);
+                    if (needsExpiry(fresh)) {
+                        expire(fresh);
+                        saveWorkflow(fresh);
+                    }
+                    return fresh;
+                });
+    }
+
+    private void expire(ESignatureWorkflow workflow) {
+        ESignatureWorkflowTransitions.transition(workflow, WorkflowStatus.EXPIRED);
         workflow.setUpdatedAt(Instant.now());
         for (SigningRecipient recipient : workflow.getRecipients()) {
             if (!isTerminalRecipient(recipient)) {
-                recipient.setStatus(Status.EXPIRED);
+                ESignatureWorkflowTransitions.transition(recipient, Status.EXPIRED);
             }
         }
         addAudit(
@@ -1166,9 +1544,9 @@ public class ESignatureWorkflowService {
                 ActorContext.system(),
                 "E-signature request expired",
                 Map.of("expiresAt", workflow.getExpiresAt().toString()));
-        saveWorkflow(workflow);
     }
 
+    /** Locates the workflow that owns a token without holding its lock. */
     private TokenResolution resolveToken(String token) throws IOException {
         if (!StringUtils.hasText(token)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing signing token");
@@ -1176,17 +1554,32 @@ public class ESignatureWorkflowService {
         for (ESignatureWorkflow workflow : listWorkflows()) {
             for (SigningRecipient recipient : workflow.getRecipients()) {
                 if (tokenMatches(recipient, token)) {
-                    if (workflow.getStatus() == WorkflowStatus.EXPIRED) {
-                        throw new ResponseStatusException(
-                                HttpStatus.GONE, "This signing request has expired");
-                    }
-                    if (workflow.getStatus() == WorkflowStatus.CANCELLED) {
-                        throw new ResponseStatusException(
-                                HttpStatus.GONE, "This signing request has been cancelled");
-                    }
-                    return new TokenResolution(workflow, recipient);
+                    return resolveTokenIn(workflow, token);
                 }
             }
+        }
+        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Signing token not found");
+    }
+
+    /** Re-reads the workflow under the caller's lock and resolves the token against it. */
+    private TokenResolution reloadToken(String requestId, String token) throws IOException {
+        return resolveTokenIn(loadWorkflow(requestId), token);
+    }
+
+    private TokenResolution resolveTokenIn(ESignatureWorkflow workflow, String token) {
+        for (SigningRecipient recipient : workflow.getRecipients()) {
+            if (!tokenMatches(recipient, token)) {
+                continue;
+            }
+            if (workflow.getStatus() == WorkflowStatus.EXPIRED) {
+                throw new ResponseStatusException(
+                        HttpStatus.GONE, "This signing request has expired");
+            }
+            if (workflow.getStatus() == WorkflowStatus.CANCELLED) {
+                throw new ResponseStatusException(
+                        HttpStatus.GONE, "This signing request has been cancelled");
+            }
+            return new TokenResolution(workflow, recipient);
         }
         throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Signing token not found");
     }
@@ -1203,7 +1596,7 @@ public class ESignatureWorkflowService {
             if (recipient.getStatus() != Status.PENDING) {
                 continue;
             }
-            recipient.setStatus(Status.SENT);
+            ESignatureWorkflowTransitions.transition(recipient, Status.SENT);
             recipient.setSentAt(now);
             notifications.add(
                     createNotification(
@@ -1492,6 +1885,7 @@ public class ESignatureWorkflowService {
         view.setStatus(workflow.getStatus());
         view.setOriginalFilename(workflow.getOriginalFilename());
         view.setDocumentRevision(workflow.getDocumentRevision());
+        view.setWorkflowRevision(workflow.getWorkflowRevision());
         view.setCreatedAt(workflow.getCreatedAt());
         view.setUpdatedAt(workflow.getUpdatedAt());
         view.setSentAt(workflow.getSentAt());
@@ -1930,9 +2324,11 @@ public class ESignatureWorkflowService {
 
     private void ensureWorkflowCanContinue(ESignatureWorkflow workflow) {
         if (!isActiveWorkflow(workflow)) {
-            throw new ResponseStatusException(
+            throw new CodedResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "E-signature request is not active: " + workflow.getStatus());
+                    ESignatureErrorCode.WORKFLOW_STATE_INVALID,
+                    "E-signature request is not active: " + workflow.getStatus(),
+                    Map.of("currentStatus", workflow.getStatus().name()));
         }
     }
 
@@ -1957,28 +2353,49 @@ public class ESignatureWorkflowService {
     }
 
     private boolean isActiveWorkflow(ESignatureWorkflow workflow) {
-        return workflow.getStatus() == WorkflowStatus.DRAFT
-                || workflow.getStatus() == WorkflowStatus.SENT
-                || workflow.getStatus() == WorkflowStatus.IN_PROGRESS;
+        return ESignatureWorkflowTransitions.isActive(workflow.getStatus());
     }
 
     private void ensureRecipientCanAct(SigningRecipient recipient) {
         if (recipient.getRole() == SigningRecipient.Role.CC) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT, "Copy recipients cannot sign or decline");
+            throw recipientConflict(
+                    HttpStatus.CONFLICT, recipient, "Copy recipients cannot sign or decline");
         }
-        if (recipient.getStatus() == Status.PENDING) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT, "Recipient has not been sent a signing request");
+        switch (recipient.getStatus()) {
+            case PENDING ->
+                    throw recipientConflict(
+                            HttpStatus.CONFLICT,
+                            recipient,
+                            "Recipient has not been sent a signing request");
+            case SIGNED ->
+                    throw recipientConflict(
+                            HttpStatus.CONFLICT, recipient, "Recipient has already signed");
+            case DECLINED ->
+                    throw recipientConflict(
+                            HttpStatus.CONFLICT, recipient, "Recipient has declined");
+            case EXPIRED ->
+                    throw recipientConflict(
+                            HttpStatus.GONE, recipient, "Recipient signing token expired");
+            default -> {}
         }
-        if (recipient.getStatus() == Status.SIGNED) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Recipient has already signed");
-        }
-        if (recipient.getStatus() == Status.DECLINED) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Recipient has declined");
-        }
-        if (recipient.getStatus() == Status.EXPIRED) {
-            throw new ResponseStatusException(HttpStatus.GONE, "Recipient signing token expired");
+    }
+
+    private CodedResponseStatusException recipientConflict(
+            HttpStatus status, SigningRecipient recipient, String message) {
+        return new CodedResponseStatusException(
+                status,
+                ESignatureErrorCode.RECIPIENT_STATE_INVALID,
+                message,
+                Map.of("recipientStatus", recipient.getStatus().name()));
+    }
+
+    private void ensureRecipientInActiveOrder(
+            ESignatureWorkflow workflow, SigningRecipient recipient) {
+        if (workflow.isSigningOrder() && !isRecipientInActiveOrder(workflow, recipient)) {
+            throw new CodedResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    ESignatureErrorCode.SIGNING_ORDER_BLOCKED,
+                    "This recipient is not next in the signing order");
         }
     }
 
@@ -2031,9 +2448,7 @@ public class ESignatureWorkflowService {
     }
 
     private boolean isTerminalRecipient(SigningRecipient recipient) {
-        return recipient.getStatus() == Status.SIGNED
-                || recipient.getStatus() == Status.DECLINED
-                || recipient.getStatus() == Status.EXPIRED;
+        return ESignatureWorkflowTransitions.isTerminal(recipient.getStatus());
     }
 
     private boolean allRecipientsSigned(ESignatureWorkflow workflow) {

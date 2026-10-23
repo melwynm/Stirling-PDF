@@ -8,7 +8,7 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844
     const recipient = { id: 'recipient-1', name: 'Ada', email: 'ada@example.test', role: 'signer',
       deliveryChannel: 'email', signingOrder: 1, authenticationMethod, status: 'SENT' };
     const request = { modelVersion: 1, id: 'request-1', title: 'Signing acceptance example',
-      status: 'SENT', originalFilename: 'example.pdf', documentRevision: 0,
+      status: 'SENT', originalFilename: 'example.pdf', documentRevision: 0, workflowRevision: 1,
       createdAt: '', updatedAt: '', signingOrder: false, remindersEnabled: false,
       reminderIntervalHours: 48, recipients: [recipient], fields: [{
         id: 'signature-1', recipientId: recipient.id, name: 'signature', label: 'Your signature',

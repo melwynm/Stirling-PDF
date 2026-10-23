@@ -17,7 +17,49 @@ export interface RecipientSignInput {
   consentAccepted: boolean;
   consentText: string;
   fieldValues: Record<string, string>;
+  /** Workflow revision the signer reviewed; the server rejects a stale value with 409. */
+  expectedWorkflowRevision?: number;
+  /** Stable per-attempt key so a retried submission replays the stored result. */
+  idempotencyKey?: string;
 }
+
+export interface RecipientActionOptions {
+  expectedWorkflowRevision?: number;
+  idempotencyKey?: string;
+}
+
+export type SigningErrorCode =
+  | 'WORKFLOW_REVISION_STALE'
+  | 'IDEMPOTENCY_KEY_REUSED'
+  | 'WORKFLOW_STATE_INVALID'
+  | 'RECIPIENT_STATE_INVALID'
+  | 'SIGNING_ORDER_BLOCKED'
+  | 'SIGNATURE_APPLY_FAILED';
+
+/** A fresh idempotency key; falls back to random bytes where crypto.randomUUID is unavailable. */
+export const newIdempotencyKey = (): string => {
+  const webCrypto = globalThis.crypto;
+  if (webCrypto && typeof webCrypto.randomUUID === 'function') return webCrypto.randomUUID();
+  const bytes = new Uint8Array(16);
+  if (webCrypto && typeof webCrypto.getRandomValues === 'function') {
+    webCrypto.getRandomValues(bytes);
+  } else {
+    for (let index = 0; index < bytes.length; index += 1) bytes[index] = Math.floor(Math.random() * 256);
+  }
+  return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+};
+
+/** Reads the stable error code from a Problem Details response, if the server sent one. */
+export const getSigningErrorCode = (error: unknown): SigningErrorCode | undefined => {
+  const code = (error as { response?: { data?: { code?: unknown } } } | undefined)?.response?.data?.code;
+  return typeof code === 'string' ? code as SigningErrorCode : undefined;
+};
+
+/** Reads the HTTP status of a failed request, if available. */
+export const getSigningErrorStatus = (error: unknown): number | undefined => {
+  const status = (error as { response?: { status?: unknown } } | undefined)?.response?.status;
+  return typeof status === 'number' ? status : undefined;
+};
 
 export interface SigningOtpChallenge {
   expiresAt: string;
@@ -58,12 +100,13 @@ export const downloadRecipientDocument = async (
 export const markRecipientViewed = async (
   token: string,
   accessCode?: string,
-): Promise<void> => {
-  await apiClient.post(
+): Promise<SignatureRequestView | undefined> => {
+  const response = await apiClient.post(
     `/api/v1/security/e-sign/recipients/${encodeURIComponent(token)}/viewed`,
     undefined,
     { headers: accessCodeHeaders(accessCode) },
   );
+  return response?.data?.request as SignatureRequestView | undefined;
 };
 
 export const completeRecipientSignature = async (
@@ -81,10 +124,11 @@ export const declineRecipientSignature = async (
   token: string,
   reason: string,
   accessCode?: string,
+  options: RecipientActionOptions = {},
 ): Promise<SignatureRequestView> => {
   const response = await apiClient.post(
     `/api/v1/security/e-sign/recipients/${encodeURIComponent(token)}/decline`,
-    { reason, accessCode },
+    { reason, accessCode, ...options },
   );
   return response.data.request as SignatureRequestView;
 };

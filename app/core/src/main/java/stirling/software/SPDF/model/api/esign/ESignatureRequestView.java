@@ -22,6 +22,7 @@ public class ESignatureRequestView {
     private WorkflowStatus status;
     private String originalFilename;
     private int documentRevision;
+    private long workflowRevision;
     private Instant createdAt;
     private Instant updatedAt;
     private Instant sentAt;
