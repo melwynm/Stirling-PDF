@@ -6,12 +6,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Path;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.springframework.core.io.ClassPathResource;
+
+import stirling.software.SPDF.testutil.TestSigningCertificate;
 
 class SigningTrustStoreServiceTest {
 
@@ -45,9 +45,7 @@ class SigningTrustStoreServiceTest {
         assertThrows(IOException.class, () -> service.deleteCertificate("not-a-fingerprint"));
     }
 
-    private byte[] certificateBytes() throws Exception {
-        try (InputStream input = new ClassPathResource("certs/test-cert.der").getInputStream()) {
-            return input.readAllBytes();
-        }
+    private byte[] certificateBytes() {
+        return TestSigningCertificate.valid().certificateDerBytes();
     }
 }

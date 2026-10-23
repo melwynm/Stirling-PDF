@@ -10,11 +10,12 @@ import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
-import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.Signature;
+import java.security.cert.CertificateExpiredException;
+import java.security.cert.CertificateNotYetValidException;
 import java.security.cert.X509Certificate;
+import java.time.Instant;
 
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -38,7 +39,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockMultipartFile;
@@ -50,6 +50,7 @@ import stirling.software.SPDF.service.KmsSignatureService.KmsSignatureAlgorithm;
 import stirling.software.SPDF.service.KmsSignatureService.KmsSigningRequest;
 import stirling.software.SPDF.service.KmsSignatureService.SignerProvider;
 import stirling.software.SPDF.service.PadesLtvService;
+import stirling.software.SPDF.testutil.TestSigningCertificate;
 import stirling.software.common.service.CustomPDFDocumentFactory;
 import stirling.software.common.service.ServerCertificateServiceInterface;
 
@@ -84,65 +85,18 @@ class CertSignControllerTest {
             doc.save(baos);
             pdfBytes = baos.toByteArray();
         }
-        ClassPathResource pfxResource = new ClassPathResource("certs/test-cert.pfx");
-        try (InputStream is = pfxResource.getInputStream();
-                ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-            is.transferTo(baos);
-            pfxBytes = baos.toByteArray();
-        }
-        ClassPathResource p12Resource = new ClassPathResource("certs/test-cert.p12");
-        try (InputStream is = p12Resource.getInputStream();
-                ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-            is.transferTo(baos);
-            p12Bytes = baos.toByteArray();
-        }
-        KeyStore kmsKeyStore = KeyStore.getInstance("PKCS12");
-        kmsKeyStore.load(new ByteArrayInputStream(p12Bytes), "password".toCharArray());
-        String kmsAlias = kmsKeyStore.aliases().nextElement();
-        kmsPrivateKey = (PrivateKey) kmsKeyStore.getKey(kmsAlias, "password".toCharArray());
-        kmsCertificate = (X509Certificate) kmsKeyStore.getCertificate(kmsAlias);
-        ClassPathResource jksResource = new ClassPathResource("certs/test-cert.jks");
-        try (InputStream is = jksResource.getInputStream();
-                ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-            is.transferTo(baos);
-            jksBytes = baos.toByteArray();
-        }
-        ClassPathResource pemKeyResource = new ClassPathResource("certs/test-key.pem");
-        try (InputStream is = pemKeyResource.getInputStream();
-                ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-            is.transferTo(baos);
-            pemKeyBytes = baos.toByteArray();
-        }
-        ClassPathResource pemCertResource = new ClassPathResource("certs/test-cert.pem");
-        try (InputStream is = pemCertResource.getInputStream();
-                ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-            is.transferTo(baos);
-            pemCertBytes = baos.toByteArray();
-        }
-        ClassPathResource keyResource = new ClassPathResource("certs/test-key.key");
-        try (InputStream is = keyResource.getInputStream();
-                ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-            is.transferTo(baos);
-            keyBytes = baos.toByteArray();
-        }
-        ClassPathResource crtResource = new ClassPathResource("certs/test-cert.crt");
-        try (InputStream is = crtResource.getInputStream();
-                ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-            is.transferTo(baos);
-            crtCertBytes = baos.toByteArray();
-        }
-        ClassPathResource cerResource = new ClassPathResource("certs/test-cert.cer");
-        try (InputStream is = cerResource.getInputStream();
-                ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-            is.transferTo(baos);
-            cerCertBytes = baos.toByteArray();
-        }
-        ClassPathResource derCertResource = new ClassPathResource("certs/test-cert.der");
-        try (InputStream is = derCertResource.getInputStream();
-                ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-            is.transferTo(baos);
-            derCertBytes = baos.toByteArray();
-        }
+        TestSigningCertificate signer = TestSigningCertificate.valid();
+        p12Bytes = signer.pkcs12Bytes();
+        pfxBytes = signer.pkcs12Bytes();
+        jksBytes = signer.jksBytes();
+        pemKeyBytes = signer.encryptedPkcs8PemBytes();
+        keyBytes = signer.encryptedPkcs8PemBytes();
+        pemCertBytes = signer.certificatePemBytes();
+        crtCertBytes = signer.certificatePemBytes();
+        cerCertBytes = signer.certificatePemBytes();
+        derCertBytes = signer.certificateDerBytes();
+        kmsPrivateKey = signer.privateKey();
+        kmsCertificate = signer.certificate();
 
         lenient()
                 .when(pdfDocumentFactory.load(any(MultipartFile.class)))
@@ -297,6 +251,26 @@ class CertSignControllerTest {
                         () -> certSignController.signPDFWithCert(request));
 
         assertTrue(exception.getMessage().contains("TSA URL is required"));
+    }
+
+    @Test
+    void testRejectsExpiredCertificate() {
+        byte[] expiredKeystore = TestSigningCertificate.expired(Instant.now()).pkcs12Bytes();
+        SignPDFWithCertRequest request = createPkcs12Request(pdfBytes, expiredKeystore);
+
+        assertThrows(
+                CertificateExpiredException.class,
+                () -> certSignController.signPDFWithCert(request));
+    }
+
+    @Test
+    void testRejectsNotYetValidCertificate() {
+        byte[] futureKeystore = TestSigningCertificate.notYetValid(Instant.now()).pkcs12Bytes();
+        SignPDFWithCertRequest request = createPkcs12Request(pdfBytes, futureKeystore);
+
+        assertThrows(
+                CertificateNotYetValidException.class,
+                () -> certSignController.signPDFWithCert(request));
     }
 
     @Test
@@ -465,6 +439,10 @@ class CertSignControllerTest {
     }
 
     private SignPDFWithCertRequest createPkcs12Request(byte[] inputPdf) {
+        return createPkcs12Request(inputPdf, p12Bytes);
+    }
+
+    private SignPDFWithCertRequest createPkcs12Request(byte[] inputPdf, byte[] keystoreBytes) {
         SignPDFWithCertRequest request = new SignPDFWithCertRequest();
         request.setFileInput(
                 new MockMultipartFile(
@@ -472,7 +450,7 @@ class CertSignControllerTest {
         request.setCertType("PKCS12");
         request.setP12File(
                 new MockMultipartFile(
-                        "p12File", "test-cert.p12", "application/x-pkcs12", p12Bytes));
+                        "p12File", "test-cert.p12", "application/x-pkcs12", keystoreBytes));
         request.setPassword("password");
         request.setShowSignature(false);
         request.setReason("test");

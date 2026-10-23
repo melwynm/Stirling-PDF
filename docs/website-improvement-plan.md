@@ -22,9 +22,8 @@ document workflows. Deliver working improvements in small, independently verifia
   a webhook outbox with scheduled retry processing.
 - The 2026-09-13 targeted backend run completed 33 tests: 30 passed and three failed because the
   PAdES test certificate had expired. `831801482` repaired `PadesLtvServiceTest` by generating its
-  certificate at runtime. The shared fixture `app/core/src/test/resources/certs/test-cert.p12`
-  expired on 2026-08-26 and is still loaded by `CertSignControllerTest` and
-  `RemoveCertSignControllerTest`; those tests have not been re-run since the expiry.
+  certificate at runtime, and `951a79271` did the same for the remaining signing tests, so no
+  committed certificate fixture remains in the test tree.
 - `testing/.failed_tests` (dated 2026-05-18) records five failed Docker variants from the full suite,
   including Ultra-Lite and Security-Fat. That run predates the signing series and has not been
   reproduced; treat it as unverified until Phase 0 re-runs the suite.
@@ -334,10 +333,15 @@ operability, with external dependencies clearly identified.
 
 - [x] **8.1 Repair the PAdES test fixture.** `PadesLtvServiceTest` generates its signer certificate
   at runtime (`831801482`); its three tests pass.
-- [ ] **8.1b Repair the shared certificate fixtures.** `certs/test-cert.p12` expired on 2026-08-26 and
-  is still loaded by `CertSignControllerTest` and `RemoveCertSignControllerTest`. Generate test
-  certificates relative to a controlled test time or inject a clock where needed. Preserve explicit
-  expired/not-yet-valid cases; never bypass production certificate validity checks to make tests pass.
+- [x] **8.1b Repair the shared certificate fixtures.** `951a79271` deletes the expired
+  `app/core/src/test/resources/certs/` fixtures and adds `TestSigningCertificate`, which generates a
+  key pair per test and exports PKCS#12/PFX, JKS, encrypted PKCS#8 PEM, PEM/CRT/CER and DER with a
+  validity window anchored to the test clock. Before the change 15 of 19 tests in
+  `CertSignControllerTest` and `RemoveCertSignControllerTest` failed with
+  `CertificateExpiredException`; after it `./gradlew :stirling-pdf:test --tests '*CertSignControllerTest'
+  --tests '*RemoveCertSignControllerTest' --tests '*SigningTrustStoreServiceTest' --tests
+  '*PadesLtvServiceTest'` passes 26 tests (18 + 3 + 2 + 3), including new explicit expired and
+  not-yet-valid rejection cases. No production validity check was changed.
 - [ ] **8.2 Add browser workflow gates.** Cover sender draft -> delivery -> recipient authentication
   -> field completion -> routing -> final PDF/evidence, plus cancellation, expiry, and failures.
   Use deterministic local provider doubles for CI and separate controlled real-provider tests.
@@ -421,7 +425,7 @@ use mocked APIs and do not establish live email/KMS behavior. Remaining workstre
 | 5. Performance | Measurement pending | Not recorded | No reference benchmark | Define corpus, hardware, and instrumentation |
 | 6. Intelligence | Planned | Not recorded | No evaluation run | Define deterministic suggestion baseline |
 | 7. Visual consistency | Audit pending | Not recorded | Source review only | Capture representative screens and journeys |
-| 8. Production readiness | Incomplete evidence; PAdES fixture repaired, shared fixture still expired | `831801482`, `8d350dfe9` | 3 PAdES tests; 23 OTP/workflow tests | Repair shared fixture (8.1b); then concurrency, provider, recovery, and interoperability gates |
+| 8. Production readiness | Incomplete evidence; certificate fixtures replaced by runtime generation (8.1, 8.1b) | `831801482`, `951a79271`, `8d350dfe9` | 26 signing tests (18 CertSign, 3 RemoveCertSign, 2 trust store, 3 PAdES); 23 OTP/workflow tests | Concurrency, provider, recovery, and interoperability gates |
 
 ### eKYC Alignment Increment (2026-09-13)
 
