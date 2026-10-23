@@ -4,46 +4,42 @@ Planning date: 2026-09-12
 
 Implementation started: 2026-09-13. Signing reference: `C:\Github\ekyc`.
 
-### eKYC Reference Mapping
-
-The reference uses review/intent/consent, email OTP, server-side OTP verification, n8n/AWS KMS
-signing, and a separate result/audit check. Adapt these contracts to Stirling's existing backend,
-FileContext, notification providers, and PAdES implementation. Do not copy deployment credentials,
-Supabase tenant assumptions, or client-supplied document hashes as authoritative values.
-
-- [x] Read eKYC signing UI, API bridge, and operator documentation.
-- [x] Add request-bound, expiring step-up verification with replay and resend protection.
-- [ ] Bind verified consent to the exact document revision on the server.
-- [ ] Integrate configured remote KMS signing after verification and validate the PDF result.
-- [ ] Distinguish signature recorded, cryptographic validity, trust, and audit-chain status in the UI.
-- [ ] Verify the adapted flow with local provider doubles; record live-provider checks separately.
-
-The eKYC `verify_document` action reports signature-record existence and audit-chain status;
-this alone is not cryptographic verification of PDF bytes. Stirling must retain actual PDF validation.
-
 Objective: make Stirling PDF dependable, coherent, precise, accessible, and fast across its
 document workflows. Deliver working improvements in small, independently verifiable increments.
 
 ## Starting Point and Status
 
-- The last remote check found local `main` and `origin/main` at `032af038d`.
-- The owner reports additional completed signing work. Its revision has not yet been located.
-  Reconcile that work before implementing any signing-related changes below.
+- Checked 2026-10-23: local `main` and `origin/main` are both at `8d350dfe9`. The three
+  2026-09-13 increments (`831801482`, `b90965824`, `8d350dfe9`) are pushed. No increment has landed since.
+- The completed signing work is already in `main`: the 2026-08-12 series from `9cd779981` to
+  `032af038d` adds PAdES long-term profiles, trust-store management, managed provider adapters,
+  signed-revision recovery, reusable and bulk templates, text anchors, MCP/n8n parity, workflow
+  migrations, and streaming uploads. No further unmerged signing revision is known, so Phase 0 is a
+  verification of that series against this backlog, not a search for it.
 - This is a proposed implementation backlog, not a declaration that every listed capability is absent.
 - Existing foundations include FileContext/IndexedDB persistence, operation undo and cancellation,
-  recipient-aware draggable fields, workflow dashboards, templates, signing adapters, and MCP tools.
-- The most recent targeted backend run completed 33 tests: 30 passed and three failed because a
-  PAdES test certificate had expired. That result does not establish a production certificate defect.
+  recipient-aware draggable fields, workflow dashboards, templates, signing adapters, MCP tools, and
+  a webhook outbox with scheduled retry processing.
+- The 2026-09-13 targeted backend run completed 33 tests: 30 passed and three failed because the
+  PAdES test certificate had expired. `831801482` repaired `PadesLtvServiceTest` by generating its
+  certificate at runtime. The shared fixture `app/core/src/test/resources/certs/test-cert.p12`
+  expired on 2026-08-26 and is still loaded by `CertSignControllerTest` and
+  `RemoveCertSignControllerTest`; those tests have not been re-run since the expiry.
+- `testing/.failed_tests` (dated 2026-05-18) records five failed Docker variants from the full suite,
+  including Ultra-Lite and Security-Fat. That run predates the signing series and has not been
+  reproduced; treat it as unverified until Phase 0 re-runs the suite.
 - Browser appearance, real provider behavior, concurrency, and large-file operation remain to be
-  measured against the reconciled revision.
+  measured against `8d350dfe9`.
 
 Status legend: `[ ]` pending; `[x]` completed with evidence. Record active work, implementation
 revision, test result, and remaining limitations in the delivery ledger at the end of this document.
 
 ## Phase 0: Establish the Correct Baseline
 
-- [ ] Locate the owner's completed signing revision, fetch it, and compare it with current `main`.
-  Preserve existing work and map each backlog task to present, partial, absent, or needs verification.
+- [x] Locate the completed signing revision. It is the 2026-08-12 series `9cd779981`..`032af038d`,
+  merged and pushed on `main`; verified by commit history on 2026-10-23.
+- [ ] Map each backlog task to present, partial, absent, or needs verification against `8d350dfe9`.
+  Preserve existing work; do not reimplement capabilities the merged series already supplies.
 - [ ] Read applicable repository instructions and identify changes to APIs, metadata, and UI flows.
 - [ ] Run the relevant existing checks and record exact commands, environment, revision, and failures.
   Separate fixture/environment failures from application failures through reproduction.
@@ -54,8 +50,34 @@ revision, test result, and remaining limitations in the delivery ledger at the e
 - [ ] Record the supported deployment topology: single instance, multiple instances, shared storage,
   reverse proxy, browser targets, configured signing providers, and retention expectations.
 
-Exit criterion: a reconciled revision and an evidence-backed gap list. Do not reimplement capabilities
-already supplied by the owner's signing work.
+Exit criterion: an evidence-backed gap list against `8d350dfe9` and effort estimates per workstream.
+Workstream 4 outcomes and the email step-up shipped before this phase closed; further signing
+increments should cite the gap list rather than wait on it, and the ledger records what shipped early.
+
+## eKYC Reference Mapping
+
+The reference uses review/intent/consent, email OTP, server-side OTP verification, n8n/AWS KMS
+signing, and a separate result/audit check. Adapt these contracts to Stirling's existing backend,
+FileContext, notification providers, and PAdES implementation. Do not copy deployment credentials,
+Supabase tenant assumptions, or client-supplied document hashes as authoritative values.
+
+Completed, with evidence in the delivery ledger:
+
+- [x] Read eKYC signing UI, API bridge, and operator documentation.
+- [x] Add request-bound, expiring step-up verification with replay and resend protection (`8d350dfe9`).
+
+Remaining eKYC-derived work is tracked once, in the workstream items below, so that this section,
+the workstreams, and the ledger do not hold three competing checklists:
+
+| eKYC contract | Tracked in |
+| --- | --- |
+| Bind verified consent to the exact document revision on the server | 1.2 (expected revision per mutation) and 1.7 (evidence against committed hashes) |
+| Integrate configured remote KMS signing after verification and validate the PDF result | 1.4 (recoverable PDF publication) and 8.4 (independent validator evidence) |
+| Distinguish signature recorded, cryptographic validity, trust, and audit-chain status in the UI | 4.6 (completion and exception design) |
+| Verify the adapted flow with local provider doubles; record live-provider checks separately | 8.2 (browser workflow gates with provider doubles) |
+
+The eKYC `verify_document` action reports signature-record existence and audit-chain status;
+this alone is not cryptographic verification of PDF bytes. Stirling must retain actual PDF validation.
 
 ## 1. Dependable Signing and Delivery
 
@@ -69,16 +91,20 @@ temporary delivery failures without losing document revisions or misrepresenting
   during a signature. Check PDF content, recipient states, and audit ordering together.
 - [ ] **1.2 Define workflow transitions.** Centralize allowed state transitions and revision checks.
   Give every mutating action an expected workflow revision and an idempotency key; replay the stored
-  result for an identical completed action and reject conflicting reuse.
+  result for an identical completed action and reject conflicting reuse. Current state: step-up
+  challenge consumption uses striped in-process locks and atomic replacement, but the signing
+  mutation itself only replaces metadata atomically, with no revision check or idempotency key, and
+  the challenge is consumed before the signature is applied.
 - [ ] **1.3 Serialize document updates per request.** Use the reconciled persistence mechanism's
   transaction/locking facilities. A single-process lock is insufficient for multiple instances;
   document and test the coordination supported by the deployment. Keep independent requests concurrent.
 - [ ] **1.4 Make PDF and metadata publication recoverable.** Write immutable PDF revisions, verify
   their hashes, and atomically publish the metadata reference and audit event through a transaction
   or recoverable journal. Define startup recovery for interrupted writes and cleanup of orphan files.
-- [ ] **1.5 Persist delivery work before dispatch.** Use a durable outbox committed with the workflow
-  transition. Add retry scheduling with backoff/jitter, worker leases, attempt limits, dead-letter
-  handling, and visible failure status. Avoid holding the signing transaction open during email/SMS.
+- [ ] **1.5 Persist delivery work before dispatch.** Extend the existing webhook outbox in
+  `ESignatureWorkflowService` to email and SMS delivery, committed with the workflow transition.
+  Add retry scheduling with backoff/jitter, worker leases, attempt limits, dead-letter handling, and
+  visible failure status. Avoid holding the signing transaction open during email/SMS.
 - [ ] **1.6 Complete the copy policy.** Cover sender, signers, approvers, and CC recipients according
   to explicit settings. Generate absolute links and a usable access-code journey. Distinguish a
   recipient finishing their step from the entire request finishing.
@@ -304,9 +330,12 @@ operability, with external dependencies clearly identified.
 
 ### Implementation Sequence
 
-- [x] **8.1 Repair time-sensitive test fixtures.** Generate appropriate test certificates relative to
-  a controlled test time or inject a clock where needed. Preserve explicit expired/not-yet-valid cases;
-  never bypass production certificate validity checks to make tests pass.
+- [x] **8.1 Repair the PAdES test fixture.** `PadesLtvServiceTest` generates its signer certificate
+  at runtime (`831801482`); its three tests pass.
+- [ ] **8.1b Repair the shared certificate fixtures.** `certs/test-cert.p12` expired on 2026-08-26 and
+  is still loaded by `CertSignControllerTest` and `RemoveCertSignControllerTest`. Generate test
+  certificates relative to a controlled test time or inject a clock where needed. Preserve explicit
+  expired/not-yet-valid cases; never bypass production certificate validity checks to make tests pass.
 - [ ] **8.2 Add browser workflow gates.** Cover sender draft -> delivery -> recipient authentication
   -> field completion -> routing -> final PDF/evidence, plus cancellation, expiry, and failures.
   Use deterministic local provider doubles for CI and separate controlled real-provider tests.
@@ -338,7 +367,8 @@ operability, with external dependencies clearly identified.
 
 ## Delivery Order and Dependencies
 
-1. **Baseline:** locate completed signing work; reproduce current failures and capture user journeys.
+1. **Baseline:** verify the merged signing series against this backlog, produce the gap list,
+   reproduce current failures, and capture user journeys.
 2. **Reliability foundation:** workstream 1 plus test-fixture repair, instrumentation, and persistence
    decisions from workstreams 5 and 8.
 3. **Workspace foundation:** workstream 2, query indexing/pagination, and the visual audit/token work.
@@ -358,13 +388,20 @@ Estimate effort after Phase 0; unlocated signing changes and deployment topology
   clear commit. Follow the user's standing commit/push preference when implementation resumes.
 - Use existing FileContext, tool hooks, layer resolution, UI libraries, and job APIs. Use `@app/*`
   imports and source translation changes in `en-GB` only.
-- Do not commit local diagnostic folders or failed-test marker files.
+- Do not commit local diagnostic folders or failed-test marker files. `.codex-logs/` and
+  `testing/.failed_tests` are listed in `.gitignore`; add new diagnostic paths there as they appear.
 - Record schema/API changes and migration/rollback behavior before rollout. Version incompatible
   contracts so API, automation, MCP, and n8n consumers remain compatible.
 - Measure proposed performance/quality targets on the documented baseline before treating them as
   guarantees. Do not declare a workstream complete from implementation presence alone.
 
 ## Delivery Ledger
+
+2026-10-23 review: documentation only, no code change and no tests run. Refreshed the baseline against
+`8d350dfe9`, recorded that the 2026-08-12 signing series is merged, moved the eKYC mapping into its own
+section with remaining items delegated to workstream entries, split 8.1 into the completed PAdES repair
+and the pending shared-fixture repair, corrected the release-gates frontend commands from pnpm to npm,
+and added the diagnostic paths to `.gitignore`. No increment landed between 2026-09-13 and this review.
 
 2026-09-13 increment: repaired PAdES fixture (three tests passing), implemented distinct recipient
 outcomes and required-field navigation, added public recipient routing to proprietary/SaaS layers,
@@ -374,15 +411,15 @@ use mocked APIs and do not establish live email/KMS behavior. Remaining workstre
 
 | Workstream | Current status | Implementation revision | Acceptance evidence | Next action |
 | --- | --- | --- | --- | --- |
-| Baseline | Pending reconciliation | Not recorded | Last remote check: `032af038d` | Locate owner's completed signing revision |
+| Baseline | Signing series located in `main`; gap list pending | `8d350dfe9` | Series `9cd779981`..`032af038d` verified present 2026-10-23 | Produce the gap list and close Phase 0 |
 | 1. Signing reliability | Verification pending | Not recorded | Earlier local audit only | Reconcile and reproduce concurrency/delivery behavior |
 | 2. Unified workspace | Planned; foundations exist | Not recorded | No new acceptance run | Map existing state and history ownership |
 | 3. Precise authoring | Planned; drag/resize exists | Not recorded | No new acceptance run | Establish geometry fixtures and selection contract |
-| 4. Recipient experience | Outcomes and email step-up implemented | `b90965824` plus current increment | 6 component tests; 4 mocked-API browser scenarios | Real-device and live-provider acceptance |
+| 4. Recipient experience | Outcomes and email step-up implemented | `b90965824`, `8d350dfe9` | 6 component tests; 4 mocked-API browser scenarios | Real-device and live-provider acceptance |
 | 5. Performance | Measurement pending | Not recorded | No reference benchmark | Define corpus, hardware, and instrumentation |
 | 6. Intelligence | Planned | Not recorded | No evaluation run | Define deterministic suggestion baseline |
 | 7. Visual consistency | Audit pending | Not recorded | Source review only | Capture representative screens and journeys |
-| 8. Production readiness | Incomplete evidence; dated fixture repaired | `831801482` plus current increment | 3 PAdES tests; 23 OTP/workflow tests | Complete concurrency, provider, recovery, and interoperability gates |
+| 8. Production readiness | Incomplete evidence; PAdES fixture repaired, shared fixture still expired | `831801482`, `8d350dfe9` | 3 PAdES tests; 23 OTP/workflow tests | Repair shared fixture (8.1b); then concurrency, provider, recovery, and interoperability gates |
 
 ### eKYC Alignment Increment (2026-09-13)
 

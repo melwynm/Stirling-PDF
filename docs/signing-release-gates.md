@@ -21,7 +21,7 @@ Recommended local commands:
 
 ```text
 ./gradlew :stirling-pdf:test
-cd frontend && pnpm typecheck:core && pnpm test:run
+cd frontend && npm run typecheck:core && npm run test:run
 cd engine && make check
 ```
 
