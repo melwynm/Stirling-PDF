@@ -8,8 +8,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 
 import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
-import java.security.KeyStore;
 import java.util.Calendar;
 
 import org.apache.pdfbox.Loader;
@@ -23,13 +21,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
 
 import stirling.software.SPDF.model.api.security.RemoveCertSignRequest;
+import stirling.software.SPDF.testutil.TestSigningCertificate;
 import stirling.software.common.service.CustomPDFDocumentFactory;
 
 @ExtendWith(MockitoExtension.class)
@@ -42,11 +40,10 @@ class RemoveCertSignControllerTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        KeyStore keyStore = KeyStore.getInstance("PKCS12");
-        try (InputStream input = new ClassPathResource("certs/test-cert.p12").getInputStream()) {
-            keyStore.load(input, "password".toCharArray());
-        }
-        signer = new CreateSignatureBase(keyStore, "password".toCharArray()) {};
+        signer =
+                new CreateSignatureBase(
+                        TestSigningCertificate.valid().pkcs12KeyStore(),
+                        TestSigningCertificate.PASSWORD.toCharArray()) {};
         lenient()
                 .when(pdfDocumentFactory.load(any(MultipartFile.class)))
                 .thenAnswer(
