@@ -90,15 +90,31 @@ temporary delivery failures without losing document revisions or misrepresenting
 - [ ] **1.1 Reproduce concurrency and retry behavior.** Test two recipients signing the same request,
   repeated submission of one action, signing during cancellation/expiry, and reminder workers acting
   during a signature. Check PDF content, recipient states, and audit ordering together.
-- [ ] **1.2 Define workflow transitions.** Centralize allowed state transitions and revision checks.
+  Partial (`006ef3ff9`): `ESignatureWorkflowConcurrencyTest` covers the first three scenarios with
+  PDF revision count, recipient states, and audit ordering asserted together; before the fix three of
+  four failed (lost signature, I/O crash instead of 409 on the duplicate, lost cancellation). The
+  reminder-worker-during-signature scenario is still to be written.
+- [x] **1.2 Define workflow transitions.** Centralize allowed state transitions and revision checks.
   Give every mutating action an expected workflow revision and an idempotency key; replay the stored
-  result for an identical completed action and reject conflicting reuse. Current state: step-up
-  challenge consumption uses striped in-process locks and atomic replacement, but the signing
-  mutation itself only replaces metadata atomically, with no revision check or idempotency key, and
-  the challenge is consumed before the signature is applied.
-- [ ] **1.3 Serialize document updates per request.** Use the reconciled persistence mechanism's
+  result for an identical completed action and reject conflicting reuse.
+  Done in `006ef3ff9`: `ESignatureWorkflowTransitions` holds the only transition table (enumerated by
+  `ESignatureWorkflowTransitionsTest`); `sign`, `decline`, `cancel`, and `send` accept optional
+  `expectedWorkflowRevision` and `idempotencyKey` (body or `Idempotency-Key` header), replay identical
+  completed actions with `replayed: true` and no tokens, and reject stale revisions and conflicting
+  reuse with 409 plus `WORKFLOW_REVISION_STALE` / `IDEMPOTENCY_KEY_REUSED`. Reminders and archive
+  take the lock but do not yet accept the two fields. Evidence: `ESignatureWorkflowIdempotencyTest`
+  (8 tests) and `ESignatureWorkflowTransitionsTest` (3 tests).
+- [x] **1.3 Serialize document updates per request.** Use the reconciled persistence mechanism's
   transaction/locking facilities. A single-process lock is insufficient for multiple instances;
   document and test the coordination supported by the deployment. Keep independent requests concurrent.
+  Done in `006ef3ff9` for the file-backed store: `ESignatureRequestLocks` combines a JVM-wide
+  reentrant lock per request id with an advisory file lock on `requests/{id}/.lock`, held across the
+  metadata and PDF read-modify-write; step-up consumption happens under the same lock and a failed
+  write records `RECIPIENT_SIGNATURE_FAILED`. `docs/signing-workflows.md` states what the in-process
+  lock does and does not give and what shared storage must support. Evidence: the four concurrency
+  tests pass and `holdsTheRequestFileLockWhileMutatingAndKeepsOtherRequestsConcurrent` shows the file
+  lock held while an unrelated request completes. Not verified: lock enforcement on a real
+  multi-host share (NFS/SMB); that remains a deployment-specific gate under 8.
 - [ ] **1.4 Make PDF and metadata publication recoverable.** Write immutable PDF revisions, verify
   their hashes, and atomically publish the metadata reference and audit event through a transaction
   or recoverable journal. Define startup recovery for interrupted writes and cleanup of orphan files.
@@ -398,10 +414,27 @@ Estimate effort after Phase 0; unlocated signing changes and deployment topology
   `testing/.failed_tests` are listed in `.gitignore`; add new diagnostic paths there as they appear.
 - Record schema/API changes and migration/rollback behavior before rollout. Version incompatible
   contracts so API, automation, MCP, and n8n consumers remain compatible.
+- Mutating e-signature actions (`send`, `sign`, `decline`, `cancel`) carry optional
+  `expectedWorkflowRevision` and `idempotencyKey` fields (since `006ef3ff9`); new mutating endpoints
+  must accept both, and conflicts must return 409 with a stable `code` property rather than a message
+  change. Request views expose `workflowRevision`. Workflow metadata stays at model version 1: the
+  added `workflowRevision` and `completedActions` fields default when absent, and a rollback to an
+  older build silently drops stored idempotency records on its next save (retries are then treated as
+  new actions and rejected by state checks).
 - Measure proposed performance/quality targets on the documented baseline before treating them as
   guarantees. Do not declare a workstream complete from implementation presence alone.
 
 ## Delivery Ledger
+
+2026-10-23 increment (`006ef3ff9`): items 1.2 and 1.3 for the recipient signing path, and three of
+the four 1.1 reproduction scenarios. Backend: `./gradlew :stirling-pdf:test --tests '*ESignature*'
+--tests '*SigningOtp*'` plus `GlobalExceptionHandlerTest` ran 50 tests, 0 failures (17 workflow,
+6 OTP, 4 concurrency, 8 idempotency/locking, 3 transition, 5 template, 2 webhook, 2 migration, 1 PDF,
+2 handler). The baseline run before the change failed 3 of the 4 concurrency tests. Frontend: core
+typecheck, 13 recipient-page/service/dashboard tests, and ESLint on changed files pass. Also fixed in
+passing: `ResponseStatusException` from the signing services was previously rendered as a generic
+500 by the global handler; it now keeps its status and exposes a `code`. Not established: lock
+enforcement on real shared storage, live-provider behaviour, and the reminder-worker scenario.
 
 2026-10-23 review: documentation only, no code change and no tests run. Refreshed the baseline against
 `8d350dfe9`, recorded that the 2026-08-12 signing series is merged, moved the eKYC mapping into its own
@@ -417,8 +450,8 @@ use mocked APIs and do not establish live email/KMS behavior. Remaining workstre
 
 | Workstream | Current status | Implementation revision | Acceptance evidence | Next action |
 | --- | --- | --- | --- | --- |
-| Baseline | Signing series located in `main`; gap list produced (`docs/signing-gap-list.md`: 53 items, 1 present, 34 partial, 16 absent, 2 needs verification); Phase 0 still open | `8d350dfe9` | Series `9cd779981`..`032af038d` verified present 2026-10-23. Targeted backend run: 82 tests, 16 failed (15 `CertificateExpiredException` from the expired shared fixtures plus 1 unattributed assertion); the stated Gradle command cannot run from the repo root on Windows. Core typecheck passes after `generate-icons`. | Repair shared fixtures (8.1b); finish the remaining Phase 0 items (journeys, corpus, topology, estimates) |
-| 1. Signing reliability | Verification pending | Not recorded | Earlier local audit only | Reconcile and reproduce concurrency/delivery behavior |
+| Baseline | Signing series located in `main`; gap list produced (`docs/signing-gap-list.md`: 53 items, 1 present, 34 partial, 16 absent, 2 needs verification); Phase 0 still open | `8d350dfe9` | Series `9cd779981`..`032af038d` verified present 2026-10-23. Targeted backend run: 82 tests, 16 failed (15 `CertificateExpiredException` from the expired shared fixtures, since replaced by runtime generation in `951a79271`, plus 1 unattributed assertion); the stated Gradle command cannot run from the repo root on Windows. Core typecheck passes after `generate-icons`. | Finish the remaining Phase 0 items (journeys, corpus, topology, estimates) |
+| 1. Signing reliability | 1.2 and 1.3 implemented; 1.1 three of four scenarios; 1.4-1.7 pending | `006ef3ff9` | 50 backend tests (4 concurrency, 8 idempotency/locking, 3 transition); 13 frontend tests | Reminder-worker scenario, then 1.4 recoverable publication and 1.5 durable delivery |
 | 2. Unified workspace | Planned; foundations exist | Not recorded | No new acceptance run | Map existing state and history ownership |
 | 3. Precise authoring | Planned; drag/resize exists | Not recorded | No new acceptance run | Establish geometry fixtures and selection contract |
 | 4. Recipient experience | Outcomes and email step-up implemented | `b90965824`, `8d350dfe9` | 6 component tests; 4 mocked-API browser scenarios | Real-device and live-provider acceptance |

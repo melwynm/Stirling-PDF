@@ -69,6 +69,7 @@ export interface SignatureRequestView {
   status: SigningWorkflowStatus;
   originalFilename: string;
   documentRevision: number;
+  workflowRevision: number;
   createdAt: string;
   updatedAt: string;
   expiresAt?: string;

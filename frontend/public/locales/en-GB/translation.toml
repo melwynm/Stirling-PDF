@@ -6423,6 +6423,12 @@ decline = "Unable to decline the request"
 document = "Unable to open the document"
 load = "This signing request is unavailable"
 sign = "Unable to complete the signature"
+staleRevision = "This request changed while you were reviewing it. Reload the page to see the latest version."
+recipientState = "This signing step was already completed or is no longer available. Reload the page to see the current status."
+workflowState = "This request is no longer accepting responses."
+signingOrder = "Another recipient must respond before you. Try again later."
+signatureFailed = "Your signature could not be saved. Request a new verification code and try again."
+duplicateSubmission = "This submission was already processed with different details. Reload the page and try again."
 
 [sign.canvas]
 clear = "Clear canvas"

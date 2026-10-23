@@ -27,7 +27,10 @@ import {
   declineRecipientSignature,
   downloadRecipientDocument,
   getRecipientSigningContext,
+  getSigningErrorCode,
+  getSigningErrorStatus,
   markRecipientViewed,
+  newIdempotencyKey,
   requestSigningOtp,
   type RecipientSignInput,
   type SigningOtpChallenge,
@@ -91,6 +94,7 @@ function RecipientSigningSession({ token }: { token: string }) {
   const [otpNow, setOtpNow] = useState(Date.now);
   const [otpChallenge, setOtpChallenge] = useState<(SigningOtpChallenge & { input: RecipientSignInput }) | null>(null);
   const documentUrlRef = useRef<string | null>(null);
+  const submissionKeyRef = useRef<{ payload: string; key: string } | null>(null);
   const documentLoadGeneration = useRef(0);
 
   useEffect(() => {
@@ -141,7 +145,12 @@ function RecipientSigningSession({ token }: { token: string }) {
     setAuthenticated(true);
     if (recordView) {
       try {
-        await markRecipientViewed(token, code);
+        const viewed = await markRecipientViewed(token, code);
+        if (viewed && typeof viewed.workflowRevision === 'number') {
+          setContext(current => current
+            ? { ...current, request: { ...current.request, workflowRevision: viewed.workflowRevision } }
+            : current);
+        }
       } catch {
         // Viewing telemetry must not turn a successful document download into an auth failure.
       }
@@ -169,6 +178,36 @@ function RecipientSigningSession({ token }: { token: string }) {
   const closed = Boolean(context && ['CANCELLED', 'EXPIRED', 'ARCHIVED', 'DECLINED'].includes(context.request.status));
   const canRespond = authenticated && !outcome && !closed && context?.recipient.role !== 'cc';
 
+  /** One key per distinct submission so a retry replays the stored result instead of repeating it. */
+  const idempotencyKeyFor = (action: string, payload: unknown) => {
+    const serialized = `${action}:${JSON.stringify(payload)}`;
+    if (!submissionKeyRef.current || submissionKeyRef.current.payload !== serialized) {
+      submissionKeyRef.current = { payload: serialized, key: newIdempotencyKey() };
+    }
+    return submissionKeyRef.current.key;
+  };
+
+  const describeError = (error: unknown, fallback: string) => {
+    switch (getSigningErrorCode(error)) {
+      case 'WORKFLOW_REVISION_STALE':
+        return t('recipientSigning.errors.staleRevision', 'This request changed while you were reviewing it. Reload the page to see the latest version.');
+      case 'RECIPIENT_STATE_INVALID':
+        return t('recipientSigning.errors.recipientState', 'This signing step was already completed or is no longer available. Reload the page to see the current status.');
+      case 'WORKFLOW_STATE_INVALID':
+        return t('recipientSigning.errors.workflowState', 'This request is no longer accepting responses.');
+      case 'SIGNING_ORDER_BLOCKED':
+        return t('recipientSigning.errors.signingOrder', 'Another recipient must respond before you. Try again later.');
+      case 'SIGNATURE_APPLY_FAILED':
+        return t('recipientSigning.errors.signatureFailed', 'Your signature could not be saved. Request a new verification code and try again.');
+      case 'IDEMPOTENCY_KEY_REUSED':
+        return t('recipientSigning.errors.duplicateSubmission', 'This submission was already processed with different details. Reload the page and try again.');
+      default:
+        return getSigningErrorStatus(error) === 410
+          ? t('recipientSigning.errors.workflowState', 'This request is no longer accepting responses.')
+          : fallback;
+    }
+  };
+
   const handleUnlock = async () => {
     setSubmitting(true);
     try {
@@ -185,13 +224,19 @@ function RecipientSigningSession({ token }: { token: string }) {
     setSubmitting(true);
     setError(null);
     try {
-      const input: RecipientSignInput = otpChallenge?.input ?? {
+      const intent = otpChallenge?.input ?? {
         signerName: signerName.trim() || context.recipient.name,
-        signatureType: 'typed',
+        signatureType: 'typed' as const,
         accessCode: context.recipient.authenticationMethod === 'accessCode' ? accessCode : undefined,
         consentAccepted,
         consentText: t('recipientSigning.consent', 'I agree to sign this document electronically.'),
         fieldValues,
+      };
+      const { accessCode: _secret, otp: _code, ...fingerprint } = intent;
+      const input: RecipientSignInput = {
+        ...intent,
+        expectedWorkflowRevision: context.request.workflowRevision,
+        idempotencyKey: idempotencyKeyFor('sign', fingerprint),
       };
       if (context.recipient.authenticationMethod === 'emailOtp' && !otpChallenge) {
         const challenge = await requestSigningOtp(token, input);
@@ -202,9 +247,10 @@ function RecipientSigningSession({ token }: { token: string }) {
       const signedRequest = await completeRecipientSignature(token, { ...input, otp: otpChallenge ? otp : undefined });
       setContext(current => current ? { ...current, request: signedRequest } : current);
       setOutcome('signed');
-    } catch {
+    } catch (signError) {
       setOtp('');
-      setError(t('recipientSigning.errors.sign', 'Unable to complete the signature'));
+      if (getSigningErrorCode(signError) === 'SIGNATURE_APPLY_FAILED') setOtpChallenge(null);
+      setError(describeError(signError, t('recipientSigning.errors.sign', 'Unable to complete the signature')));
     } finally {
       setSubmitting(false);
     }
@@ -243,11 +289,15 @@ function RecipientSigningSession({ token }: { token: string }) {
         token,
         declineReason.trim(),
         context.recipient.authenticationMethod === 'accessCode' ? accessCode : undefined,
+        {
+          expectedWorkflowRevision: context.request.workflowRevision,
+          idempotencyKey: idempotencyKeyFor('decline', { reason: declineReason.trim() }),
+        },
       );
       setOutcome('declined');
       setDeclining(false);
-    } catch {
-      setError(t('recipientSigning.errors.decline', 'Unable to decline the request'));
+    } catch (declineError) {
+      setError(describeError(declineError, t('recipientSigning.errors.decline', 'Unable to decline the request')));
     } finally {
       setSubmitting(false);
     }

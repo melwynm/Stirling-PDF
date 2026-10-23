@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -1040,6 +1041,44 @@ public class GlobalExceptionHandler {
      * @param request the HTTP servlet request
      * @return ProblemDetail with appropriate HTTP status
      */
+    /**
+     * Handle {@link ResponseStatusException} thrown by services with an explicit HTTP status.
+     *
+     * <p>When thrown: When business logic rejects a request with a specific status such as 404,
+     * 409, or 410. Without this handler the generic {@link RuntimeException} handler would hide the
+     * intended status behind a 500 response.
+     *
+     * <p>Client action: Read {@code status} and {@code detail}; when {@code code} is present it is
+     * a stable identifier of the conflict that clients can branch on.
+     *
+     * @param ex the ResponseStatusException
+     * @param request the HTTP servlet request
+     * @return ProblemDetail with the exception's status and, for coded exceptions, a code
+     */
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ProblemDetail> handleResponseStatus(
+            ResponseStatusException ex, HttpServletRequest request) {
+        HttpStatus status = HttpStatus.resolve(ex.getStatusCode().value());
+        if (status == null) {
+            status = HttpStatus.INTERNAL_SERVER_ERROR;
+        }
+        String detail = ex.getReason() == null ? status.getReasonPhrase() : ex.getReason();
+        ProblemDetail problemDetail = createBaseProblemDetail(status, detail, request);
+        problemDetail.setTitle(status.getReasonPhrase());
+        problemDetail.setProperty("title", status.getReasonPhrase());
+        if (ex instanceof CodedResponseStatusException coded) {
+            problemDetail.setProperty("code", coded.getCode());
+            coded.getProperties().forEach(problemDetail::setProperty);
+        }
+        if (status.is5xxServerError()) {
+            log.error("Request failed at {}: {}", request.getRequestURI(), detail, ex);
+        } else {
+            log.debug(
+                    "Request rejected at {} with {}: {}", request.getRequestURI(), status, detail);
+        }
+        return ResponseEntity.status(status).contentType(PROBLEM_JSON).body(problemDetail);
+    }
+
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ProblemDetail> handleRuntimeException(
             RuntimeException ex, HttpServletRequest request) {

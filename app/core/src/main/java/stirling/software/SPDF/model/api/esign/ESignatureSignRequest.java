@@ -21,4 +21,10 @@ public class ESignatureSignRequest {
     private String userAgent;
     private Map<String, String> fieldValues = new LinkedHashMap<>();
     private Map<String, String> metadata = new LinkedHashMap<>();
+
+    /** Optional: reject the action when the workflow revision has moved on (409). */
+    private Long expectedWorkflowRevision;
+
+    /** Optional: replay the stored result when the same action is submitted again. */
+    private String idempotencyKey;
 }

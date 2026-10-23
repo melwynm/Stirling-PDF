@@ -65,6 +65,7 @@ public class ESignatureWorkflowController {
 
     private static final TypeReference<List<ESignatureRecipientRequest>> RECIPIENT_LIST_TYPE =
             new TypeReference<>() {};
+    private static final String IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
 
     private final ESignatureWorkflowService workflowService;
     private final ESignatureTemplateService templateService;
@@ -224,10 +225,14 @@ public class ESignatureWorkflowController {
     public ResponseEntity<ESignatureActionResponse> sendRequest(
             @PathVariable String requestId,
             @RequestBody(required = false) ESignatureSendRequest request,
+            @RequestHeader(value = IDEMPOTENCY_KEY_HEADER, required = false) String idempotencyKey,
             HttpServletRequest servletRequest)
             throws IOException {
         if (request == null) {
             request = new ESignatureSendRequest();
+        }
+        if (!StringUtils.hasText(request.getIdempotencyKey())) {
+            request.setIdempotencyKey(idempotencyKey);
         }
         if (!StringUtils.hasText(request.getPublicBaseUrl())) {
             request.setPublicBaseUrl(baseUrl(servletRequest));
@@ -365,8 +370,15 @@ public class ESignatureWorkflowController {
     public ResponseEntity<ESignatureRequestView> cancel(
             @PathVariable String requestId,
             @RequestBody(required = false) ESignatureCancelRequest request,
+            @RequestHeader(value = IDEMPOTENCY_KEY_HEADER, required = false) String idempotencyKey,
             HttpServletRequest servletRequest)
             throws IOException {
+        if (request == null) {
+            request = new ESignatureCancelRequest();
+        }
+        if (!StringUtils.hasText(request.getIdempotencyKey())) {
+            request.setIdempotencyKey(idempotencyKey);
+        }
         return ResponseEntity.ok(
                 workflowService.cancel(requestId, request, actor(servletRequest, null, null)));
     }
@@ -421,8 +433,12 @@ public class ESignatureWorkflowController {
     public ResponseEntity<ESignatureActionResponse> sign(
             @PathVariable String token,
             @RequestBody ESignatureSignRequest request,
+            @RequestHeader(value = IDEMPOTENCY_KEY_HEADER, required = false) String idempotencyKey,
             HttpServletRequest servletRequest)
             throws IOException {
+        if (!StringUtils.hasText(request.getIdempotencyKey())) {
+            request.setIdempotencyKey(idempotencyKey);
+        }
         return ResponseEntity.ok(
                 workflowService.sign(token, request, actor(servletRequest, null, null)));
     }
@@ -440,8 +456,15 @@ public class ESignatureWorkflowController {
     public ResponseEntity<ESignatureActionResponse> decline(
             @PathVariable String token,
             @RequestBody(required = false) ESignatureDeclineRequest request,
+            @RequestHeader(value = IDEMPOTENCY_KEY_HEADER, required = false) String idempotencyKey,
             HttpServletRequest servletRequest)
             throws IOException {
+        if (request == null) {
+            request = new ESignatureDeclineRequest();
+        }
+        if (!StringUtils.hasText(request.getIdempotencyKey())) {
+            request.setIdempotencyKey(idempotencyKey);
+        }
         return ResponseEntity.ok(
                 workflowService.decline(token, request, actor(servletRequest, null, null)));
     }

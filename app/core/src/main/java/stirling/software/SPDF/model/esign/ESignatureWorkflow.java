@@ -29,6 +29,10 @@ public class ESignatureWorkflow {
     private String originalFilename;
     private String documentFileName = "document.pdf";
     private int documentRevision;
+
+    /** Incremented on every committed change; see expectedWorkflowRevision on mutations. */
+    private long workflowRevision;
+
     private Instant createdAt;
     private Instant updatedAt;
     private Instant sentAt;
@@ -47,6 +51,9 @@ public class ESignatureWorkflow {
     private List<SigningField> fields = new ArrayList<>();
     private List<AuditEvent> auditTrail = new ArrayList<>();
     private List<WebhookDelivery> webhookDeliveries = new ArrayList<>();
+
+    /** Idempotency records for completed mutating actions, oldest first. */
+    private List<CompletedAction> completedActions = new ArrayList<>();
 
     public enum WorkflowStatus {
         DRAFT,
@@ -72,6 +79,7 @@ public class ESignatureWorkflow {
         NOTIFICATION_DELIVERED,
         NOTIFICATION_DELIVERY_FAILED,
         RECIPIENT_SIGNED,
+        RECIPIENT_SIGNATURE_FAILED,
         RECIPIENT_DECLINED,
         REMINDER_SENT,
         REQUEST_COMPLETED,
@@ -103,6 +111,19 @@ public class ESignatureWorkflow {
         private String previousHash;
         private String eventHash;
         private Map<String, String> details = new LinkedHashMap<>();
+    }
+
+    @Data
+    @NoArgsConstructor
+    public static class CompletedAction {
+        private String idempotencyKey;
+        private String action;
+        private String recipientId;
+        private String fingerprint;
+        private long workflowRevision;
+        private Instant completedAt;
+        private String responseType;
+        private String response;
     }
 
     @Data

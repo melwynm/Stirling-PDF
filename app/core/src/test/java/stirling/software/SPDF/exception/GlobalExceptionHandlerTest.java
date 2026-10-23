@@ -8,6 +8,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.Locale;
+import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,6 +18,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.server.ResponseStatusException;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -51,5 +53,34 @@ class GlobalExceptionHandlerTest {
         assertEquals(
                 "Reduce the file size to be within the upload limit.",
                 response.getBody().getProperties().get("actionRequired"));
+    }
+
+    @Test
+    void responseStatusExceptionKeepsItsStatusAndExposesTheErrorCode() {
+        ResponseEntity<ProblemDetail> plain =
+                handler.handleResponseStatus(
+                        new ResponseStatusException(
+                                HttpStatus.GONE, "This signing request has expired"),
+                        request);
+
+        assertEquals(HttpStatus.GONE, plain.getStatusCode());
+        assertNotNull(plain.getBody());
+        assertEquals("This signing request has expired", plain.getBody().getDetail());
+        assertEquals(null, plain.getBody().getProperties().get("code"));
+
+        ResponseEntity<ProblemDetail> coded =
+                handler.handleResponseStatus(
+                        new CodedResponseStatusException(
+                                HttpStatus.CONFLICT,
+                                "WORKFLOW_REVISION_STALE",
+                                "The e-signature request changed since it was last read",
+                                Map.of("currentWorkflowRevision", 7L)),
+                        request);
+
+        assertEquals(HttpStatus.CONFLICT, coded.getStatusCode());
+        assertNotNull(coded.getBody());
+        assertEquals("WORKFLOW_REVISION_STALE", coded.getBody().getProperties().get("code"));
+        assertEquals(7L, coded.getBody().getProperties().get("currentWorkflowRevision"));
+        assertEquals(HttpStatus.CONFLICT.value(), coded.getBody().getStatus());
     }
 }
