@@ -38,8 +38,10 @@ revision, test result, and remaining limitations in the delivery ledger at the e
 
 - [x] Locate the completed signing revision. It is the 2026-08-12 series `9cd779981`..`032af038d`,
   merged and pushed on `main`; verified by commit history on 2026-10-23.
-- [ ] Map each backlog task to present, partial, absent, or needs verification against `8d350dfe9`.
+- [x] Map each backlog task to present, partial, absent, or needs verification against `8d350dfe9`.
   Preserve existing work; do not reimplement capabilities the merged series already supplies.
+  Done 2026-10-23: see [`docs/signing-gap-list.md`](signing-gap-list.md), which also records the first
+  run of the relevant checks.
 - [ ] Read applicable repository instructions and identify changes to APIs, metadata, and UI flows.
 - [ ] Run the relevant existing checks and record exact commands, environment, revision, and failures.
   Separate fixture/environment failures from application failures through reproduction.
@@ -411,7 +413,7 @@ use mocked APIs and do not establish live email/KMS behavior. Remaining workstre
 
 | Workstream | Current status | Implementation revision | Acceptance evidence | Next action |
 | --- | --- | --- | --- | --- |
-| Baseline | Signing series located in `main`; gap list pending | `8d350dfe9` | Series `9cd779981`..`032af038d` verified present 2026-10-23 | Produce the gap list and close Phase 0 |
+| Baseline | Signing series located in `main`; gap list produced (`docs/signing-gap-list.md`: 53 items, 1 present, 34 partial, 16 absent, 2 needs verification); Phase 0 still open | `8d350dfe9` | Series `9cd779981`..`032af038d` verified present 2026-10-23. Targeted backend run: 82 tests, 16 failed (15 `CertificateExpiredException` from the expired shared fixtures plus 1 unattributed assertion); the stated Gradle command cannot run from the repo root on Windows. Core typecheck passes after `generate-icons`. | Repair shared fixtures (8.1b); finish the remaining Phase 0 items (journeys, corpus, topology, estimates) |
 | 1. Signing reliability | Verification pending | Not recorded | Earlier local audit only | Reconcile and reproduce concurrency/delivery behavior |
 | 2. Unified workspace | Planned; foundations exist | Not recorded | No new acceptance run | Map existing state and history ownership |
 | 3. Precise authoring | Planned; drag/resize exists | Not recorded | No new acceptance run | Establish geometry fixtures and selection contract |
